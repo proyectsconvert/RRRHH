@@ -17,7 +17,7 @@ const Home = () => {
               <Button asChild size="lg" className="bg-hrm-dark-cyan hover:bg-hrm-steel-blue text-white font-medium">
                 <Link to="/jobs">Ver vacantes disponibles</Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan/10">
+              <Button asChild variant="outline" size="lg" className="border-hrm-dark-cyan bg-hrm-dark-cyan hover:bg-hrm-steel-blue text-white font-medium">
                 <a href="https://www.convertia.com/es-CO" target="_blank" rel="noopener noreferrer">
                   Conoce más sobre nosotros <ExternalLink className="ml-1 h-4 w-4" />
                 </a>

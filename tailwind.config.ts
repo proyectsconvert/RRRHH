@@ -65,11 +65,21 @@ export default {
 				},
 				// Custom colors for the recruitment app
 				hrm: {
+					'primary': '#257e5e',
+					'dark-primary': '#002625',
+					'darkest-primary': '#0d2d2c',
+					'destructive': '#f44336',	
+					'gray-1': '#f5f5f5',
+					'gray-2': '#e6e6e6',
+					'gray-3': '#e5e5e5',
 					'dark-cyan': '#008B8B',
 					'steel-blue': '#5F9EA0',
-					'dark-green': '#006400',
-					'light-gray': '#DCDCDC',
-					'white': '#FFFFFF'
+					'white': '#FFFFFF',
+					'background': '#143838',
+					'background2': '#002329',
+					'border': '#124341',
+					'black':'#000000'
+
 				}
 			},
 			borderRadius: {
