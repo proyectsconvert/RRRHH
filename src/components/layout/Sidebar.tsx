@@ -87,13 +87,13 @@ const AdminSidebar = () => {
     }
   };
   return (
-    <Sidebar className="border-r border-hrm-light-gray bg-hrm-dark-cyan">
-      <SidebarHeader className="h-14 border-b border-hrm-light-gray/20 bg-teal-950">
+    <Sidebar className="border-r border-hrm-dark-cyan bg-hrm-dark-primary">
+      <SidebarHeader className="h-14 border-b border-hrm-dark-cyan/40 bg-hrm-background2">
         <div className="flex items-center justify-center h-full px-4">
           <ConvertIALogo className="h-10" />
         </div>
       </SidebarHeader>
-      <SidebarContent className="bg-teal-950">
+      <SidebarContent className="bg-hrm-background2">
         <nav className="space-y-1 py-4">
           {loading ? (
             <div className="px-4 py-2 text-sm text-gray-400">Cargando permisos...</div>
@@ -135,7 +135,7 @@ const AdminSidebar = () => {
           )}
         </nav>
       </SidebarContent>
-      <SidebarFooter className="border-t border-hrm-light-gray/20 p-4 bg-teal-950">
+      <SidebarFooter className="border-t border-hrm-dark-cyan/40 p-4 bg-hrm-background2">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-hrm-dark-cyan">

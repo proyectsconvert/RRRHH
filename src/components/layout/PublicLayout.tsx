@@ -2,13 +2,14 @@
 import React from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import Chatbot from '../chatbot/Chatbot';
+import { ConvertIALogo } from '../../assets/convert-ia-logo';
+
 const PublicLayout = () => {
   return <div className="min-h-screen flex flex-col bg-white">
       <header className="border-b border-hrm-light-gray">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center">
-            <img src="/placeholder.svg" alt="Convert-IA Logo" className="h-10 w-10" />
-            <span className="ml-2 font-semibold text-lg text-hrm-dark-cyan">CONVERT-IA</span>
+            <ConvertIALogo size={10} textColor="text-hrm-dark-cyan" />
           </Link>
           <nav>
             <ul className="flex space-x-6">
