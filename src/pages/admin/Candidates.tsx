@@ -17,6 +17,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {Dialog, DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle,DialogTrigger,} from "@/components/ui/dialog";
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 interface Job {
   id?: string;
@@ -42,6 +45,7 @@ interface Candidate {
   created_at: string;
   resume_url?: string;
   applications?: Application[];
+  analysis_summary?: string | null; 
 }
 
 const initialColumnVisibility = {
@@ -51,6 +55,7 @@ const initialColumnVisibility = {
   aplicaciones: true,
   estado: true,
   fecha: true,
+  compatibilidad: true,
 };
 
 const Candidates = () => {
@@ -63,6 +68,11 @@ const Candidates = () => {
   const [selectedJob, setSelectedJob] = useState<string[]>([]); 
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState(initialColumnVisibility);
+  const [isStatusModalOpen, setStatusModalOpen] = useState(false);
+  const [isDiscardModalOpen, setDiscardModalOpen] = useState(false);
+  const [isBlockModalOpen, setBlockModalOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
+  const [selectedRecruiter, setSelectedRecruiter] = useState("");
 
   const handleJobSelectionChange = (jobId: string, isChecked: boolean) => {
     setSelectedJob(prev => {
@@ -265,24 +275,132 @@ const Candidates = () => {
                 </Popover>
             </div>
 
-          <div className="flex gap-2">
-            {selectedCandidates.length > 0 && (
-              <>
-                <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" size="sm">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Descartar
-                </Button>
-                <Button variant="destructive" size="sm">
-                  <Ban className="mr-2 h-4 w-4" />
-                  Bloquear
-                </Button>
-                <Button variant="secondary" size="sm">
-                  <SquareArrowRight className="mr-2 h-4 w-4" />
-                  Continuar Proceso
-                </Button>
-              </>
-            )}
-          </div>
+            <div className="flex gap-2">
+              {selectedCandidates.length > 0 && (
+                <>
+                  <Dialog open={isDiscardModalOpen} onOpenChange={setDiscardModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" size="sm">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Descartar
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] p-0 border-none shadow-none">
+                      <DialogHeader className="bg-hrm-dark-primary py-8 px-6 rounded-t-lg">
+                        <DialogTitle className="text-white text-xl">
+                          Confirmar Candidatos Descartados
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="py-6 px-6">
+                        <p>
+                          {selectedCandidates.length === 1
+                            ? "1 candidato será descartado."
+                            : `${selectedCandidates.length} candidatos serán descartados.`
+                          }
+                          {" "}¿Deseas continuar?
+                        </p>
+                      </div>
+                      <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t">
+                        <Button variant="ghost" onClick={() => setDiscardModalOpen(false)}>Cancelar</Button>
+                        <Button type="submit">Guardar Cambios</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={isBlockModalOpen} onOpenChange={setBlockModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Ban className="mr-2 h-4 w-4" />
+                        Bloquear
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] p-0 border-none shadow-none">
+                      <DialogHeader className="bg-hrm-dark-destructive py-8 px-6 rounded-t-lg">
+                        <DialogTitle className="text-white text-xl">
+                          Confirmar Candidatos Bloqueados
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-200">
+                          Esta acción no se puede deshacer.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="py-6 px-6">
+                        <p>
+                          {selectedCandidates.length === 1
+                            ? "1 candidato será bloqueado."
+                            : `${selectedCandidates.length} candidatos serán bloqueados.`
+                          }
+                          {" "}¿Deseas continuar?
+                        </p>
+                      </div>
+                      <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t">
+                        <Button variant="ghost" onClick={() => setBlockModalOpen(false)}>Cancelar</Button>
+                        <Button variant="destructive" type="submit">Guardar Cambios</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* 👇 AQUÍ EMPIEZA LA IMPLEMENTACIÓN DEL DIALOG 👇 */}
+                  <Dialog open={isStatusModalOpen} onOpenChange={setStatusModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="secondary" size="sm">
+                        <SquareArrowRight className="mr-2 h-4 w-4" />
+                        Cambiar Estado
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] p-0 border-none shadow-none" >
+                      <DialogHeader className="bg-hrm-dark-primary py-9 px-6 rounded-t-lg border-none shadow-none">
+                        <DialogTitle className="text-white text-xl">Cambiar Estado de Candidatos</DialogTitle>
+                        <DialogDescription className="text-gray-200 ">
+                          Selecciona el nuevo estado y el reclutador a cargo para los ({selectedCandidates.length}) candidatos seleccionados.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      {/* 2. Añadimos padding solo a esta sección */}
+                      <div className="grid gap-4 py-4 px-6"> 
+                        {/* --- SELECT DE ESTADO --- */}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="status" className="text-right">
+                            Estado
+                          </Label>
+                          <Select value={newStatus} onValueChange={setNewStatus}>
+                            <SelectTrigger id="status" className="col-span-3">
+                              <SelectValue placeholder="Selecciona un estado" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
+                            <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
+                              <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
+                              <SelectItem value="contratar">Contratar</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {/* --- SELECT DE RECLUTADOR --- */}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="recruiter" className="text-right">
+                            Reclutador
+                          </Label>
+                          <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
+                            <SelectTrigger id="recruiter" className="col-span-3">
+                              <SelectValue placeholder="Selecciona un reclutador" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {/* Por ahora esta lista está vacía */}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* 3. Añadimos padding también al footer */}
+                      <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200"> 
+                        <Button variant="ghost" onClick={() => setStatusModalOpen(false)}>Cancelar</Button>
+                        <Button type="submit">Siguiente</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+            </div>
+   
         </div>
 
           <TabsContent value="all">
@@ -418,9 +536,10 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                     />
                   </TableHead>
                   <TableHead className="w-[20%]" >Candidato</TableHead>
-                  {columnVisibility.vacante && <TableHead>Vacante</TableHead>}
+                  {columnVisibility.vacante && <TableHead className="w-[12%]">Vacante</TableHead>}
+                  {columnVisibility.compatibilidad && <TableHead>Compatibilidad</TableHead>}
                   {columnVisibility.experiencia && <TableHead>Experiencia</TableHead>}
-                  {columnVisibility.habilidades && <TableHead className="w-[20%]">Habilidades</TableHead>}
+                  {columnVisibility.habilidades && <TableHead className="w-[12%]">Habilidades</TableHead>}
                   {columnVisibility.aplicaciones && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
                   {columnVisibility.estado && <TableHead>Estado</TableHead>}
                   {columnVisibility.fecha && <TableHead>Fecha</TableHead>}
@@ -432,6 +551,19 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                   candidates.map((candidate) => {
                     // (Aquí iría la lógica para obtener el `status` del candidato si la tienes)
                     // const status = getCandidateStatus(candidate.applications);
+                    let analysisData: any = null;
+                    if (candidate.analysis_summary) {
+                      try {
+                        analysisData = JSON.parse(candidate.analysis_summary);
+                        if (typeof analysisData === 'string') {
+                          // Intenta el segundo parseo si el resultado sigue siendo un string
+                          analysisData = JSON.parse(analysisData);
+                        }
+                      } catch (e) {
+                        console.error('Error al parsear analysis_summary para la tabla:', e);
+                        analysisData = null;
+                      }
+                    }
 
                     return (
                       <TableRow key={candidate.id} data-state={selectedCandidates.includes(candidate.id) && "selected"}>
@@ -474,7 +606,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           <div className="flex flex-col gap-1">
                             {candidate.applications && candidate.applications.length > 0 ? (
                               candidate.applications.map(app => (
-                                <Badge key={app.id} variant="secondary">
+                                <Badge key={app.id} variant="secondary" >
                                   {app.jobs?.title || 'Vacante no disponible'}
                                 </Badge>
                               ))
@@ -484,6 +616,26 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </div>
                         </TableCell>}
 
+                        {columnVisibility.compatibilidad && (
+                          <TableCell>
+                            {analysisData?.compatibilidad?.porcentaje !== undefined ? (
+                              <div className="flex items-center justify-center">
+                                <Badge variant="outline" className={`font-bold text-sm ${
+                                  analysisData.compatibilidad.porcentaje >= 75
+                                    ? 'text-hrm-light-primary border-hrm-light-primary'
+                                    : analysisData.compatibilidad.porcentaje >= 50
+                                    ? 'text-yellow-600 border-yellow-600'
+                                    : 'text-hrm-destructive border-hrm-destructive'
+                                }`}>
+                                  {analysisData.compatibilidad.porcentaje}%
+                                </Badge>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm text-center block">N/A</span>
+                            )}
+                          </TableCell>
+                        )}
+
                         {columnVisibility.experiencia && <TableCell>
                           {candidate.experience_years ? `${candidate.experience_years} años` : 'No especificada'}
                         </TableCell>}
@@ -491,7 +643,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                         {columnVisibility.habilidades && <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {candidate.skills && candidate.skills.length > 0 ? 
-                              candidate.skills.slice(0, 3).map((skill, i) => (
+                              candidate.skills.slice(0, 2).map((skill, i) => (
                                 <Badge key={i} variant="outline" className="text-xs">
                                   {skill}
                                 </Badge>
@@ -499,7 +651,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                               : 'No especificadas'}
                             {candidate.skills && candidate.skills.length > 3 && (
                               <Badge variant="outline" className="text-xs">
-                                +{candidate.skills.length - 3}
+                                +{candidate.skills.length - 2}
                               </Badge>
                             )}
                           </div>
