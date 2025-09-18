@@ -9,6 +9,9 @@ import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
 import { RRHHAuthProvider } from "@/contexts/RRHHAuthContext";
 import { AuthProvider } from "./contexts/AuthContext";
+import ModuleProtectedRoute from "@/components/auth/ModuleProtectedRoute";
+import Unauthorized from "./pages/admin/Unauthorized";
+import RouteTest from "@/components/auth/RouteTest";
 
 // Layouts
 import PublicLayout from "./components/layout/PublicLayout";
@@ -38,6 +41,8 @@ import TrainingCodes from "./pages/admin/TrainingCodes";
 import TrainingSessions from "./pages/admin/TrainingSessions";
 import TrainingHistory from "./pages/admin/TrainingHistory";
 import SessionDetail from './pages/admin/SessionDetail';
+import WhatsApp from "./pages/admin/WhatsApp";
+import Users from "./pages/admin/Users";
 
 // RRHH Pages
 import RRHHLogin from "./pages/rrhh/Login";
@@ -122,27 +127,129 @@ function App() {
               
               {/* Admin Routes */}
               <Route path="/admin/login" element={<Login />} />
+              <Route path="/admin/unauthorized" element={
+                <ProtectedRoute>
+                  <Unauthorized />
+                </ProtectedRoute>
+              } />
               <Route path="/admin" element={
                 <ProtectedRoute>
                   <AdminLayout />
                 </ProtectedRoute>
               }>
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="jobs" element={<Jobs />} />
-                <Route path="jobs/new" element={<JobForm />} />
-                <Route path="jobs/:id" element={<AdminJobDetail />} />
-                <Route path="jobs/:id/edit" element={<JobForm />} />
-                <Route path="campaigns" element={<Campaigns />} />
-                <Route path="candidates" element={<Candidates />} />
-                <Route path="candidates/:id" element={<CandidateDetail />} />
-                <Route path="chatbot" element={<ChatbotManager />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="training-codes" element={<TrainingCodes />} />
-                <Route path="training-sessions" element={<TrainingSessions />} />
-                <Route path="training-history" element={<TrainingHistory />} />
-                <Route path="training-sessions/:sessionId" element={<SessionDetail />} />
+
+                {/* Dashboard - acceso básico para todos */}
+                <Route path="dashboard" element={
+                  <ModuleProtectedRoute requiredModule="dashboard">
+                    <Dashboard />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Users Management */}
+                <Route path="users" element={
+                  <ModuleProtectedRoute requiredModule="users">
+                    <Users />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Jobs Management */}
+                <Route path="jobs" element={
+                  <ModuleProtectedRoute requiredModule="jobs">
+                    <Jobs />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="jobs/new" element={
+                  <ModuleProtectedRoute requiredModule="jobs">
+                    <JobForm />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="jobs/:id" element={
+                  <ModuleProtectedRoute requiredModule="jobs">
+                    <AdminJobDetail />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="jobs/:id/edit" element={
+                  <ModuleProtectedRoute requiredModule="jobs">
+                    <JobForm />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Campaigns */}
+                <Route path="campaigns" element={
+                  <ModuleProtectedRoute requiredModule="campaigns">
+                    <Campaigns />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Candidates */}
+                <Route path="candidates" element={
+                  <ModuleProtectedRoute requiredModule="candidates">
+                    <Candidates />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="candidates/:id" element={
+                  <ModuleProtectedRoute requiredModule="candidates">
+                    <CandidateDetail />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Chatbot */}
+                <Route path="chatbot" element={
+                  <ModuleProtectedRoute requiredModule="chatbot">
+                    <ChatbotManager />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* WhatsApp */}
+                <Route path="whatsapp" element={
+                  <ModuleProtectedRoute requiredModule="whatsapp">
+                    <WhatsApp />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Training */}
+                <Route path="training-codes" element={
+                  <ModuleProtectedRoute requiredModule="training">
+                    <TrainingCodes />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="training-sessions" element={
+                  <ModuleProtectedRoute requiredModule="training">
+                    <TrainingSessions />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="training-history" element={
+                  <ModuleProtectedRoute requiredModule="training">
+                    <TrainingHistory />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="training-sessions/:sessionId" element={
+                  <ModuleProtectedRoute requiredModule="training">
+                    <SessionDetail />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Reports */}
+                <Route path="reports" element={
+                  <ModuleProtectedRoute requiredModule="reports">
+                    <Reports />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Settings */}
+                <Route path="settings" element={
+                  <ModuleProtectedRoute requiredModule="settings">
+                    <Settings />
+                  </ModuleProtectedRoute>
+                } />
+
+                {/* Test Route - Temporal para verificar permisos */}
+                <Route path="test-permissions" element={
+                  <ModuleProtectedRoute requiredModule="dashboard">
+                    <RouteTest />
+                  </ModuleProtectedRoute>
+                } />
               </Route>
               
               {/* RRHH Routes */}

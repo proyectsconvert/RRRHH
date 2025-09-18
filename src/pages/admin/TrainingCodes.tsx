@@ -29,7 +29,6 @@ const TrainingCodes = () => {
       if (error) throw error;
       setCodes(data || []);
     } catch (error) {
-      console.error('Error al cargar códigos:', error);
       toast({
         title: 'Error',
         description: 'No se pudieron cargar los códigos de entrenamiento',
@@ -90,7 +89,6 @@ const TrainingCodes = () => {
         description: `Se ha creado el código ${newCode}`,
       });
     } catch (error) {
-      console.error('Error al crear código:', error);
       toast({
         title: 'Error',
         description: 'No se pudo generar el código de entrenamiento',
@@ -116,7 +114,6 @@ const TrainingCodes = () => {
         description: 'El código ha sido eliminado correctamente',
       });
     } catch (error) {
-      console.error('Error al eliminar código:', error);
       toast({
         title: 'Error',
         description: 'No se pudo eliminar el código',

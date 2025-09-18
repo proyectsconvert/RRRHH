@@ -10,7 +10,6 @@ export async function fetchCandidateDetails(candidateId: string): Promise<Candid
     .single();
   
   if (candidateError) {
-    console.error('Error al obtener candidato:', candidateError);
     throw candidateError;
   }
   
@@ -30,11 +29,10 @@ export async function fetchCandidateDetails(candidateId: string): Promise<Candid
         try {
           analysisData = JSON.parse(analysisData);
         } catch (e) {
-          console.log('El análisis ya está en formato string, no es JSON');
+          // Analysis already in string format
         }
       }
     } catch (e) {
-      console.error('Error al parsear analysis_summary:', e);
       // If it can't be parsed as JSON, assume it's the old format
       analysisData = {
         perfilProfesional: candidateData.analysis_summary
@@ -75,14 +73,8 @@ export async function fetchCandidateDetails(candidateId: string): Promise<Candid
 
 export async function saveAnalysisData(candidateId: string, analysisResult: any, extractedText: string) {
   try {
-    console.log('Guardando datos de análisis...');
-    console.log('ID del candidato:', candidateId);
-    console.log('Texto extraído (longitud):', extractedText ? extractedText.length : 0);
-    console.log('Tiene datos de análisis:', !!analysisResult);
-    
     // Solo si tenemos datos de análisis, llamamos a la función Edge
     if (analysisResult) {
-      console.log('Invocando función Edge save-candidate-data...');
       
       try {
         // Call our edge function to save the data with multiple retries
@@ -112,23 +104,19 @@ export async function saveAnalysisData(candidateId: string, analysisResult: any,
             }
             
             const data = await response.json();
-            
-            console.log('Respuesta de la función Edge:', data);
-            
+
             if (!data?.success) {
               throw new Error(data?.error || 'Error al guardar datos del análisis');
             }
             
             return data;
           } catch (error) {
-            console.error(`Intento ${retryCount + 1} fallido:`, error);
             lastError = error;
             retryCount++;
-            
+
             if (retryCount < maxRetries) {
               // Exponential backoff
               const delay = Math.pow(2, retryCount) * 1000;
-              console.log(`Reintentando en ${delay}ms...`);
               await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
@@ -137,7 +125,6 @@ export async function saveAnalysisData(candidateId: string, analysisResult: any,
         // If we've exhausted retries
         throw lastError || new Error('Error al invocar la función Edge después de múltiples intentos');
       } catch (edgeFunctionError: any) {
-        console.error('Error al invocar la función Edge save-candidate-data:', edgeFunctionError);
         throw new Error(`Error al invocar la función Edge: ${edgeFunctionError.message || JSON.stringify(edgeFunctionError)}`);
       }
     } else {
@@ -146,17 +133,12 @@ export async function saveAnalysisData(candidateId: string, analysisResult: any,
     }
     
   } catch (error: any) {
-    console.error('Error al guardar datos del candidato:', error);
     throw error;
   }
 }
 
 export async function saveResumeText(candidateId: string, extractedText: string) {
   try {
-    console.log('Guardando texto extraído del CV...');
-    console.log('ID del candidato:', candidateId);
-    console.log('Longitud del texto:', extractedText.length);
-    
     const { data, error } = await supabase
       .from('candidates')
       .update({
@@ -167,11 +149,8 @@ export async function saveResumeText(candidateId: string, extractedText: string)
       .select('resume_text');
       
     if (error) {
-      console.error('Error al guardar texto extraído:', error);
       throw new Error(`Error al actualizar texto del CV: ${error.message}`);
     }
-    
-    console.log('Texto del CV guardado correctamente, respuesta:', data);
     
     return { 
       success: true, 
@@ -179,23 +158,16 @@ export async function saveResumeText(candidateId: string, extractedText: string)
       data
     };
   } catch (error: any) {
-    console.error('Error al guardar texto del CV:', error);
     throw error;
   }
 }
 
 export async function analyzeResume(extractedText: string, jobDetails: any = null) {
   try {
-    console.log('Analizando CV...');
-    console.log('Texto extraído (longitud):', extractedText ? extractedText.length : 0);
-    console.log('Tiene detalles del trabajo:', !!jobDetails);
-    
     // Asegurarnos de que tenemos texto para analizar
     if (!extractedText || extractedText.trim().length === 0) {
       throw new Error('No hay texto para analizar');
     }
-    
-    console.log('Invocando función Edge extract-pdf-text...');
     
     // Retry mechanism
     let retryCount = 0;
@@ -223,11 +195,7 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
         }
         
         const data = await response.json();
-        
-        console.log('Respuesta recibida de extract-pdf-text:', 
-          data ? 'Exitosa' : 'Error', 
-          data.error ? `Error: ${JSON.stringify(data.error)}` : '');
-        
+
         if (!data?.success) {
           throw new Error(
             data?.error || 
@@ -237,14 +205,12 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
         
         return data.analysis;
       } catch (error) {
-        console.error(`Intento ${retryCount + 1} fallido:`, error);
         lastError = error;
         retryCount++;
-        
+
         if (retryCount < maxRetries) {
           // Exponential backoff
           const delay = Math.pow(2, retryCount) * 1000;
-          console.log(`Reintentando en ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
@@ -254,7 +220,6 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
     throw lastError || new Error('Error al invocar la función Edge después de múltiples intentos');
     
   } catch (error) {
-    console.error('Error al analizar el CV:', error);
     throw error;
   }
 }
@@ -262,13 +227,11 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
 export function getResumeUrl(path: string) {
   if (!path) return null;
   if (path.startsWith('http')) return path;
-  
+
   try {
     const { data } = supabase.storage.from('resumes').getPublicUrl(path);
-    console.log('URL generada para el CV:', data.publicUrl);
     return data.publicUrl;
   } catch (error) {
-    console.error('Error al obtener URL del CV:', error);
     return null;
   }
 }
