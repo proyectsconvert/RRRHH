@@ -9,11 +9,31 @@
     "paths": {
       "@/*": ["./src/*"]
     },
+    // Optimizaciones para producción
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    // Configuraciones de desarrollo (más permisivas)
     "noImplicitAny": false,
     "noUnusedParameters": false,
-    "skipLibCheck": true,
     "allowJs": true,
     "noUnusedLocals": false,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+
+    // Optimizaciones de build
+    "removeComments": true,
+    "importHelpers": true,
+    "downlevelIteration": true,
+    "sourceMap": false,
+    "declaration": false,
+    "declarationMap": false
   }
 }

@@ -11,7 +11,6 @@ import { RRHHAuthProvider } from "@/contexts/RRHHAuthContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import ModuleProtectedRoute from "@/components/auth/ModuleProtectedRoute";
 import Unauthorized from "./pages/admin/Unauthorized";
-import RouteTest from "@/components/auth/RouteTest";
 
 // Layouts
 import PublicLayout from "./components/layout/PublicLayout";
@@ -241,13 +240,6 @@ function App() {
                 <Route path="settings" element={
                   <ModuleProtectedRoute requiredModule="settings">
                     <Settings />
-                  </ModuleProtectedRoute>
-                } />
-
-                {/* Test Route - Temporal para verificar permisos */}
-                <Route path="test-permissions" element={
-                  <ModuleProtectedRoute requiredModule="dashboard">
-                    <RouteTest />
                   </ModuleProtectedRoute>
                 } />
               </Route>

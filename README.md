@@ -1,160 +1,279 @@
-# Welcome to your Lovable project
+# 🚀 ConvertIA - Sistema de Gestión RRHH con WhatsApp
 
-## Project info
+Sistema completo de Recursos Humanos con integración de WhatsApp, gestión de usuarios, permisos avanzados y optimización para producción.
 
-**URL**: https://lovable.dev/projects/b0b27c4c-d844-4c2c-a76d-49627a0e7d7e
+## 📋 Características Principales
 
-## How can I edit this code?
+- ✅ **Gestión de Usuarios y Roles** - Sistema completo de autenticación y permisos
+- ✅ **Integración WhatsApp** - Chat en tiempo real con Evolution API
+- ✅ **Dashboard Administrativo** - Panel de control completo
+- ✅ **Gestión de Candidatos** - Sistema de reclutamiento
+- ✅ **Módulos RRHH** - Asistencia, nómina, documentos
+- ✅ **Optimización Producción** - Configurado para despliegue
+- ✅ **Seguridad Avanzada** - Protección de rutas por permisos
 
-There are several ways of editing your application.
+## 🛠️ Tecnologías
 
-**Use Lovable**
+- **Frontend**: React 18 + TypeScript + Vite
+- **UI**: Tailwind CSS + shadcn/ui + Radix UI
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **WhatsApp**: Evolution API
+- **Charts**: Recharts
+- **Forms**: React Hook Form + Zod
+- **State**: TanStack Query
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b0b27c4c-d844-4c2c-a76d-49627a0e7d7e) and start prompting.
+## 🚀 Inicio Rápido
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerrequisitos
+- Node.js 18+ y npm
+- Cuenta de Supabase
+- Evolution API configurada
+- OpenAI API Key (opcional)
 
-**Use your preferred IDE**
+### Instalación
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+```bash
+# Clonar repositorio
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Instalar dependencias
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales
+```
+
+### Configuración de Variables de Entorno
+
+Crea un archivo `.env` con las siguientes variables:
+
+```env
+# Supabase Configuration
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Evolution API (WhatsApp)
+VITE_EVOLUTION_API_URL=https://your-evolution-api.com
+VITE_EVOLUTION_API_TOKEN=your-api-token-here
+VITE_EVOLUTION_INSTANCE=your-instance-name
+VITE_BOT_NUMBER=your-bot-number
+
+# OpenAI (opcional)
+OPENAI_API_KEY=your-openai-api-key-here
+
+# Configuración de aplicación
+VITE_APP_NAME=ConvertIA
+VITE_APP_ENV=development
+```
+
+### Configuración de Supabase
+
+1. **Crear proyecto** en [Supabase](https://supabase.com)
+2. **Ejecutar migraciones** en SQL Editor:
+   ```sql
+   -- Ejecutar todos los archivos en supabase/migrations/
+   -- En orden: 20250514, 20250615, 20250616, 20250916, 20250917, etc.
+   ```
+3. **Configurar RLS** (Row Level Security) según sea necesario
+4. **Crear funciones** de Supabase en `supabase/functions/`
+
+### Desarrollo Local
+
+```bash
+# Iniciar servidor de desarrollo
+npm run dev
+
+# Verificar tipos TypeScript
+npm run type-check
+
+# Ejecutar linter
+npm run lint
+
+# Corregir problemas de linting
+npm run lint:fix
+```
+
+## 🚀 Despliegue en Producción
+
+### Build Optimizado
+
+```bash
+# Build para producción (elimina console.log automáticamente)
+npm run build:prod
+
+# Build con análisis de bundle
+npm run build:analyze
+
+# Vista previa del build
+npm run preview
+```
+
+### Opciones de Despliegue
+
+#### 1. Vercel (Recomendado)
+```bash
+npm i -g vercel
+vercel --prod
+```
+
+#### 2. Netlify
+```bash
+npm i -g netlify-cli
+netlify deploy --prod --dir=dist
+```
+
+#### 3. Docker
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build:prod
+EXPOSE 8080
+CMD ["npm", "run", "preview"]
+```
+
+### Variables de Producción
+
+Crea `.env.production` con:
+```env
+# Copiar de .env.production.example
+# Configurar URLs de producción
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_EVOLUTION_API_URL=https://tu-evolution-api.com
+```
+
+### Optimizaciones de Producción
+
+- ✅ **Console.log eliminados** automáticamente en build
+- ✅ **Minificación Terser** con compresión avanzada
+- ✅ **Code splitting** por módulos
+- ✅ **Lazy loading** de componentes
+- ✅ **Service worker** opcional
+- ✅ **PWA ready** para instalación
+
+## 🔐 Sistema de Seguridad
+
+### Autenticación y Autorización
+- ✅ **JWT Authentication** con Supabase Auth
+- ✅ **Role-Based Access Control** (RBAC)
+- ✅ **Module-Based Permissions** por usuario
+- ✅ **Route Protection** automática
+- ✅ **Session Management** seguro
+
+### Módulos Disponibles
+- 🏠 **Dashboard** - Panel de control general
+- 👥 **Usuarios** - Gestión de usuarios y roles
+- 👨‍💼 **Candidatos** - Sistema de reclutamiento
+- 📄 **Vacantes** - Gestión de ofertas laborales
+- 📊 **Campañas** - Marketing y publicidad
+- 💬 **Chatbot** - Asistente virtual
+- 📱 **WhatsApp** - Integración de mensajería
+- 📈 **Reportes** - Analytics y estadísticas
+- ⚙️ **Configuración** - Ajustes del sistema
+
+### Protección de Rutas
+Cada módulo tiene protección automática:
+```typescript
+<ModuleProtectedRoute requiredModule="whatsapp">
+  <WhatsApp />
+</ModuleProtectedRoute>
+```
+
+## 📱 WhatsApp Integration
+
+### Configuración
+1. **Evolution API** configurada y activa
+2. **Webhook URL** apuntando a `/supabase/functions/whatsapp-webhook`
+3. **Instancia conectada** a WhatsApp Business
+
+### Funcionalidades
+- ✅ **Mensajes entrantes** guardados automáticamente
+- ✅ **Respuestas automáticas** opcionales
+- ✅ **Historial completo** de conversaciones
+- ✅ **Múltiples usuarios** simultáneos
+- ✅ **Debug panel** para troubleshooting
+
+## 🐛 Troubleshooting
+
+### Problemas Comunes
+
+#### Build falla
+```bash
+npm run clean
+npm install
+npm run build:prod
+```
+
+#### Variables de entorno no cargan
+```bash
+# Verificar archivo .env existe
+ls -la .env
+
+# Reiniciar servidor de desarrollo
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+#### WhatsApp no conecta
+- Verificar Evolution API está activa
+- Comprobar token y URL
+- Revisar logs en Supabase Functions
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+#### Permisos no funcionan
+- Verificar usuario tiene roles asignados
+- Comprobar módulos habilitados
+- Revisar configuración en base de datos
 
-**Use GitHub Codespaces**
+### Logs y Debugging
+```bash
+# Ver logs de desarrollo
+npm run dev
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Verificar tipos
+npm run type-check
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-- Supabase
-
-## Environment Variables
-
-Create a `.env` file in the root directory with the following variables (you can copy from `.env.example`):
-
-```env
-# Supabase Configuration - Get these from your Supabase project settings
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-
-# Evolution-API Configuration (for WhatsApp integration)
-VITE_EVOLUTION_API_URL=https://evolution-api.testbot.click
-VITE_EVOLUTION_API_TOKEN=26BEA03F1C6F-4FD3-B0B0-EADD25589851
-VITE_EVOLUTION_INSTANCE=TestWPP  # Name of your Evolution-API instance
-VITE_BOT_NUMBER=3192463493  # WhatsApp number of the bot (without +)
+# Ejecutar linter
+npm run lint
 ```
 
-**To get your Supabase credentials:**
-1. Go to your Supabase project dashboard
-2. Navigate to Settings → API
-3. Copy the "Project URL" for `VITE_SUPABASE_URL`
-4. Copy the "anon public" key for `VITE_SUPABASE_ANON_KEY`
+## 📊 Rendimiento
 
-## How can I deploy this project?
+### Optimizaciones Implementadas
+- ✅ **Tree Shaking** automático
+- ✅ **Code Splitting** por rutas
+- ✅ **Lazy Loading** de componentes
+- ✅ **Bundle Analysis** disponible
+- ✅ **Minificación** avanzada
+- ✅ **Console.log eliminados** en producción
 
-Simply open [Lovable](https://lovable.dev/projects/b0b27c4c-d844-4c2c-a76d-49627a0e7d7e) and click on Share -> Publish.
+### Métricas de Build
+```bash
+npm run build:analyze
+# Abre análisis visual del bundle
+```
 
-## Can I connect a custom domain to my Lovable project?
+## 🤝 Contribución
 
-Yes, you can!
+1. **Fork** el proyecto
+2. **Crear rama** para feature: `git checkout -b feature/nueva-funcionalidad`
+3. **Commit cambios**: `git commit -m 'Agrega nueva funcionalidad'`
+4. **Push**: `git push origin feature/nueva-funcionalidad`
+5. **Crear Pull Request**
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 📄 Licencia
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detalles.
 
-## WhatsApp Chat Integration
+## 📞 Soporte
 
-### Setup
-1. **Create `.env` file** with your Supabase and Evolution-API credentials
-2. **Create the `historychat` table** by running the SQL migration in Supabase:
-   - Go to Supabase Dashboard → SQL Editor
-   - Copy and paste the contents of `supabase/migrations/20250916164000-create_historychat_table.sql`
-   - Click "Run"
-3. **Restart your development server** to load the new environment variables
-4. **Access the chat** at `/admin/whatsapp`
+Para soporte técnico:
+- 📧 Email: soporte@convertia.com
+- 💬 WhatsApp: +57 300 123 4567
+- 📋 Issues: [GitHub Issues](https://github.com/convertia/issues)
 
-### Testing the Integration
-1. Open the WhatsApp chat interface at `/admin/whatsapp`
-2. Click the **"Debug"** button to open the debug panel
-3. Click **"Test Connection"** to verify Evolution-API connectivity
-4. If the test passes, try sending a message to one of the sample users
-5. Check browser console (F12) for detailed logs if issues occur
+---
 
-### Evolution-API Endpoints Used
-- **Send Message**: `POST /message/sendText/{instanceName}`
-- **Test Connection**: Intenta múltiples endpoints:
-  - `/instance/connectionState/{instanceName}`
-  - `/instance/info/{instanceName}`
-  - `/instance/fetchInstances`
-  - `/instance/me`
-- **Authentication Methods**: Intenta múltiples métodos:
-  - `Authorization: Bearer {token}`
-  - `apikey: {token}` header
-  - `?apikey={token}` query parameter
-- **Request Body**: `{"number": "573001234567", "text": "Hello World"}`
-- **Instance Name**: `TestWPP` (configured in VITE_EVOLUTION_INSTANCE)
-
-### Sample Data
-The table includes sample conversations with:
-- **Juan Pérez** (573001234567) - Development discussion
-- **María García** (573001234568) - Job inquiry
-- **Carlos Rodríguez** (573001234569) - Data analyst interest
-
-### Debugging
-If you get "Error sending message" when trying to send messages:
-
-1. Click the **"Debug"** button in the WhatsApp interface
-2. Check that environment variables are properly configured
-3. Click **"Test Connection"** to verify Evolution-API connectivity
-4. Check browser console (F12) for detailed error logs
-
-### Troubleshooting
-- **Environment variables not set**: Ensure `.env` file exists with correct values
-- **401 Unauthorized**: El sistema intenta múltiples métodos de autenticación:
-  - `Authorization: Bearer {token}`
-  - `apikey: {token}` header
-  - `?apikey={token}` query parameter
-  - Si todos fallan, verifica el token en Evolution-API dashboard
-- **Token expired**: Verify Evolution-API token is valid and not expired
-- **Wrong URL**: Confirm Evolution-API instance URL is accessible
-- **Phone number format**: Ensure numbers are without + prefix
-- **CORS issues**: Check Evolution-API CORS configuration
-- **Endpoint not found**: Evolution-API uses `/message/sendText/{instance}` (not `/message/send`)
-- **Instance not connected**: Ensure WhatsApp is connected in Evolution-API dashboard
-- **Instance name wrong**: Verify `VITE_EVOLUTION_INSTANCE` matches your Evolution-API instance name
-- **API Response Error**: Check browser console for detailed Evolution-API error responses
-
-# RRRHH
+**ConvertIA** - Potenciando el reclutamiento con IA 🤖
