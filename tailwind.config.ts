@@ -66,9 +66,12 @@ export default {
 				// Custom colors for the recruitment app
 				hrm: {
 					'primary': '#257e5e',
+					'secondary': '#55aaaa',
+					'light-primary': '#42a698',
 					'dark-primary': '#002625',
 					'darkest-primary': '#0d2d2c',
-					'destructive': '#f44336',	
+					'destructive': '#f44336',
+					'dark-destructive': '#99271f',	
 					'gray-1': '#f5f5f5',
 					'gray-2': '#e6e6e6',
 					'gray-3': '#e5e5e5',
