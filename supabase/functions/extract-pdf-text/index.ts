@@ -49,7 +49,9 @@ serve(async (req) => {
     
     // Prepare system prompt based on whether job details are provided
     let systemPrompt = `Analiza el siguiente texto extraído de un currículum vitae y devuelve un análisis detallado en formato JSON.
-    
+    -En el elemento de "habilidades", usa palabras puntuales y especificas para describir cada habilidad, no uses más de 3 palabras.
+    -Para cada elemento en "experienciaLaboral", llena el campo "duracion" SOLO SI LA EXPERIENCIA TIENE RELACIÓN CON LA VACANTE, calcula la duración total en años y meses y colócala en el campo "duracion" con el formato "X años y Y meses".
+
     Tu respuesta debe ser un objeto JSON con la siguiente estructura:
     {
       "datosPersonales": {
@@ -66,6 +68,7 @@ serve(async (req) => {
           "empresa": "",
           "cargo": "",
           "fechas": "",
+          "duracion":,
           "responsabilidades": [""]
         }
       ],

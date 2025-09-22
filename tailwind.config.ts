@@ -76,6 +76,7 @@ export default {
 					'gray-2': '#e6e6e6',
 					'gray-3': '#e5e5e5',
 					'dark-cyan': '#008B8B',
+					'teal': '#008a8a',
 					'steel-blue': '#5F9EA0',
 					'white': '#FFFFFF',
 					'background': '#143838',

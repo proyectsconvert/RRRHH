@@ -76,20 +76,33 @@ serve(async (req) => {
         
         // Extract experience years if available
         if (parsedData.experienciaLaboral && Array.isArray(parsedData.experienciaLaboral)) {
-          // Estimate years of experience from work history
-          let totalYears = 0
-          parsedData.experienciaLaboral.forEach((exp: any) => {
-            if (exp.fechas) {
-              const match = exp.fechas.match(/\d+\s+años?\s+(\d+\s+meses?)?/i)
-              if (match) {
-                const years = parseInt(match[0], 10) || 0
-                totalYears += years
-              }
-            }
-          })
+          let totalMonths = 0;
           
-          if (totalYears > 0) {
-            updateData.experience_years = totalYears
+          parsedData.experienciaLaboral.forEach((exp: any) => {
+            if (exp.duracion) {
+              let years = 0;
+              let months = 0;
+        
+              // Busca la parte de los años
+              const yearMatch = exp.duracion.match(/(\d+)\s+años?/i);
+              if (yearMatch) {
+                years = parseInt(yearMatch[1], 10) || 0;
+              }
+        
+              // Busca la parte de los meses
+              const monthMatch = exp.duracion.match(/(\d+)\s+meses?/i);
+              if (monthMatch) {
+                months = parseInt(monthMatch[1], 10) || 0;
+              }
+              
+              // Suma el total de esta experiencia a la cuenta general
+              totalMonths += (years * 12) + months;
+            }
+          });
+          
+          if (totalMonths > 0) {
+            // Guardamos el total de meses en la base de datos
+            updateData.experience_years = totalMonths;
           }
         }
         
