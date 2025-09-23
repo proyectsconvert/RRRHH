@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Filter, Loader2, Mail, Phone, MapPin, RefreshCw, Ellipsis, Columns3, EyeOff, Grid2x2X,Trash2, Ban, SquareArrowRight } from 'lucide-react';
+import { Plus, Filter, Loader2, Mail, Phone, MapPin, RefreshCw, Ellipsis, Columns3, EyeOff, Grid2x2X,Trash2, Ban, SquareArrowRight, Eye, Search } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {Dialog, DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle,DialogTrigger,} from "@/components/ui/dialog";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input";
 
 interface Job {
   id?: string;
@@ -50,12 +52,12 @@ interface Candidate {
 
 const initialColumnVisibility = {
   vacante: true,
+  compatibilidad: true,
   experiencia: true,
   habilidades: true,
   aplicaciones: true,
   estado: true,
   fecha: true,
-  compatibilidad: true,
 };
 
 const Candidates = () => {
@@ -73,6 +75,7 @@ const Candidates = () => {
   const [isBlockModalOpen, setBlockModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [selectedRecruiter, setSelectedRecruiter] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleJobSelectionChange = (jobId: string, isChecked: boolean) => {
     setSelectedJob(prev => {
@@ -160,6 +163,16 @@ const Candidates = () => {
 
   const filteredCandidates = () => {
     let filtered = candidates;
+  
+    // 1. Aplicar filtro de búsqueda por nombre (si hay algo escrito)
+    if (searchQuery.trim() !== '') {
+      filtered = filtered.filter(candidate => {
+        const fullName = `${candidate.first_name} ${candidate.last_name}`.toLowerCase();
+        return fullName.includes(searchQuery.toLowerCase());
+      });
+    }
+  
+    // 2. Aplicar filtro de vacante sobre el resultado anterior
     if (selectedJob.length > 0) {
       filtered = filtered.filter(candidate => 
         candidate.applications?.some(app => selectedJob.includes(app.job_id))
@@ -174,6 +187,17 @@ const Candidates = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="page-title">Candidatos</h1>
         <div className="flex gap-2">
+
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input 
+            placeholder="Buscar Candidato..." 
+            className="pl-9" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
           <Button 
             variant="outline" 
             onClick={handleRefresh} 
@@ -290,8 +314,11 @@ const Candidates = () => {
                         <DialogTitle className="text-white text-xl">
                           Confirmar Candidatos Descartados
                         </DialogTitle>
+                        <DialogDescription className="text-gray-200">
+                          Los candidatos seleccionados serán enviados a la pestaña "Descartados".
+                        </DialogDescription>
                       </DialogHeader>
-                      <div className="py-6 px-6">
+                      <div className="py-6 px-6 text-sm">
                         <p>
                           {selectedCandidates.length === 1
                             ? "1 candidato será descartado."
@@ -323,7 +350,7 @@ const Candidates = () => {
                           Esta acción no se puede deshacer.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="py-6 px-6">
+                      <div className="py-6 px-6 text-sm">
                         <p>
                           {selectedCandidates.length === 1
                             ? "1 candidato será bloqueado."
@@ -410,6 +437,9 @@ const Candidates = () => {
               selectedCandidates={selectedCandidates}
               setSelectedCandidates={setSelectedCandidates}
               columnVisibility={columnVisibility}
+              setDiscardModalOpen={setDiscardModalOpen}
+              setBlockModalOpen={setBlockModalOpen}
+              setStatusModalOpen={setStatusModalOpen}
             />
           </TabsContent>
 
@@ -420,6 +450,9 @@ const Candidates = () => {
               selectedCandidates={selectedCandidates}
               setSelectedCandidates={setSelectedCandidates}
               columnVisibility={columnVisibility}
+              setDiscardModalOpen={setDiscardModalOpen}
+              setBlockModalOpen={setBlockModalOpen}
+              setStatusModalOpen={setStatusModalOpen}
             />
           </TabsContent>
           
@@ -430,6 +463,9 @@ const Candidates = () => {
               selectedCandidates={selectedCandidates}
               setSelectedCandidates={setSelectedCandidates}
               columnVisibility={columnVisibility}
+              setDiscardModalOpen={setDiscardModalOpen}
+              setBlockModalOpen={setBlockModalOpen}
+              setStatusModalOpen={setStatusModalOpen}
             />
           </TabsContent>
           
@@ -440,6 +476,9 @@ const Candidates = () => {
               selectedCandidates={selectedCandidates}
               setSelectedCandidates={setSelectedCandidates}
               columnVisibility={columnVisibility}
+              setDiscardModalOpen={setDiscardModalOpen}
+              setBlockModalOpen={setBlockModalOpen}
+              setStatusModalOpen={setStatusModalOpen}
             />
           </TabsContent>
 
@@ -450,6 +489,9 @@ const Candidates = () => {
               selectedCandidates={selectedCandidates}
               setSelectedCandidates={setSelectedCandidates}
               columnVisibility={columnVisibility}
+              setDiscardModalOpen={setDiscardModalOpen}
+              setBlockModalOpen={setBlockModalOpen}
+              setStatusModalOpen={setStatusModalOpen}
             />
           </TabsContent>
 
@@ -493,11 +535,14 @@ interface CandidatesTableProps {
   loading: boolean;
   selectedCandidates: string[];
   setSelectedCandidates: React.Dispatch<React.SetStateAction<string[]>>;
-  columnVisibility: typeof initialColumnVisibility; 
+  columnVisibility: typeof initialColumnVisibility;
+  setDiscardModalOpen: (isOpen: boolean) => void;
+  setBlockModalOpen: (isOpen: boolean) => void;
+  setStatusModalOpen: (isOpen: boolean) => void; 
 }
 
 const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, selectedCandidates,
-  setSelectedCandidates,columnVisibility }) => {
+  setSelectedCandidates,columnVisibility, setDiscardModalOpen, setBlockModalOpen,setStatusModalOpen }) => {
     const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedCandidates(candidates.map(c => c.id));
@@ -622,7 +667,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                               <div className="flex items-center justify-center">
                                 <Badge variant="outline" className={`font-bold text-sm ${
                                   analysisData.compatibilidad.porcentaje >= 75
-                                    ? 'text-hrm-light-primary border-hrm-light-primary'
+                                    ? 'text-hrm-teal border-hrm-teal'
                                     : analysisData.compatibilidad.porcentaje >= 50
                                     ? 'text-yellow-600 border-yellow-600'
                                     : 'text-hrm-destructive border-hrm-destructive'
@@ -637,7 +682,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                         )}
 
                         {columnVisibility.experiencia && <TableCell>
-                          {candidate.experience_years ? `${candidate.experience_years} años` : 'No especificada'}
+                          {candidate.experience_years ? `${candidate.experience_years} meses` : 'No especificada'}
                         </TableCell>}
 
                         {columnVisibility.habilidades && <TableCell>
@@ -688,11 +733,49 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                         </TableCell>}
 
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/admin/candidates/${candidate.id}`}>
-                              <Ellipsis className="h-4 w-4" /> 
-                            </Link>
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <Ellipsis className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">                              
+                              <DropdownMenuItem asChild>
+                                <Link to={`/admin/candidates/${candidate.id}`}>
+                                  <Eye className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
+                                  <span>Ver Perfil</span>
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedCandidates([candidate.id]);
+                                setStatusModalOpen(true);
+                              }}>
+                                <SquareArrowRight className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
+                                <span>Cambiar Estado</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              
+                              <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => {
+                                setSelectedCandidates([candidate.id]);
+                                setDiscardModalOpen(true);
+                              }}>
+                                <Trash2 className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
+                                <span>Descartar</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              
+                              <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => {
+                                setSelectedCandidates([candidate.id]);
+                                setBlockModalOpen(true);
+                              }}>
+                                <Ban className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
+                                <span>Bloquear</span>
+                              </DropdownMenuItem>
+
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     )

@@ -63,6 +63,15 @@ const applicationSchema = z.object({
   email: z.string().email({ message: 'Email inválido' }),
   phone: phoneSchema,
   phoneCountry: z.string().min(1, { message: 'Selecciona un país' }),
+  cedula: z.string()
+    .min(5, { message: 'La cédula debe tener al menos 5 dígitos' })
+    .regex(/^[0-9]+$/, { message: 'La cédula solo debe contener números' }),
+    
+  fechaNacimiento: z.string().min(1, { message: 'La fecha de nacimiento es requerida' }),
+
+  fuente: z.enum(['computrabajo', 'redes-sociales', 'referido', 'voz-a-voz'], {
+    errorMap: () => ({ message: 'Por favor, selecciona una opción.' }),
+  }),
   resume: z.instanceof(File).optional().refine((file) => {
     if (!file) return true; // Make it optional
     const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -97,6 +106,9 @@ const ApplicationForm = () => {
       email: '',
       phone: '',
       phoneCountry: '57', // Default to Colombia
+      cedula: '',
+      fechaNacimiento: undefined,
+      fuente: undefined,
       coverLetter: '',
     },
   });
@@ -239,6 +251,8 @@ const ApplicationForm = () => {
   };
 
   const onSubmit = async (values: ApplicationFormValues) => {
+    const dateObject = new Date(values.fechaNacimiento);
+    
     if (!job || !jobId) return;
     
     setIsSubmitting(true);
@@ -508,6 +522,61 @@ const ApplicationForm = () => {
                   )}
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="cedula"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cédula</FormLabel>
+                      <FormControl>
+                        <Input type="text" inputMode="numeric" placeholder="Tu número de cédula" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {/* --- CAMPO FECHA DE NACIMIENTO --- */}
+                <FormField
+                  control={form.control}
+                  name="fechaNacimiento"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fecha de nacimiento</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </div>
+
+            {/* --- CAMPO FUENTE DE LA VACANTE --- */}
+            <FormField
+              control={form.control}
+              name="fuente"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>¿Cómo te enteraste de la vacante?</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una opción" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="computrabajo">Computrabajo</SelectItem>
+                      <SelectItem value="redes-sociales">Redes Sociales</SelectItem>
+                      <SelectItem value="referido">Referido</SelectItem>
+                      <SelectItem value="voz-a-voz">Voz a Voz</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
               
               <FormField
                 control={form.control}
