@@ -11,6 +11,7 @@ import { RRHHAuthProvider } from "@/contexts/RRHHAuthContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import ModuleProtectedRoute from "@/components/auth/ModuleProtectedRoute";
 import Unauthorized from "./pages/admin/Unauthorized";
+import { ensureUserIsActive } from "@/utils/auth-helpers";
 
 // Layouts
 import PublicLayout from "./components/layout/PublicLayout";
@@ -91,7 +92,29 @@ function App() {
 
   // Componente para proteger rutas de administrador
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    if (loading) {
+    const [validatingUser, setValidatingUser] = useState(false);
+
+    useEffect(() => {
+      const validateUser = async () => {
+        if (session?.user) {
+          setValidatingUser(true);
+          try {
+            await ensureUserIsActive(session.user.id);
+          } catch (error) {
+            console.warn('Usuario inactivo detectado, cerrando sesión:', error);
+            await supabase.auth.signOut();
+            // Redirigir al login después de cerrar sesión
+            window.location.href = '/admin/login';
+          } finally {
+            setValidatingUser(false);
+          }
+        }
+      };
+
+      validateUser();
+    }, [session]);
+
+    if (loading || validatingUser) {
       return <div className="h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-hrm-dark-cyan"></div>
       </div>;

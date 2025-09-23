@@ -9,6 +9,7 @@ export type RRHHUser = {
   department?: string;
   position?: string;
   avatar?: string;
+  is_active?: boolean;
 };
 
 export type RRHHAuthContextType = {
@@ -25,165 +26,196 @@ export type RRHHAuthContextType = {
 const RRHHAuthContext = createContext<RRHHAuthContextType | undefined>(undefined);
 
 export const mockRRHHUsers: RRHHUser[] = [
-  // Administradores
-  { 
-    id: "1", 
-    name: "Aiko ivvone barroso", 
-    email: "aiko.barroso@convertia.com", 
+  // Administradores (todos activos)
+  {
+    id: "1",
+    name: "Aiko ivvone barroso",
+    email: "aiko.barroso@convertia.com",
     role: "admin",
     department: "Recursos Humanos",
     position: "Directora de RRHH",
-    avatar: "AB"
+    avatar: "AB",
+    is_active: true
   },
-  { 
-    id: "2", 
-    name: "jose Luis pascual", 
-    email: "jose.pascual@convertia.com", 
+  {
+    id: "2",
+    name: "jose Luis pascual",
+    email: "jose.pascual@convertia.com",
     role: "admin",
     department: "Administración",
     position: "Gerente General",
-    avatar: "JP"
+    avatar: "JP",
+    is_active: true
   },
-  
-  // Personal de RRHH
-  { 
-    id: "3", 
-    name: "sebastian hernandez", 
-    email: "sebastian.hernandez@convertia.com", 
+
+  // Personal de RRHH (todos activos)
+  {
+    id: "3",
+    name: "sebastian hernandez",
+    email: "sebastian.hernandez@convertia.com",
     role: "rrhh",
     department: "Recursos Humanos",
     position: "Especialista en Reclutamiento",
-    avatar: "SH"
+    avatar: "SH",
+    is_active: true
   },
-  { 
-    id: "4", 
-    name: "bernardo peñuela", 
-    email: "bernardo.penuela@convertia.com", 
+  {
+    id: "4",
+    name: "bernardo peñuela",
+    email: "bernardo.penuela@convertia.com",
     role: "rrhh",
     department: "Recursos Humanos",
     position: "Analista de Nómina",
-    avatar: "BP"
+    avatar: "BP",
+    is_active: true
   },
-  { 
-    id: "5", 
-    name: "Johana nope", 
-    email: "johana.nope@convertia.com", 
+  {
+    id: "5",
+    name: "Johana nope",
+    email: "johana.nope@convertia.com",
     role: "rrhh",
     department: "Recursos Humanos",
     position: "Coordinadora de Capacitación",
-    avatar: "JN"
+    avatar: "JN",
+    is_active: true
   },
-  
-  // Managers/Supervisores
-  { 
-    id: "6", 
-    name: "Steven Vasquez", 
-    email: "steven.vasquez@convertia.com", 
+
+  // Managers/Supervisores (algunos inactivos para testing)
+  {
+    id: "6",
+    name: "Steven Vasquez",
+    email: "steven.vasquez@convertia.com",
     role: "manager",
     department: "Tecnología",
     position: "Gerente de TI",
-    avatar: "SV"
+    avatar: "SV",
+    is_active: true
   },
-  { 
-    id: "7", 
-    name: "Nidia cortes", 
-    email: "nidia.cortes@convertia.com", 
+  {
+    id: "7",
+    name: "Nidia cortes",
+    email: "nidia.cortes@convertia.com",
     role: "manager",
     department: "Marketing",
     position: "Gerente de Marketing",
-    avatar: "NC"
+    avatar: "NC",
+    is_active: false // Usuario inactivo para testing
   },
-  { 
-    id: "8", 
-    name: "pedro aponte", 
-    email: "pedro.aponte@convertia.com", 
+  {
+    id: "8",
+    name: "pedro aponte",
+    email: "pedro.aponte@convertia.com",
     role: "manager",
     department: "Ventas",
     position: "Gerente de Ventas",
-    avatar: "PA"
+    avatar: "PA",
+    is_active: true
   },
-  
-  // Empleados
-  { 
-    id: "9", 
-    name: "Tania Camacho", 
-    email: "tania.camacho@convertia.com", 
+
+  // Empleados (algunos inactivos para testing)
+  {
+    id: "9",
+    name: "Tania Camacho",
+    email: "tania.camacho@convertia.com",
     role: "empleado",
     department: "Tecnología",
     position: "Desarrolladora Frontend",
-    avatar: "TC"
+    avatar: "TC",
+    is_active: true
   },
-  { 
-    id: "10", 
-    name: "Harold Alvarez", 
-    email: "harold.alvarez@convertia.com", 
+  {
+    id: "10",
+    name: "Harold Alvarez",
+    email: "harold.alvarez@convertia.com",
     role: "empleado",
     department: "Tecnología",
     position: "Desarrollador Backend",
-    avatar: "HA"
+    avatar: "HA",
+    is_active: true
   },
-  { 
-    id: "11", 
-    name: "Esteban Salamanca", 
-    email: "esteban.salamanca@convertia.com", 
+  {
+    id: "11",
+    name: "Esteban Salamanca",
+    email: "esteban.salamanca@convertia.com",
     role: "empleado",
     department: "Marketing",
     position: "Especialista en Redes Sociales",
-    avatar: "ES"
+    avatar: "ES",
+    is_active: false // Usuario inactivo para testing
   },
-  { 
-    id: "12", 
-    name: "Santiago Martín", 
-    email: "santiago.martin@convertia.com", 
+  {
+    id: "12",
+    name: "Santiago Martín",
+    email: "santiago.martin@convertia.com",
     role: "empleado",
     department: "Ventas",
     position: "Ejecutivo de Ventas",
-    avatar: "SM"
+    avatar: "SM",
+    is_active: true
   },
-  { 
-    id: "13", 
-    name: "Isabella González", 
-    email: "isabella.gonzalez@convertia.com", 
+  {
+    id: "13",
+    name: "Isabella González",
+    email: "isabella.gonzalez@convertia.com",
     role: "empleado",
     department: "Administración",
     position: "Asistente Administrativa",
-    avatar: "IG"
+    avatar: "IG",
+    is_active: true
   },
-  { 
-    id: "14", 
-    name: "Mateo Silva", 
-    email: "mateo.silva@convertia.com", 
+  {
+    id: "14",
+    name: "Mateo Silva",
+    email: "mateo.silva@convertia.com",
     role: "empleado",
     department: "Tecnología",
     position: "QA Tester",
-    avatar: "MS"
+    avatar: "MS",
+    is_active: false // Usuario inactivo para testing
   },
-  { 
-    id: "15", 
-    name: "Sofía Ramírez", 
-    email: "sofia.ramirez@convertia.com", 
+  {
+    id: "15",
+    name: "Sofía Ramírez",
+    email: "sofia.ramirez@convertia.com",
     role: "empleado",
     department: "Marketing",
     position: "Diseñadora Gráfica",
-    avatar: "SR"
+    avatar: "SR",
+    is_active: true
   }
 ];
 
 export const RRHHAuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<RRHHUser | null>(() => {
     const stored = localStorage.getItem("rrhhUser");
-    return stored ? JSON.parse(stored) : null;
+    if (stored) {
+      const parsedUser = JSON.parse(stored);
+      // Verificar si el usuario almacenado está activo
+      if (parsedUser.is_active === false) {
+        localStorage.removeItem("rrhhUser");
+        return null;
+      }
+      return parsedUser;
+    }
+    return null;
   });
   const [isLoading, setIsLoading] = useState(false);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
+
     return new Promise<void>((resolve, reject) => {
       setTimeout(() => {
         const found = mockRRHHUsers.find((u) => u.email === email);
-        
+
         if (found) {
+          // Verificar si el usuario está activo
+          if (found.is_active === false) {
+            setIsLoading(false);
+            reject(new Error("Tu cuenta ha sido desactivada. Contacta al administrador para más información."));
+            return;
+          }
+
           setUser(found);
           localStorage.setItem("rrhhUser", JSON.stringify(found));
           setIsLoading(false);

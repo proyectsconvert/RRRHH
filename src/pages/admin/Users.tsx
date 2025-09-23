@@ -694,6 +694,12 @@ const Users = () => {
                             <span>{user.phone}</span>
                           </div>
                         )}
+                        {!user.is_active && (
+                          <div className="flex items-center space-x-1 text-red-600">
+                            <Shield className="h-3 w-3" />
+                            <span className="font-medium">Cuenta inactiva</span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="text-xs text-gray-500 mt-1">

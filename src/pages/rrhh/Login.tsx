@@ -103,10 +103,11 @@ const Login: React.FC = () => {
                       {role === "admin" ? "Administradores" : role === "rrhh" ? "Personal RRHH" : role === "manager" ? "Gerentes" : "Empleados"}
                     </h4>
                     <div className="grid grid-cols-1 gap-1">
-                      {users.map(user => <button key={user.id} type="button" onClick={() => handleDemoLogin(user.email)} className="text-left p-2 rounded-lg bg-gray-50 hover:bg-cyan-50 transition-colors text-xs">
+                      {users.map(user => <button key={user.id} type="button" onClick={() => handleDemoLogin(user.email)} className={`text-left p-2 rounded-lg transition-colors text-xs ${user.is_active === false ? 'bg-red-50 hover:bg-red-100 opacity-60' : 'bg-gray-50 hover:bg-cyan-50'}`}>
                           <div className="font-medium text-gray-900">{user.name}</div>
                           <div className="text-gray-600">{user.email}</div>
                           <div className="text-gray-500">{user.position}</div>
+                          {user.is_active === false && <div className="text-red-600 font-medium">Cuenta inactiva</div>}
                         </button>)}
                     </div>
                   </div>)}

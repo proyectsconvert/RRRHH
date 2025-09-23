@@ -163,6 +163,8 @@ VITE_EVOLUTION_API_URL=https://tu-evolution-api.com
 - ✅ **Module-Based Permissions** por usuario
 - ✅ **Route Protection** automática
 - ✅ **Session Management** seguro
+- ✅ **Validación de Usuarios Activos/Inactivos**
+- ✅ **Bloqueo automático** para cuentas desactivadas
 
 ### Módulos Disponibles
 - 🏠 **Dashboard** - Panel de control general
@@ -221,6 +223,12 @@ npm run dev
 - Verificar Evolution API está activa
 - Comprobar token y URL
 - Revisar logs en Supabase Functions
+
+#### Usuario no puede acceder (cuenta inactiva)
+- Verificar estado `is_active` en tabla `profiles`
+- Para usuarios admin: activar desde `/admin/users`
+- Para usuarios RRHH: contactar administrador
+- Mensaje: "Tu cuenta ha sido desactivada. Contacta al administrador"
 
 #### Permisos no funcionan
 - Verificar usuario tiene roles asignados

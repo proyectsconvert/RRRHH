@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { ensureUserIsActive } from '@/utils/auth-helpers';
 const formSchema = z.object({
   email: z.string().email({
     message: 'Email inválido'
@@ -31,12 +32,25 @@ const Login = () => {
       const {
         data
       } = await supabase.auth.getSession();
-      if (data.session) {
-        navigate('/admin/dashboard');
+      if (data.session && data.session.user) {
+        try {
+          // Verificar que el usuario esté activo
+          await ensureUserIsActive(data.session.user.id);
+          navigate('/admin/dashboard');
+        } catch (error) {
+          // Si el usuario está inactivo, cerrar sesión
+          console.warn('Usuario inactivo detectado, cerrando sesión:', error);
+          await supabase.auth.signOut();
+          toast({
+            variant: "destructive",
+            title: "Cuenta inactiva",
+            description: "Tu cuenta ha sido desactivada. Contacta al administrador."
+          });
+        }
       }
     };
     checkSession();
-  }, [navigate]);
+  }, [navigate, toast]);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -48,14 +62,22 @@ const Login = () => {
     setIsLoading(true);
     try {
       const {
+        data,
         error
       } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password
       });
+
       if (error) {
         throw error;
       }
+
+      // Verificar que el usuario existe y está activo
+      if (data.user) {
+        await ensureUserIsActive(data.user.id);
+      }
+
       toast({
         title: "¡Bienvenido!",
         description: "Has iniciado sesión correctamente."
@@ -63,6 +85,12 @@ const Login = () => {
       navigate('/admin/dashboard');
     } catch (error: any) {
       console.error('Error de autenticación:', error);
+
+      // Cerrar sesión si hay error de validación de estado activo
+      if (error.message?.includes('desactivada')) {
+        await supabase.auth.signOut();
+      }
+
       toast({
         variant: "destructive",
         title: "Error de inicio de sesión",
