@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Calendar, FileText, BarChart, Loader2, Users } from 'lucide-react';
-import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
@@ -14,8 +13,6 @@ import { Progress } from '@/components/ui/progress';
 interface Campaign {
   id: string;
   name: string;
-  start_date: string;
-  end_date?: string;
   description?: string;
   status: string;
   created_at: string;
@@ -175,7 +172,6 @@ const Campaigns = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nombre</TableHead>
-                      <TableHead>Fechas</TableHead>
                       <TableHead>Vacantes</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Progreso</TableHead>
@@ -193,19 +189,6 @@ const Campaigns = () => {
                             {campaign.description && (
                               <p className="text-sm text-gray-500 truncate max-w-[250px]">{campaign.description}</p>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <p>
-                                <Calendar className="inline h-4 w-4 mr-1 text-gray-500" /> 
-                                {format(new Date(campaign.start_date), 'dd/MM/yyyy')}
-                              </p>
-                              {campaign.end_date && (
-                                <p className="text-gray-500">
-                                  hasta {format(new Date(campaign.end_date), 'dd/MM/yyyy')}
-                                </p>
-                              )}
-                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center">
@@ -234,17 +217,24 @@ const Campaigns = () => {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="outline" size="sm" asChild>
-                              <Link to={`/admin/campaigns/${campaign.id}`}>
-                                Ver detalle
-                              </Link>
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" asChild>
+                                <Link to={`/admin/campaigns/${campaign.id}`}>
+                                  Ver detalle
+                                </Link>
+                              </Button>
+                              <Button variant="outline" size="sm" asChild>
+                                <Link to={`/admin/campaigns/${campaign.id}/edit`}>
+                                  Editar
+                                </Link>
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={5} className="text-center py-10 text-gray-500">
                           No hay campañas disponibles. Crea una nueva campaña para comenzar.
                         </TableCell>
                       </TableRow>

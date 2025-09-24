@@ -91,13 +91,6 @@ const Users = () => {
 
       setUsers(usersWithModules);
 
-      if (usersWithModules && usersWithModules.length > 0) {
-        toast({
-          title: "Usuarios cargados",
-          description: `Se encontraron ${usersWithModules.length} usuarios`,
-        });
-      }
-
     } catch (error) {
       toast({
         title: "Error",

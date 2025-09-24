@@ -32,6 +32,8 @@ import Jobs from "./pages/admin/Jobs";
 import JobForm from "./pages/admin/JobForm";
 import AdminJobDetail from "./pages/admin/JobDetail";
 import Campaigns from "./pages/admin/Campaigns";
+import CampaignForm from "./pages/admin/CampaignForm";
+import CampaignDetail from "./pages/admin/CampaignDetail";
 import Candidates from "./pages/admin/Candidates";
 import CandidateDetail from "./pages/admin/CandidateDetail";
 import ChatbotManager from "./pages/admin/ChatbotManager";
@@ -201,6 +203,21 @@ function App() {
                 <Route path="campaigns" element={
                   <ModuleProtectedRoute requiredModule="campaigns">
                     <Campaigns />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="campaigns/new" element={
+                  <ModuleProtectedRoute requiredModule="campaigns">
+                    <CampaignForm />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="campaigns/:id" element={
+                  <ModuleProtectedRoute requiredModule="campaigns">
+                    <CampaignDetail />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="campaigns/:id/edit" element={
+                  <ModuleProtectedRoute requiredModule="campaigns">
+                    <CampaignForm />
                   </ModuleProtectedRoute>
                 } />
 
