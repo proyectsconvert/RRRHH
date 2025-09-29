@@ -35,23 +35,29 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
     
     const body = await req.json()
-    const { 
-      firstName, 
-      lastName, 
-      email, 
-      phone, 
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
       phoneCountry,
+      cedula,
+      fechaNacimiento,
+      fuente,
       jobId,
       coverLetter,
       resumeUrl
     } = body
     
-    console.log('Application data received:', { 
-      firstName, 
-      lastName, 
-      email, 
-      phone: phone ? '(hidden for privacy)' : null, 
+    console.log('Application data received:', {
+      firstName,
+      lastName,
+      email,
+      phone: phone ? '(hidden for privacy)' : null,
       phoneCountry,
+      cedula,
+      fechaNacimiento,
+      fuente,
       jobId,
       resumeUrl: resumeUrl ? 'Resume URL provided' : 'No resume URL'
     })
@@ -72,11 +78,15 @@ serve(async (req) => {
       .select('id, type')
       .eq('id', jobId)
       .single()
-      
+
     if (jobError || !jobExists) {
       console.error('Job not found:', jobId, jobError)
       throw new Error('La vacante seleccionada no existe')
     }
+
+    // Log that migration needs to be applied manually
+    console.log('Note: Migration for new candidate fields needs to be applied manually in Supabase Dashboard');
+    console.log('SQL to run: ALTER TABLE candidates ADD COLUMN IF NOT EXISTS cedula VARCHAR(20); etc.');
 
     // Format phone number correctly
     const formattedPhone = phoneCountry && phone ? `+${phoneCountry}${phone}` : null
@@ -85,53 +95,115 @@ serve(async (req) => {
     // Explicitly log phone_country parameter to verify it's being passed correctly
     console.log('Phone country parameter:', phoneCountry || '')
     
-    // Usar la función create_or_update_application
-    const { data, error } = await supabaseAdmin.rpc(
-      'create_or_update_application',
-      {
-        p_first_name: firstName,
-        p_last_name: lastName,
-        p_email: email,
-        p_phone: formattedPhone || '',
-        p_phone_country: phoneCountry || '',
-        p_job_id: jobId,
-        p_cover_letter: coverLetter || '',
-        p_job_type: jobExists.type || 'full-time',
-        p_resume_url: resumeUrl || ''
+    // Check if candidate already exists by email
+    const { data: existingCandidate, error: checkError } = await supabaseAdmin
+      .from('candidates')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking existing candidate:', checkError);
+      throw new Error('Error al verificar candidato existente');
+    }
+
+    let candidateId: string;
+
+    // Always use structured JSON in analysis_summary to ensure data is saved properly
+    // This works regardless of whether the migration has been applied
+    const structuredData = {
+      cedula: cedula || '',
+      fechaNacimiento: fechaNacimiento || '',
+      fuente: fuente || '',
+      coverLetter: coverLetter || '',
+      submittedAt: new Date().toISOString()
+    };
+
+    console.log('📋 Structured data to save:', structuredData);
+
+    if (existingCandidate) {
+      // Update existing candidate
+      candidateId = existingCandidate.id;
+
+      const updateData = {
+        first_name: firstName,
+        last_name: lastName,
+        phone: formattedPhone || null,
+        phone_country: phoneCountry || null,
+        resume_url: resumeUrl || null,
+        analysis_summary: JSON.stringify(structuredData),
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('🔄 Updating candidate with data:', updateData);
+
+      const { error: updateError } = await supabaseAdmin
+        .from('candidates')
+        .update(updateData)
+        .eq('id', candidateId);
+
+      if (updateError) {
+        console.error('❌ Error updating candidate:', updateError);
+        throw new Error('Error al actualizar candidato');
       }
-    )
-    
-    if (error) {
-      console.error('Error calling create_or_update_application function:', error)
-      throw new Error('Error al crear o actualizar la aplicación')
+
+      console.log('✅ Existing candidate updated successfully:', candidateId);
+    } else {
+      // Create new candidate
+      const insertData = {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: formattedPhone || null,
+        phone_country: phoneCountry || null,
+        resume_url: resumeUrl || null,
+        analysis_summary: JSON.stringify(structuredData)
+      };
+
+      console.log('🆕 Creating new candidate with data:', insertData);
+
+      const { data: newCandidate, error: insertError } = await supabaseAdmin
+        .from('candidates')
+        .insert(insertData)
+        .select('id')
+        .single();
+
+      if (insertError) {
+        console.error('❌ Error creating candidate:', insertError);
+        throw new Error('Error al crear candidato');
+      }
+
+      candidateId = newCandidate.id;
+      console.log('✅ New candidate created successfully:', candidateId);
     }
-    
-    if (!data) {
-      console.error('Function returned no data')
-      throw new Error('Error al crear la aplicación: no se devolvió ID')
-    }
-    
-    console.log('Application created/updated successfully with ID:', data)
-    
-    // Obtener detalles de la aplicación
-    const { data: application, error: fetchError } = await supabaseAdmin
+
+    // Create application record
+    const { data: application, error: applicationError } = await supabaseAdmin
       .from('applications')
-      .select('*, candidate:candidate_id(*)')
-      .eq('id', data)
-      .single()
-      
-    if (fetchError) {
-      console.error('Error fetching application details:', fetchError)
+      .insert({
+        candidate_id: candidateId,
+        job_id: jobId,
+        status: 'new',
+        campaign_id: jobExists.campaign_id || null
+      })
+      .select('id')
+      .single();
+
+    if (applicationError) {
+      console.error('Error creating application:', applicationError);
+      throw new Error('Error al crear aplicación');
     }
+
+    console.log('Application created successfully with ID:', application.id);
     
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        data: application || { id: data }
+      JSON.stringify({
+        success: true,
+        data: application
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
+        status: 200
       }
     )
     
@@ -153,3 +225,4 @@ serve(async (req) => {
     )
   }
 })
+

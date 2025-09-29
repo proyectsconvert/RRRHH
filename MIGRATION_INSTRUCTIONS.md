@@ -1,43 +1,83 @@
-# 🚨 MIGRACIÓN PENDIENTE - Campañas en Candidatos
+# 🚀 Migración de Campos de Candidatos
 
 ## Problema
-El apartado de candidatos no puede cargar porque falta el campo `campaign_id` en la tabla `applications`.
+Los campos adicionales (`cedula`, `birth_date`, `application_source`) no se están guardando correctamente porque la migración no se ha aplicado a la base de datos.
 
-## Solución
-Ejecuta esta migración SQL en tu panel de Supabase:
+## ✅ Solución - Aplicar Migración Manual
 
-### SQL a Ejecutar:
+### 📋 SQL a Ejecutar
+
+Ve al **Supabase Dashboard** → **SQL Editor** y ejecuta este SQL:
+
 ```sql
--- Add campaign_id column to applications table
-ALTER TABLE applications ADD COLUMN IF NOT EXISTS campaign_id UUID REFERENCES campaigns(id);
+-- Agregar campos adicionales a la tabla candidates
+ALTER TABLE candidates ADD COLUMN IF NOT EXISTS cedula VARCHAR(20);
+ALTER TABLE candidates ADD COLUMN IF NOT EXISTS birth_date DATE;
+ALTER TABLE candidates ADD COLUMN IF NOT EXISTS application_source VARCHAR(50);
 
--- Add index for better performance
-CREATE INDEX IF NOT EXISTS idx_applications_campaign_id ON applications(campaign_id);
+-- Crear índices para mejor rendimiento
+CREATE INDEX IF NOT EXISTS idx_candidates_email ON candidates(email);
+CREATE INDEX IF NOT EXISTS idx_candidates_cedula ON candidates(cedula);
 
--- Verify the column was added
-SELECT column_name, data_type, is_nullable
-FROM information_schema.columns
-WHERE table_name = 'applications' AND column_name = 'campaign_id';
+-- Agregar comentarios de documentación
+COMMENT ON COLUMN candidates.cedula IS 'National ID number of the candidate';
+COMMENT ON COLUMN candidates.birth_date IS 'Date of birth of the candidate';
+COMMENT ON COLUMN candidates.application_source IS 'How the candidate found the job opportunity';
 ```
 
-### Pasos:
-1. Ve a tu [Panel de Supabase](https://supabase.com/dashboard)
-2. Selecciona tu proyecto
-3. Ve a "SQL Editor" en el menú lateral
-4. Copia y pega el SQL de arriba
-5. Haz click en "Run"
+### 🔧 Pasos Detallados
 
-### Después de la migración:
-1. Recarga la página de candidatos (`/admin/candidates`)
-2. La columna "Campaña" se activará automáticamente
-3. Podrás asignar campañas a candidatos desde "Cambiar Estado" > "Asignar Campaña"
+1. **Abrir Supabase Dashboard**
+   - Ve a: https://supabase.com/dashboard/project/[TU_PROJECT_ID]/sql
 
-## Archivos relacionados:
-- `supabase/migrations/20250923160000_add_campaign_id_to_applications.sql` - Migración SQL
-- `src/pages/admin/Candidates.tsx` - Código actualizado para mostrar campañas
+2. **Ejecutar el SQL**
+   - Copia y pega el SQL de arriba
+   - Haz clic en **"Run"**
 
-## Funcionalidades que se activarán:
-- ✅ Columna "Campaña" visible en la tabla
-- ✅ Selector de campañas en el modal de cambio de estado
-- ✅ Asignación de campañas a aplicaciones de candidatos
-- ✅ Visualización de campañas asignadas con badges
+3. **Verificar la Migración**
+   - Los campos nuevos estarán disponibles inmediatamente
+
+### 📊 Resultado Esperado
+
+Después de aplicar la migración, los datos se guardarán así:
+
+```json
+{
+  "id": "uuid",
+  "first_name": "Juan",
+  "last_name": "Pérez",
+  "email": "juan@email.com",
+  "phone": "+573001234567",
+  "phone_country": "57",
+  "cedula": "1234567890",
+  "birth_date": "1990-05-15",
+  "application_source": "computrabajo",
+  "resume_url": "https://...",
+  "analysis_summary": "Carta de presentación...",
+  "created_at": "2024-09-24T...",
+  "updated_at": "2024-09-24T..."
+}
+```
+
+### 🎯 Funcionalidades Habilitadas
+
+- ✅ **Campos estructurados**: `cedula`, `birth_date`, `application_source`
+- ✅ **Búsqueda optimizada**: Índices en campos clave
+- ✅ **Datos accesibles**: Campos individuales en lugar de JSON
+- ✅ **Integridad**: Validación y constraints apropiadas
+
+### 🧪 Verificación
+
+Después de aplicar la migración:
+1. Envía un formulario de postulación
+2. Verifica en Supabase Dashboard → Table Editor → candidates
+3. Los campos `cedula`, `birth_date`, y `application_source` deben tener valores
+
+### 📁 Archivos Relacionados
+
+- `supabase/migrations/20250924180000_add_candidate_fields.sql` - Migración SQL
+- `src/components/candidates/ApplicationForm.tsx` - Formulario actualizado
+- `supabase/functions/create-application/index.ts` - Función edge actualizada
+- `src/integrations/supabase/types-updated.ts` - Tipos TypeScript actualizados
+
+¡Una vez aplicada la migración, el formulario funcionará perfectamente con todos los campos! 🎉

@@ -104,6 +104,9 @@ export type Database = {
       candidates: {
         Row: {
           analysis_summary: string | null
+          application_source: string | null
+          birth_date: string | null
+          cedula: string | null
           created_at: string
           email: string
           experience_years: number | null
@@ -122,6 +125,9 @@ export type Database = {
         }
         Insert: {
           analysis_summary?: string | null
+          application_source?: string | null
+          birth_date?: string | null
+          cedula?: string | null
           created_at?: string
           email: string
           experience_years?: number | null
@@ -140,6 +146,9 @@ export type Database = {
         }
         Update: {
           analysis_summary?: string | null
+          application_source?: string | null
+          birth_date?: string | null
+          cedula?: string | null
           created_at?: string
           email?: string
           experience_years?: number | null

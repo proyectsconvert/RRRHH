@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ const formSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   description: z.string().optional(),
   status: z.enum(CAMPAIGN_STATUSES),
+  responsable: z.string().optional().transform(val => val === "none" ? null : val),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -36,6 +37,8 @@ const CampaignForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const isEditing = Boolean(id);
 
   const form = useForm<FormValues>({
@@ -44,6 +47,7 @@ const CampaignForm = () => {
       name: "",
       description: "",
       status: "planned",
+      responsable: "none",
     },
   });
 
@@ -56,6 +60,7 @@ const CampaignForm = () => {
         name: values.name,
         description: values.description || null,
         status: values.status,
+        responsable: values.responsable === "none" ? null : values.responsable,
       };
 
       let result;
@@ -96,8 +101,56 @@ const CampaignForm = () => {
     }
   };
 
+  // Load users for responsable select
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        // Try to load with role column, fallback to without it
+        let usersData, usersError;
+
+        try {
+          const result = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email, role')
+            .neq('role', 'administrador') // Exclude administrators
+            .order('first_name', { ascending: true, nullsFirst: false });
+          usersData = result.data;
+          usersError = result.error;
+        } catch (e) {
+          // Fallback to query without role column
+          console.log('Role column not available, loading users without role filter...');
+          const result = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email')
+            .order('first_name', { ascending: true, nullsFirst: false });
+          usersData = result.data;
+          usersError = result.error;
+        }
+        
+        if (usersError) {
+          console.error('Error fetching users:', usersError);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No se pudieron cargar los usuarios",
+          });
+          return;
+        }
+
+        setUsers(usersData || []);
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, [toast]);
+
   // Load campaign data if editing
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchCampaign = async () => {
       if (!id) return;
 
@@ -116,6 +169,7 @@ const CampaignForm = () => {
             name: data.name || "",
             description: data.description || "",
             status: data.status as typeof CAMPAIGN_STATUSES[number] || "planned",
+            responsable: data.responsable || "none",
           });
         }
       } catch (error) {
@@ -178,8 +232,48 @@ const CampaignForm = () => {
                   </FormItem>
                 )}
               />
-
             </div>
+
+            <FormField
+              control={form.control}
+              name="responsable"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Responsable</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona el responsable" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {loadingUsers ? (
+                        <SelectItem value="loading" disabled>
+                          Cargando usuarios...
+                        </SelectItem>
+                      ) : (
+                        <>
+                          <SelectItem value="none">Sin asignar</SelectItem>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.first_name && user.last_name
+                                ? `${user.first_name} ${user.last_name}`
+                                : user.email}
+                              {user.role && (
+                                <span className="text-xs text-gray-500 ml-2">
+                                  ({user.role})
+                                </span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

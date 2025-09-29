@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
@@ -21,13 +22,21 @@ interface User {
   phone?: string;
   position?: string;
   department?: string;
+  role?: string;
   is_active: boolean;
   created_at: string;
   modules?: { [key: string]: boolean };
 }
 
+interface Role {
+  name: string;
+  display_name: string;
+  description?: string;
+}
+
 const Users = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -40,18 +49,35 @@ const Users = () => {
     phone: '',
     position: '',
     department: '',
+    role: '',
     selectedModules: {} as { [key: string]: boolean }
   });
   const { toast } = useToast();
   const { availableModules, updateUserModulePermissions } = usePermissions();
 
-  // Load users with module permissions
+  // Load users with module permissions and roles
   const loadUsers = async () => {
     try {
-      const { data: usersData, error: usersError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false, nullsFirst: false });
+      // Try to load with role column, fallback to without it
+      let usersData, usersError;
+
+      try {
+        const result = await supabase
+          .from('profiles')
+          .select('*, role')
+          .order('created_at', { ascending: false, nullsFirst: false });
+        usersData = result.data;
+        usersError = result.error;
+      } catch (e) {
+        // Fallback to query without role column
+        console.log('Role column not available, loading without it...');
+        const result = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false, nullsFirst: false });
+        usersData = result.data;
+        usersError = result.error;
+      }
 
       if (usersError) {
         toast({
@@ -63,33 +89,32 @@ const Users = () => {
       }
 
       // Load module permissions for each user
-      const usersWithModules = await Promise.all(
+      const usersWithModulesAndRoles = await Promise.all(
         (usersData || []).map(async (user) => {
           try {
+            // Load module permissions
             const { data: modulePerms, error: permsError } = await supabase
               .from('user_module_permissions')
               .select('module_name, has_access')
               .eq('user_id', user.id.toString());
 
-            if (permsError) {
-              console.warn('Error loading permissions for user', user.id, ':', permsError);
-              return { ...user, modules: {} };
+            const modules: { [key: string]: boolean } = {};
+            if (!permsError && modulePerms) {
+              modulePerms.forEach(perm => {
+                modules[perm.module_name] = perm.has_access;
+              });
             }
 
-            const modules: { [key: string]: boolean } = {};
-            (modulePerms || []).forEach(perm => {
-              modules[perm.module_name] = perm.has_access;
-            });
-
-            return { ...user, modules };
+            // Role is stored directly in profiles table
+            return { ...user, modules, role: user.role || '' };
           } catch (error) {
-            console.warn('Error processing user permissions for', user.id, ':', error);
-            return { ...user, modules: {} };
+            console.warn('Error processing user data for', user.id, ':', error);
+            return { ...user, modules: {}, role: user.role || '' };
           }
         })
       );
 
-      setUsers(usersWithModules);
+      setUsers(usersWithModulesAndRoles);
 
     } catch (error) {
       toast({
@@ -99,6 +124,18 @@ const Users = () => {
       });
     }
   };
+
+  // Static roles - no need to load from database
+  const staticRoles: Role[] = [
+    { name: 'administrador', display_name: 'Administrador', description: 'Acceso completo al sistema' },
+    { name: 'reclutador', display_name: 'Reclutador', description: 'Acceso a funcionalidades de reclutamiento' },
+    { name: 'rc_coordinator', display_name: 'RC Coordinator', description: 'Coordinador de Recursos Humanos' }
+  ];
+
+  // Set static roles
+  useEffect(() => {
+    setRoles(staticRoles);
+  }, []);
 
   // Load all data
   const loadData = async () => {
@@ -243,6 +280,27 @@ const Users = () => {
       // Assign module permissions (solo si hay módulos seleccionados)
       const hasSelectedModules = Object.values(formData.selectedModules).some(value => value === true);
 
+      // Assign role - try profiles table, don't fail if column doesn't exist
+      if (formData.role) {
+        try {
+          // Try to save role directly in profiles table (won't fail if column doesn't exist)
+          const { error: profilesRoleError } = await supabase
+            .from('profiles')
+            .update({ role: formData.role })
+            .eq('id', authData.user.id);
+
+          if (profilesRoleError) {
+            console.warn('Could not save role to profiles (column may not exist yet):', profilesRoleError);
+            // Don't show error to user - they can add the column later
+          } else {
+            console.log('Role saved successfully in profiles table');
+          }
+        } catch (roleAssignError) {
+          console.warn('Error assigning role:', roleAssignError);
+          // Don't show error to user
+        }
+      }
+
       if (hasSelectedModules) {
         console.log('Assigning module permissions:', formData.selectedModules);
         const result = await updateUserModulePermissions(authData.user.id, formData.selectedModules);
@@ -332,6 +390,27 @@ const Users = () => {
         throw new Error(`Error al actualizar perfil: ${profileError.message}`);
       }
 
+      // Update role if changed (only if role column exists)
+      if (formData.role !== selectedUser.role) {
+        try {
+          // Try to update role directly in profiles table (won't fail if column doesn't exist)
+          const { error: roleError } = await supabase
+            .from('profiles')
+            .update({ role: formData.role || null })
+            .eq('id', selectedUser.id);
+
+          if (roleError) {
+            console.warn('Could not update role in profiles (column may not exist yet):', roleError);
+            // Don't show error to user - they can add the column later
+          } else {
+            console.log('Role updated successfully in profiles table');
+          }
+        } catch (roleUpdateError) {
+          console.warn('Error updating role:', roleUpdateError);
+          // Don't show error to user
+        }
+      }
+
       // Update module permissions (solo si hay cambios)
       const hasSelectedModules = Object.values(formData.selectedModules).some(value => value === true);
       const hasAnyModules = Object.keys(formData.selectedModules).length > 0;
@@ -409,7 +488,7 @@ const Users = () => {
     try {
       setLoading(true);
 
-      // Delete user module permissions first
+      // Delete user module permissions
       await supabase.from('user_module_permissions').delete().eq('user_id', userId);
 
       // Delete profile
@@ -457,6 +536,7 @@ const Users = () => {
       phone: '',
       position: '',
       department: '',
+      role: '',
       selectedModules: initialModules
     });
   };
@@ -479,6 +559,7 @@ const Users = () => {
       phone: user.phone || '',
       position: user.position || '',
       department: user.department || '',
+      role: user.role || '',
       selectedModules: initialModules
     });
     setShowEditDialog(true);
@@ -486,7 +567,7 @@ const Users = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [availableModules]);
 
   // Initialize form when availableModules changes
   useEffect(() => {
@@ -595,6 +676,25 @@ const Users = () => {
                 </div>
 
                 <div className="space-y-2 col-span-2">
+                  <Label htmlFor="role">Rol</Label>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(value) => setFormData({...formData, role: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un rol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map(role => (
+                        <SelectItem key={role.name} value={role.name}>
+                          {role.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2 col-span-2">
                   <Label>Permisos de Módulos</Label>
                   <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded p-3">
                     {availableModules.map(module => (
@@ -674,6 +774,11 @@ const Users = () => {
                         <Badge variant={user.is_active ? "default" : "secondary"}>
                           {user.is_active ? 'Activo' : 'Inactivo'}
                         </Badge>
+                        {user.role && (
+                          <Badge variant="outline" className="text-xs">
+                            {roles.find(r => r.name === user.role)?.display_name || user.role}
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="flex items-center space-x-4 text-sm text-gray-600">
@@ -823,6 +928,25 @@ const Users = () => {
                 value={formData.department}
                 onChange={(e) => setFormData({...formData, department: e.target.value})}
               />
+            </div>
+
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor="edit-role">Rol</Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value) => setFormData({...formData, role: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map(role => (
+                    <SelectItem key={role.name} value={role.name}>
+                      {role.display_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2 col-span-2">

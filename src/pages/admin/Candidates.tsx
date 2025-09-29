@@ -159,7 +159,19 @@ const Candidates = () => {
       const { data, error } = await supabase
         .from('candidates')
         .select(`
-          *,
+          id,
+          first_name,
+          last_name,
+          email,
+          phone,
+          phone_country,
+          location,
+          experience_years,
+          skills,
+          resume_url,
+          analysis_summary,
+          created_at,
+          updated_at,
           applications(
             id,
             job_id,
@@ -508,7 +520,7 @@ const Candidates = () => {
             <div className="flex items-center">
               <TabsList>
                 <TabsTrigger value="sin-revisar">Sin Revisar ({filteredCandidates('sin-revisar').length})</TabsTrigger>
-                <TabsTrigger value="en-proceso">En Proceso ({filteredCandidates('en-proceso').length})</TabsTrigger>
+                <TabsTrigger value="en-proceso">En entrevista ({filteredCandidates('en-proceso').length})</TabsTrigger>
                 <TabsTrigger value="en-formacion">En Formación ({filteredCandidates('en-formacion').length})</TabsTrigger>
                 <div className="h-6 w-px bg-gray-400 mx-2" />
                 <TabsTrigger value="all">Todos ({filteredCandidates('all').length})</TabsTrigger>

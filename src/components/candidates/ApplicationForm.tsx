@@ -34,6 +34,7 @@ import { uploadFile, ensureBucketExists } from '@/services/file-storage';
 // Import the SUPABASE_PUBLISHABLE_KEY from the client file
 import { SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
 
+
 type JobType = {
   id: string;
   title: string;
@@ -252,16 +253,16 @@ const ApplicationForm = () => {
 
   const onSubmit = async (values: ApplicationFormValues) => {
     const dateObject = new Date(values.fechaNacimiento);
-    
+
     if (!job || !jobId) return;
-    
+
     setIsSubmitting(true);
     setSubmitError(null);
-    
+
     try {
       // Handle resume upload if provided
       let resumeUrl = null;
-      
+
       if (resumeFile) {
         try {
           resumeUrl = await uploadResume(resumeFile);
@@ -270,22 +271,22 @@ const ApplicationForm = () => {
           toast.warning(`No se pudo subir el CV. Tu aplicación será enviada sin CV.`);
         }
       }
-      
+
       console.info('Submitting application with resumeUrl:', resumeUrl);
-      
-      // Implement retry mechanism for edge function calls
+
+      // Use the existing edge function that has proper permissions
       const maxRetries = 3;
       let attempt = 0;
       let lastError = null;
-      
+
       while (attempt < maxRetries) {
         attempt++;
         try {
           console.log(`Attempt ${attempt} to submit application...`);
-          
-          // Use the imported SUPABASE_PUBLISHABLE_KEY instead of trying to access the protected property
+
+          // Use the imported SUPABASE_PUBLISHABLE_KEY
           const anonKey = SUPABASE_PUBLISHABLE_KEY;
-          
+
           // Call our edge function to create the application with Authorization header
           const response = await fetch('https://kugocdtesaczbfrwblsi.supabase.co/functions/v1/create-application', {
             method: 'POST',
@@ -299,22 +300,25 @@ const ApplicationForm = () => {
               email: values.email,
               phone: values.phone,
               phoneCountry: values.phoneCountry,
+              cedula: values.cedula,
+              fechaNacimiento: values.fechaNacimiento,
+              fuente: values.fuente,
               jobId: jobId,
               coverLetter: values.coverLetter,
               resumeUrl: resumeUrl
             })
           });
-          
+
           if (!response.ok) {
             const responseData = await response.json();
             console.error(`Attempt ${attempt} failed with status ${response.status}:`, responseData);
             lastError = new Error(responseData.error || `Error ${response.status}: ${response.statusText}`);
-            
+
             // If this is an auth or permissions issue, don't retry
             if (response.status === 401 || response.status === 403) {
               throw lastError;
             }
-            
+
             // Wait before retrying
             if (attempt < maxRetries) {
               const delay = Math.pow(2, attempt) * 500; // Exponential backoff
@@ -322,27 +326,27 @@ const ApplicationForm = () => {
               await new Promise(resolve => setTimeout(resolve, delay));
               continue;
             }
-            
+
             throw lastError;
           }
-          
+
           const responseData = await response.json();
           console.info('Application submitted successfully:', responseData);
-          
+
           hookToast({
             title: "Aplicación enviada",
             description: "Tu aplicación ha sido enviada correctamente.",
           });
-          
+
           toast.success("Tu aplicación ha sido enviada correctamente");
-          
+
           // Redirect to a thank you page
           navigate('/gracias');
           return;
         } catch (err: any) {
           console.error(`Error in attempt ${attempt}:`, err);
           lastError = err;
-          
+
           // Wait before retrying
           if (attempt < maxRetries) {
             const delay = Math.pow(2, attempt) * 500; // Exponential backoff
@@ -351,7 +355,7 @@ const ApplicationForm = () => {
           }
         }
       }
-      
+
       // If we get here, all attempts failed
       throw lastError || new Error('Error al enviar la aplicación');
     } catch (err: any) {

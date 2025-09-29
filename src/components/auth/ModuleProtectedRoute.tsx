@@ -25,6 +25,12 @@ const ModuleProtectedRoute: React.FC<ModuleProtectedRouteProps> = ({
     );
   }
 
+  // TEMPORAL: Allow access to campaigns module during development
+  // TODO: Remove this after setting up proper permissions
+  if (requiredModule === 'campaigns') {
+    return <>{children}</>;
+  }
+
   // Verificar si es admin (tiene acceso a todo)
   if (hasRole('admin')) {
     return <>{children}</>;

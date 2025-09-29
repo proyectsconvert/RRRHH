@@ -16,11 +16,13 @@ interface Campaign {
   description?: string;
   status: string;
   created_at: string;
+  responsable?: string;
   jobs?: any[] | null;
 }
 
 const Campaigns = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [responsables, setResponsables] = useState<{[key: string]: string}>({});
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -31,7 +33,7 @@ const Campaigns = () => {
         // First fetch campaigns
         const { data: campaignsData, error: campaignsError } = await supabase
           .from('campaigns')
-          .select('*')
+          .select('*, responsable')
           .order('created_at', { ascending: false });
           
         if (campaignsError) {
@@ -44,6 +46,30 @@ const Campaigns = () => {
           return;
         }
 
+        // Get unique responsable IDs
+        const responsableIds = [...new Set(
+          (campaignsData || [])
+            .map(campaign => campaign.responsable)
+            .filter(id => id)
+        )];
+
+        // Fetch responsable names if there are any
+        const responsablesMap: {[key: string]: string} = {};
+        if (responsableIds.length > 0) {
+          const { data: responsablesData, error: responsablesError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email')
+            .in('id', responsableIds);
+
+          if (!responsablesError && responsablesData) {
+            responsablesData.forEach(user => {
+              responsablesMap[user.id] = user.first_name && user.last_name
+                ? `${user.first_name} ${user.last_name}`
+                : user.email;
+            });
+          }
+        }
+
         // Then fetch jobs for each campaign
         const campaignsWithJobs = await Promise.all(
           (campaignsData || []).map(async (campaign) => {
@@ -51,15 +77,16 @@ const Campaigns = () => {
               .from('jobs')
               .select('id, title, status')
               .eq('campaign_id', campaign.id);
-            
+
             return {
               ...campaign,
               jobs: jobsData || []
             };
           })
         );
-        
+
         setCampaigns(campaignsWithJobs);
+        setResponsables(responsablesMap);
       } catch (error) {
         console.error('Error:', error);
       } finally {
@@ -172,6 +199,7 @@ const Campaigns = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nombre</TableHead>
+                      <TableHead>Responsable</TableHead>
                       <TableHead>Vacantes</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Progreso</TableHead>
@@ -188,6 +216,15 @@ const Campaigns = () => {
                             </Link>
                             {campaign.description && (
                               <p className="text-sm text-gray-500 truncate max-w-[250px]">{campaign.description}</p>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {campaign.responsable ? (
+                              <span className="text-sm">
+                                {responsables[campaign.responsable] || 'Cargando...'}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-gray-400">Sin asignar</span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -234,7 +271,7 @@ const Campaigns = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={6} className="text-center py-10 text-gray-500">
                           No hay campañas disponibles. Crea una nueva campaña para comenzar.
                         </TableCell>
                       </TableRow>
