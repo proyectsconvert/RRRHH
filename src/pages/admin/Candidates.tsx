@@ -59,7 +59,6 @@ const initialColumnVisibility = {
   experiencia: true,
   habilidades: true,
   aplicaciones: true,
-  estado: true,
   estado_aplicacion: true,
   fecha: true,
 };
@@ -447,8 +446,9 @@ const Candidates = () => {
         });
       } else {
         const statusFilters: { [key: string]: string[] } = {
-          'en-proceso': ['entrevista-rc', 'entrevista-et', 'asignar-campana'],
+          'en-entrevista': ['entrevista-rc', 'entrevista-et', 'asignar-campana'],
           'en-formacion': ['contratar', 'training'],
+          'contratados': ['contratar'],
           'discarded': ['rejected', 'discarded', 'blocked']
         };
 
@@ -520,10 +520,15 @@ const Candidates = () => {
             <div className="flex items-center">
               <TabsList>
                 <TabsTrigger value="sin-revisar">Sin Revisar ({filteredCandidates('sin-revisar').length})</TabsTrigger>
+<<<<<<< HEAD
                 <TabsTrigger value="en-proceso">En entrevista ({filteredCandidates('en-proceso').length})</TabsTrigger>
+=======
+                <TabsTrigger value="en-entrevista">En Entrevista ({filteredCandidates('en-entrevista').length})</TabsTrigger>
+>>>>>>> frontend-v3
                 <TabsTrigger value="en-formacion">En Formación ({filteredCandidates('en-formacion').length})</TabsTrigger>
                 <div className="h-6 w-px bg-gray-400 mx-2" />
                 <TabsTrigger value="all">Todos ({filteredCandidates('all').length})</TabsTrigger>
+                <TabsTrigger value="contratados">Contratados ({filteredCandidates('contratados').length})</TabsTrigger>
                 <TabsTrigger value="discarded">Descartados ({filteredCandidates('discarded').length})</TabsTrigger>
 
               </TabsList>
@@ -587,7 +592,7 @@ const Candidates = () => {
                             }}
                           />
                           <span className="text-sm capitalize">
-                            {key === 'estado_aplicacion' ? 'Estado Aplicación' :
+                            {key === 'estado_aplicacion' ? 'Estado' :
                              key === 'campana' ? 'Campaña' :
                              key.replace('_', ' ')}
                           </span>
@@ -693,11 +698,10 @@ const Candidates = () => {
                               <SelectValue placeholder="Selecciona un estado" />
                             </SelectTrigger>
                             <SelectContent>
-                            <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
-                            <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
+                              <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
+                              <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
                               <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
                               <SelectItem value="contratar">Contratar</SelectItem>
-                              <SelectItem value="blocked">Bloquear Candidato</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -732,7 +736,7 @@ const Candidates = () => {
                               <SelectValue placeholder="Selecciona un reclutador" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="yineth">Yineth</SelectItem>
+                              <SelectItem value="ginneth">Ginneth</SelectItem>
                               <SelectItem value="laura">Laura</SelectItem>
                               <SelectItem value="sara">Sara</SelectItem>
                             </SelectContent>
@@ -781,6 +785,20 @@ const Candidates = () => {
             />
           </TabsContent>
 
+          <TabsContent value="contratados">
+            <CandidatesTable
+              candidates={filteredCandidates('contratados')}
+              loading={loading}
+              selectedCandidates={selectedCandidates}
+              setSelectedCandidates={setSelectedCandidates}
+              columnVisibility={columnVisibility}
+              setDiscardModalOpen={setDiscardModalOpen}
+              setBlockModalOpen={setBlockModalOpen}
+              setStatusModalOpen={setStatusModalOpen}
+              activeTab={activeTab}
+            />
+          </TabsContent>
+
           <TabsContent value="sin-revisar">
             <CandidatesTable
               candidates={filteredCandidates('sin-revisar')}
@@ -795,9 +813,9 @@ const Candidates = () => {
             />
           </TabsContent>
 
-          <TabsContent value="en-proceso">
+          <TabsContent value="en-entrevista">
             <CandidatesTable
-              candidates={filteredCandidates('en-proceso')}
+              candidates={filteredCandidates('en-entrevista')}
               loading={loading}
               selectedCandidates={selectedCandidates}
               setSelectedCandidates={setSelectedCandidates}
@@ -916,8 +934,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                   {columnVisibility.experiencia && <TableHead>Experiencia</TableHead>}
                   {columnVisibility.habilidades && <TableHead className="w-[12%]">Habilidades</TableHead>}
                   {columnVisibility.aplicaciones && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
-                  {columnVisibility.estado && <TableHead>Estado</TableHead>}
-                  {activeTab === 'all' && columnVisibility.estado_aplicacion && <TableHead>Estado Aplicación</TableHead>}
+                  {activeTab === 'all' && columnVisibility.estado_aplicacion && <TableHead>Estado</TableHead>}
                   {columnVisibility.fecha && <TableHead>Fecha</TableHead>}
                   <TableHead className="text-right">Detalles</TableHead>
                 </TableRow>
@@ -1057,19 +1074,6 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           >
                             {candidate.applications ? candidate.applications.length : 0}
                           </span>
-                        </TableCell>}
-
-                        {columnVisibility.estado && <TableCell>
-                          {/* Aquí deberías poner la lógica del estado que discutimos antes */}
-                          {candidate.resume_url ? (
-                              <Badge variant="secondary" /*className="bg-green-100 text-green-700 border-green-300"*/>
-                                  CV disponible
-                              </Badge>
-                          ) : (
-                              <Badge variant="secondary" /*className="bg-gray-100 text-gray-500 border-gray-300"*/>
-                                  Sin CV
-                              </Badge>
-                          )}
                         </TableCell>}
 
                         {activeTab === 'all' && columnVisibility.estado_aplicacion && <TableCell>

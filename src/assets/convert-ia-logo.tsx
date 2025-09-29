@@ -16,7 +16,7 @@ export const ConvertIALogo = ({
       alt="Convert-IA Logo" 
       className={`h-${size} w-${size}`} 
     />
-    <span className={`ml-2 font-bold text-lg ${textColor}`}>
+    <span className={`text-lg font-bold ${textColor} group-data-[state=collapsed]:hidden`}>
       convert-ia®
     </span>
   </div>
