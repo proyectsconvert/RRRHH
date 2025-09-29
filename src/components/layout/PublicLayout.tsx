@@ -23,21 +23,23 @@ const PublicLayout = () => {
                   Sitio Web
                 </a>
               </li>
+              {/**
               <li>
                 <Link to="/entrenamiento" className="text-gray-600 hover:text-hrm-dark-cyan">
                   Chat Entrenamiento
                 </Link>
-              </li>
+              </li>*/}
               <li>
                 <Link to="/admin/login" className="text-gray-600 hover:text-hrm-dark-cyan">
                   Admin
                 </Link>
               </li>
+              {/** 
               <li>
                 <Link to="/rrhh" className="text-gray-600 hover:text-purple-800 px-2 py-1 rounded-md border border-hrm-light-gray hover:border-purple-500 transition-colors">
                   RRHH
                 </Link>
-              </li>
+              </li>*/}
             </ul>
           </nav>
         </div>

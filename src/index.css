@@ -42,10 +42,14 @@
     --sidebar-foreground: 180 33% 50%;
     --sidebar-primary: 180 100% 27%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 180 100% 27%;
+
+    --sidebar-accent: 180 100% 27%; 
+
+    --sidebar-accent-foreground: 0 0% 98%; 
+    
     --sidebar-border: 0 0% 86%;
     --sidebar-ring: 180 33% 50%;
+
 
     /* Dark Green for success elements */
     --success: 120 100% 20%;
@@ -126,3 +130,4 @@
     @apply bg-yellow-100 text-yellow-800;
   }
 }
+

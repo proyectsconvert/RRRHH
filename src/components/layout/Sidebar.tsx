@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { Calendar, Database, File, Home, LogOut, MessageCircle, MessageSquare, Search, Settings, Users, Code, History, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader,SidebarMenuItem,SidebarMenu,SidebarMenuButton, } from '@/components/ui/sidebar';
 import ConvertIALogo from '@/assets/convert-ia-logo';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -87,53 +87,46 @@ const AdminSidebar = () => {
     }
   };
   return (
-    <Sidebar className="border-r border-hrm-dark-cyan bg-hrm-dark-primary">
+    <Sidebar collapsible="icon" className="border-r border-hrm-dark-cyan bg-hrm-dark-primary">
       <SidebarHeader className="h-14 border-b border-hrm-dark-cyan/40 bg-hrm-background2">
-        <div className="flex items-center justify-center h-full px-4">
+      <div className="flex items-center h-full px-4 justify-center group-data-[state=collapsed]:px-2 group-data-[state=collapsed]:justify-center">
           <ConvertIALogo className="h-10" />
         </div>
       </SidebarHeader>
       <SidebarContent className="bg-hrm-background2">
-        <nav className="space-y-1 py-4">
+        {/* 👇 2. Envuelve tu navegación en los componentes SidebarMenu y SidebarMenuItem */}
+        <SidebarMenu className="py-4">
           {loading ? (
             <div className="px-4 py-2 text-sm text-gray-400">Cargando permisos...</div>
           ) : (
             mainNavItems
-              .filter(item => {
-                const hasAdminRole = hasRole('admin');
-
-                // Si es admin, mostrar todo
-                if (hasAdminRole) {
-                  return true;
-                }
-
-                // Si no es admin, verificar permisos específicos del módulo
-                return hasModuleAccess(item.module);
-              })
+              .filter(item => hasRole('admin') || hasModuleAccess(item.module))
               .map(item => (
-                <NavLink
-                  key={item.href}
-                  to={item.href}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center px-4 py-2 text-sm font-medium rounded-md",
-                      isActive
-                        ? "bg-opacity-20 bg-white text-white"
-                        : "text-gray-100 hover:bg-opacity-10 hover:bg-white hover:text-white"
-                    )
-                  }
-                >
-                  <item.icon className="mr-3 h-5 w-5" aria-hidden="true" />
-                  {item.label}
-                </NavLink>
+                <SidebarMenuItem key={item.href}>
+                  <NavLink to={item.href}>
+                    {({ isActive }) => (
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        // 👇 3. Añade el tooltip aquí
+                        tooltip={item.label}
+                        className={cn(
+                          isActive
+                            ? "!bg-hrm-teal !text-white active:!bg-hrm-teal active:!text-white" 
+                            : "text-gray-100 hover:bg-opacity-10 hover:bg-white hover:text-white"
+                        )}
+                      >
+                        <item.icon className="h-5 w-5" aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    )}
+                  </NavLink>
+                </SidebarMenuItem>
               ))
           )}
           {mainNavItems.filter(item => hasRole('admin') || hasModuleAccess(item.module)).length === 0 && !loading && (
-            <div className="px-4 py-2 text-sm text-red-400">
-              No tienes permisos para ver ningún módulo
-            </div>
+             <div className="px-4 py-2 text-sm text-red-400">No tienes permisos...</div>
           )}
-        </nav>
+        </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="border-t border-hrm-dark-cyan/40 p-4 bg-hrm-background2">
         <div className="flex items-center justify-between">
