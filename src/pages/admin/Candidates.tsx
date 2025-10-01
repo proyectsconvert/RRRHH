@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +21,8 @@ import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from "@/comp
 import { Label } from "@/components/ui/label";
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input";
+import { sendWelcomeMessage } from "@/utils/evolution-api";
+import TeamsMeetingDialog, { MeetingData } from "@/components/candidates/TeamsMeetingDialog";
 
 interface Job {
   id?: string;
@@ -33,8 +34,10 @@ interface Application {
   job_id: string;
   status: string;
   campaign_id?: string;
+  recruiter_id?: string;
   jobs: Job | null;
   campaigns?: { name: string } | null;
+  recruiter?: { first_name: string; last_name: string };
 }
 
 interface Candidate {
@@ -61,6 +64,7 @@ const initialColumnVisibility = {
   aplicaciones: true,
   estado_aplicacion: true,
   fecha: true,
+  reclutador: true, // Nueva columna para mostrar el reclutador asignado
 };
 
 // Get the primary status from candidate applications
@@ -141,6 +145,14 @@ const Candidates = () => {
   const [selectedRecruiter, setSelectedRecruiter] = useState("");
   const [selectedCampaign, setSelectedCampaign] = useState("");
   const [searchQuery, setSearchQuery] = useState('');
+  const [isTeamsDialogOpen, setIsTeamsDialogOpen] = useState(false);
+  const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | null>(null);
+  const [recruiters, setRecruiters] = useState<{id: string, first_name: string, last_name: string}[]>([]);
+  const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{id: string, first_name: string, last_name: string} | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentCandidate, setCurrentCandidate] = useState<Candidate | null>(null);
+  const [interviewTypeFilter, setInterviewTypeFilter] = useState<'all' | 'entrevista-rc' | 'entrevista-et'>('all');
 
   const handleJobSelectionChange = (jobId: string, isChecked: boolean) => {
     setSelectedJob(prev => {
@@ -152,9 +164,9 @@ const Candidates = () => {
     });
   };
 
-  const fetchCandidates = async () => {
+  const fetchCandidates = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const { data, error } = await supabase
         .from('candidates')
         .select(`
@@ -164,8 +176,10 @@ const Candidates = () => {
             job_id,
             status,
             campaign_id,
+            recruiter_id,
             jobs(title),
-            campaigns!campaign_id(name)
+            campaigns!campaign_id(name),
+            recruiter:recruiter_id(first_name, last_name)
           )
         `)
         .order('created_at', { ascending: false });
@@ -218,25 +232,90 @@ const Candidates = () => {
       }
     };
 
+    const fetchRecruiters = async () => {
+      // Get current authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        setCurrentUserId(user.id);
+
+        // Get current user's role
+        const { data: userProfile, error: userError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (!userError && userProfile) {
+          setCurrentUserRole(userProfile.role);
+        } else {
+          // Fallback: if role is not found, assume regular user (show all candidates)
+          setCurrentUserRole(null);
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('role', 'reclutador')
+        .order('first_name');
+      if (error) {
+        console.error("Error fetching recruiters:", error);
+      } else {
+        const recruitersList = data || [];
+        setRecruiters(recruitersList);
+
+        // Check if current user is a recruiter and set as default
+        if (user) {
+          const currentUserAsRecruiter = recruitersList.find(r => r.id === user.id);
+          if (currentUserAsRecruiter) {
+            setCurrentUserRecruiter(currentUserAsRecruiter);
+            setSelectedRecruiter(user.id); // Set current user as selected by default
+          } else if (currentUserRole === 'reclutador') {
+            // If user has recruiter role but is not in the list, add them
+            const userAsRecruiter = {
+              id: user.id,
+              first_name: 'Current', // This should be fetched from profile
+              last_name: 'User'
+            };
+            setRecruiters(prev => [...prev, userAsRecruiter]);
+            setCurrentUserRecruiter(userAsRecruiter);
+            setSelectedRecruiter(user.id);
+          }
+        }
+      }
+    };
+
     fetchJobs();
     fetchActiveCampaigns();
+    fetchRecruiters();
   }, []);
 
   useEffect(() => {
     fetchCandidates();
     
-    // Set up subscription for real-time updates
+    // Set up subscription for real-time updates (silent updates without loading screen)
     const channel = supabase
       .channel('candidates-changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'candidates' 
-        }, 
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'applications'  // Also listen to applications table changes
+        },
+        (payload) => {
+          console.log('Applications change detected:', payload);
+          fetchCandidates(false); // Refresh data silently when changes occur
+        })
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'candidates'
+        },
         (payload) => {
           console.log('Candidate change detected:', payload);
-          fetchCandidates(); // Refresh data when changes occur
+          fetchCandidates(false); // Refresh data silently when changes occur
         })
       .subscribe();
 
@@ -250,6 +329,67 @@ const Candidates = () => {
     fetchCandidates();
   };
 
+  // Function to fix existing interview assignments (assign recruiter_id to current user)
+  const fixExistingInterviews = async () => {
+    if (!currentUserId) return;
+
+    try {
+      // First, check how many interviews need to be fixed
+      const { data: existingInterviews, error: checkError } = await supabase
+        .from('applications')
+        .select('id, status, recruiter_id')
+        .in('status', ['entrevista-rc', 'entrevista-et'])
+        .is('recruiter_id', null);
+
+      if (checkError) {
+        console.error('Error checking existing interviews:', checkError);
+        toast({
+          title: "Error",
+          description: "Error al verificar entrevistas existentes",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!existingInterviews || existingInterviews.length === 0) {
+        toast({
+          title: "No hay entrevistas para asignar",
+          description: "Todas las entrevistas ya están asignadas",
+        });
+        return;
+      }
+
+      // Update all applications with interview status but null recruiter_id
+      const { error } = await supabase
+        .from('applications')
+        .update({ recruiter_id: currentUserId })
+        .in('status', ['entrevista-rc', 'entrevista-et'])
+        .is('recruiter_id', null);
+
+      if (error) {
+        console.error('Error fixing interviews:', error);
+        toast({
+          title: "Error",
+          description: `No se pudieron actualizar las entrevistas: ${error.message}`,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Entrevistas actualizadas",
+          description: `Se asignaron ${existingInterviews.length} entrevistas existentes al reclutador actual`,
+        });
+        fetchCandidates(false);
+      }
+    } catch (error) {
+      console.error('Error in fixExistingInterviews:', error);
+      toast({
+        title: "Error",
+        description: "Error al asignar entrevistas existentes",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Handle status change for selected candidates
   const handleStatusChange = async () => {
     if (!newStatus || selectedCandidates.length === 0) return;
@@ -261,6 +401,18 @@ const Candidates = () => {
         description: "Debes seleccionar una campaña",
         variant: "destructive"
       });
+      return;
+    }
+
+    // For interview statuses, show Teams dialog instead of updating immediately
+    if (newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') {
+      const candidate = candidates.find(c => c.id === selectedCandidates[0]);
+      if (candidate) {
+        setCurrentCandidate(candidate);
+        setCurrentInterviewType(newStatus);
+        setIsTeamsDialogOpen(true);
+        setStatusModalOpen(false);
+      }
       return;
     }
 
@@ -284,6 +436,11 @@ const Candidates = () => {
               updateData.campaign_id = null;
             }
 
+            // Save recruiter_id for interview statuses
+            if ((newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') && selectedRecruiter) {
+              updateData.recruiter_id = selectedRecruiter;
+            }
+
             updates.push(
               supabase
                 .from('applications')
@@ -295,6 +452,30 @@ const Candidates = () => {
       }
 
       await Promise.all(updates);
+
+      // Send welcome message to candidates whose status changed to "contratar"
+      if (newStatus === 'contratar') {
+        const welcomeMessagePromises = selectedCandidates.map(async (candidateId) => {
+          const candidate = candidates.find(c => c.id === candidateId);
+          if (candidate?.phone) {
+            try {
+              const candidateName = `${candidate.first_name} ${candidate.last_name}`;
+              await sendWelcomeMessage(candidate.phone, candidateName);
+              console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
+            } catch (error) {
+              console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
+              // Don't show error toast for individual message failures to avoid spam
+            }
+          } else {
+            console.warn(`No phone number found for candidate ${candidate?.first_name} ${candidate?.last_name}`);
+          }
+        });
+
+        // Send messages in parallel but don't wait for them to complete
+        Promise.all(welcomeMessagePromises).catch(error => {
+          console.error('Error sending welcome messages:', error);
+        });
+      }
 
       toast({
         title: "Estado actualizado",
@@ -312,6 +493,96 @@ const Candidates = () => {
       toast({
         title: "Error",
         description: "No se pudo actualizar el estado de los candidatos",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle meeting creation and status update
+  const handleMeetingCreated = async (meetingData: MeetingData) => {
+    if (!currentCandidate || !currentInterviewType || !currentUserId) {
+      console.error('Missing required data for meeting creation');
+      return;
+    }
+
+    try {
+      // Update candidate status to interview type and assign recruiter
+      const updates = [];
+      if (currentCandidate.applications) {
+        for (const app of currentCandidate.applications) {
+          updates.push(
+            supabase
+              .from('applications')
+              .update({
+                status: currentInterviewType,
+                recruiter_id: currentUserId, // Assign current user as recruiter
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', app.id)
+          );
+        }
+      }
+
+      await Promise.all(updates);
+
+      console.log(`Interview assigned: ${currentInterviewType} to candidate ${currentCandidate.first_name} ${currentCandidate.last_name} by recruiter ${currentUserId}`);
+
+      // Send message via Evolution API
+      if (currentCandidate.phone) {
+        try {
+          // Format time with AM/PM
+          const [hours, minutes] = meetingData.time.split(':');
+          const hour24 = parseInt(hours);
+          const ampm = hour24 >= 12 ? 'PM' : 'AM';
+          const hour12 = hour24 % 12 || 12;
+          const timeFormatted = `${hour12}:${minutes} ${ampm}`;
+
+          const interviewTypeText = currentInterviewType === 'entrevista-rc' ? 'Si entrevista RC' : 'Si entrevista Técnica';
+          const dateTimeStr = `${meetingData.date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
+
+          const message = `Felicidades, está en proceso de entrevista ${interviewTypeText}, quedo para el día ${dateTimeStr} con este link: ${meetingData.meetingLink}`;
+
+          const { sendEvolutionMessage } = await import('@/utils/evolution-api');
+          await sendEvolutionMessage(currentCandidate.phone, message, true);
+
+          console.log(`Interview message sent to ${currentCandidate.first_name} ${currentCandidate.last_name} (${currentCandidate.phone})`);
+        } catch (error) {
+          console.error(`Failed to send interview message to ${currentCandidate.first_name} ${currentCandidate.last_name}:`, error);
+          toast({
+            title: "Advertencia",
+            description: "La reunión se creó correctamente pero no se pudo enviar el mensaje de WhatsApp",
+            variant: "destructive"
+          });
+        }
+      } else {
+        console.warn(`No phone number found for candidate ${currentCandidate.first_name} ${currentCandidate.last_name}`);
+        toast({
+          title: "Advertencia",
+          description: "La reunión se creó correctamente pero el candidato no tiene número de teléfono registrado",
+          variant: "destructive"
+        });
+      }
+
+      toast({
+        title: "Reunión programada",
+        description: `Entrevista programada para ${meetingData.date.toLocaleDateString('es-ES')} a las ${meetingData.time}. Link enviado al candidato.`,
+      });
+
+      // Reset state
+      setCurrentCandidate(null);
+      setCurrentInterviewType(null);
+      setNewStatus("");
+      setSelectedRecruiter("");
+      setSelectedCampaign("");
+      setSelectedCandidates([]);
+
+      // Refresh data immediately (silently)
+      setTimeout(() => fetchCandidates(false), 500);
+    } catch (error) {
+      console.error('Error creating meeting and updating status:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear la reunión y actualizar el estado",
         variant: "destructive"
       });
     }
@@ -412,6 +683,55 @@ const Candidates = () => {
   };
 
 
+  const getInterviewFilteredCandidates = (interviewFilter: 'all' | 'entrevista-rc' | 'entrevista-et') => {
+    let filtered = candidates;
+
+    // First apply the base interview filter
+    const allowedStatuses = ['entrevista-rc', 'entrevista-et', 'asignar-campana'];
+    filtered = filtered.filter(candidate =>
+      candidate.applications?.some(app => allowedStatuses.includes(app.status))
+    );
+
+    // Apply role-based filtering for recruiters (only show their assigned interviews)
+    if (currentUserRole === 'reclutador' && currentUserId) {
+      filtered = filtered.filter(candidate =>
+        candidate.applications?.some(app =>
+          allowedStatuses.includes(app.status) && app.recruiter_id === currentUserId
+        )
+      );
+    }
+
+    // Then apply the specific interview type filter
+    if (interviewFilter !== 'all') {
+      filtered = filtered.filter(candidate =>
+        candidate.applications?.some(app => app.status === interviewFilter)
+      );
+    }
+
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(candidate => {
+        const fullName = `${candidate.first_name} ${candidate.last_name}`.toLowerCase();
+        const candidateId = candidate.id.toLowerCase();
+        const phone = candidate.phone?.toLowerCase() || '';
+
+        return fullName.includes(query) ||
+               candidateId.includes(query) ||
+               phone.includes(query);
+      });
+    }
+
+    // Apply job filter
+    if (selectedJob.length > 0) {
+      filtered = filtered.filter(candidate =>
+        candidate.applications?.some(app => selectedJob.includes(app.job_id))
+      );
+    }
+
+    return filtered;
+  };
+
   const filteredCandidates = (tabFilter?: string) => {
     let filtered = candidates;
 
@@ -444,14 +764,44 @@ const Candidates = () => {
         filtered = filtered.filter(candidate =>
           candidate.applications?.some(app => allowedStatuses.includes(app.status))
         );
+
+        // Apply role-based filtering for interview statuses
+        if (tabFilter === 'en-entrevista' && currentUserRole === 'reclutador' && currentUserId) {
+          // For recruiters, only show candidates where they are the assigned recruiter
+          filtered = filtered.filter(candidate =>
+            candidate.applications?.some(app =>
+              allowedStatuses.includes(app.status) && app.recruiter_id === currentUserId
+            )
+          );
+        }
+
+        // For other tabs, show all candidates regardless of role (recruiters need to be able to assign interviews)
+        // Only restrict the "En Entrevista" tab to show only their assigned candidates
+
+        // Apply interview type filter for 'en-entrevista' tab
+        if (tabFilter === 'en-entrevista') {
+          if (interviewTypeFilter !== 'all') {
+            filtered = filtered.filter(candidate =>
+              candidate.applications?.some(app => app.status === interviewTypeFilter)
+            );
+          }
+          // For 'en-entrevista' tab, return the filtered result
+          return filtered;
+        }
       }
     }
 
-    // 2. Aplicar filtro de búsqueda por nombre (si hay algo escrito)
+    // 2. Aplicar filtro de búsqueda por nombre, cédula/ID y teléfono (si hay algo escrito)
     if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(candidate => {
         const fullName = `${candidate.first_name} ${candidate.last_name}`.toLowerCase();
-        return fullName.includes(searchQuery.toLowerCase());
+        const candidateId = candidate.id.toLowerCase();
+        const phone = candidate.phone?.toLowerCase() || '';
+
+        return fullName.includes(query) ||
+               candidateId.includes(query) ||
+               phone.includes(query);
       });
     }
 
@@ -473,23 +823,33 @@ const Candidates = () => {
 
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input 
-            placeholder="Buscar Candidato..." 
-            className="pl-9" 
+          <Input
+            placeholder="Buscar por nombre, cédula o teléfono..."
+            className="pl-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-          <Button 
-            variant="outline" 
-            onClick={handleRefresh} 
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center gap-1"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
+
+          {currentUserRole === 'reclutador' && (
+            <Button
+              variant="outline"
+              onClick={fixExistingInterviews}
+              className="flex items-center gap-1 text-orange-600 border-orange-300 hover:bg-orange-50"
+            >
+              🔧 Asignar Entrevistas Existentes
+            </Button>
+          )}
           {/*
           <Button className="bg-hrm-dark-cyan hover:bg-hrm-steel-blue" asChild>
             <Link to="/admin/candidates/new">
@@ -500,7 +860,86 @@ const Candidates = () => {
           */}
         </div>
       </div>
-      
+
+      {/* Recruiter-specific Stats Cards */}
+      {currentUserRole === 'reclutador' && currentUserId && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Entrevistas RC Asignadas</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {candidates.filter(candidate =>
+                    candidate.applications?.some(app =>
+                      app.status === 'entrevista-rc' && app.recruiter_id === currentUserId
+                    )
+                  ).length}
+                </p>
+              </div>
+              <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <span className="text-purple-600 font-semibold">RC</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Entrevistas Técnicas Asignadas</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {candidates.filter(candidate =>
+                    candidate.applications?.some(app =>
+                      app.status === 'entrevista-et' && app.recruiter_id === currentUserId
+                    )
+                  ).length}
+                </p>
+              </div>
+              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 font-semibold">ET</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Entrevistas Activas</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {candidates.filter(candidate =>
+                    candidate.applications?.some(app =>
+                      (app.status === 'entrevista-rc' || app.status === 'entrevista-et') &&
+                      app.recruiter_id === currentUserId
+                    )
+                  ).length}
+                </p>
+              </div>
+              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-green-600 font-semibold">∑</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Candidatos en Proceso</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {candidates.filter(candidate =>
+                    candidate.applications?.some(app =>
+                      app.recruiter_id === currentUserId &&
+                      ['entrevista-rc', 'entrevista-et', 'asignar-campana'].includes(app.status)
+                    )
+                  ).length}
+                </p>
+              </div>
+              <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 font-semibold">⚡</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-4">
         <Tabs defaultValue={activeTab} className="w-full" onValueChange={setActiveTab}>
           <div className="flex justify-between items-center">
@@ -578,6 +1017,7 @@ const Candidates = () => {
                           <span className="text-sm capitalize">
                             {key === 'estado_aplicacion' ? 'Estado' :
                              key === 'campana' ? 'Campaña' :
+                             key === 'reclutador' ? 'Reclutador' :
                              key.replace('_', ' ')}
                           </span>
                         </label>
@@ -685,7 +1125,7 @@ const Candidates = () => {
                               <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
                               <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
                               <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
-                              <SelectItem value="contratar">Contratar</SelectItem>
+                              <SelectItem value="contratar">Proceso de contratación</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -717,12 +1157,20 @@ const Candidates = () => {
                           </Label>
                           <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
                             <SelectTrigger id="recruiter" className="col-span-3">
-                              <SelectValue placeholder="Selecciona un reclutador" />
+                              <SelectValue placeholder={currentUserRecruiter ? `${currentUserRecruiter.first_name} ${currentUserRecruiter.last_name}` : "Selecciona un reclutador"} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="ginneth">Ginneth</SelectItem>
-                              <SelectItem value="laura">Laura</SelectItem>
-                              <SelectItem value="sara">Sara</SelectItem>
+                              {recruiters.map((recruiter) => (
+                                <SelectItem key={recruiter.id} value={recruiter.id}>
+                                  {recruiter.first_name} {recruiter.last_name}
+                                </SelectItem>
+                              ))}
+                              {/* Add current user if they're a recruiter but not in the list */}
+                              {currentUserRecruiter && !recruiters.find(r => r.id === currentUserRecruiter.id) && (
+                                <SelectItem key={currentUserRecruiter.id} value={currentUserRecruiter.id}>
+                                  {currentUserRecruiter.first_name} {currentUserRecruiter.last_name} (Tú)
+                                </SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -798,6 +1246,31 @@ const Candidates = () => {
           </TabsContent>
 
           <TabsContent value="en-entrevista">
+            {/* Interview Type Filter Buttons */}
+            <div className="mb-4 flex gap-2">
+              <Button
+                variant={interviewTypeFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setInterviewTypeFilter('all')}
+              >
+                Todas las entrevistas ({getInterviewFilteredCandidates('all').length})
+              </Button>
+              <Button
+                variant={interviewTypeFilter === 'entrevista-rc' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setInterviewTypeFilter('entrevista-rc')}
+              >
+                Entrevista RC ({getInterviewFilteredCandidates('entrevista-rc').length})
+              </Button>
+              <Button
+                variant={interviewTypeFilter === 'entrevista-et' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setInterviewTypeFilter('entrevista-et')}
+              >
+                Entrevista Técnica ({getInterviewFilteredCandidates('entrevista-et').length})
+              </Button>
+            </div>
+
             <CandidatesTable
               candidates={filteredCandidates('en-entrevista')}
               loading={loading}
@@ -856,6 +1329,15 @@ const Candidates = () => {
           */}
         </Tabs>
       </div>
+
+      {/* Teams Meeting Dialog */}
+      <TeamsMeetingDialog
+        isOpen={isTeamsDialogOpen}
+        onClose={() => setIsTeamsDialogOpen(false)}
+        onMeetingCreated={handleMeetingCreated}
+        candidateName={currentCandidate ? `${currentCandidate.first_name} ${currentCandidate.last_name}` : ''}
+        interviewType={currentInterviewType || 'entrevista-rc'}
+      />
     </div>
   );
 };
@@ -918,7 +1400,8 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                   {columnVisibility.experiencia && <TableHead>Experiencia</TableHead>}
                   {columnVisibility.habilidades && <TableHead className="w-[12%]">Habilidades</TableHead>}
                   {columnVisibility.aplicaciones && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
-                  {activeTab === 'all' && columnVisibility.estado_aplicacion && <TableHead>Estado</TableHead>}
+                  {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableHead>Estado</TableHead>}
+                  {activeTab === 'all' && columnVisibility.reclutador && <TableHead className="w-[12%]">Reclutador</TableHead>}
                   {columnVisibility.fecha && <TableHead>Fecha</TableHead>}
                   <TableHead className="text-right">Detalles</TableHead>
                 </TableRow>
@@ -1060,7 +1543,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </span>
                         </TableCell>}
 
-                        {activeTab === 'all' && columnVisibility.estado_aplicacion && <TableCell>
+                        {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableCell>
                           {(() => {
                             const primaryStatus = getCandidateStatus(candidate.applications);
                             const statusDisplay = getStatusDisplay(primaryStatus);
@@ -1070,6 +1553,22 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                               </Badge>
                             );
                           })()}
+                        </TableCell>}
+
+                        {activeTab === 'all' && columnVisibility.reclutador && <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {candidate.applications && candidate.applications.length > 0 ? (
+                              candidate.applications
+                                .filter(app => app.recruiter) // Only show applications that have a recruiter assigned
+                                .map(app => (
+                                  <Badge key={app.id} variant="outline" className="text-xs">
+                                    {app.recruiter.first_name} {app.recruiter.last_name}
+                                  </Badge>
+                                ))
+                            ) : (
+                              <span className="text-gray-500 text-sm">Sin asignar</span>
+                            )}
+                          </div>
                         </TableCell>}
 
                         {columnVisibility.fecha && <TableCell>

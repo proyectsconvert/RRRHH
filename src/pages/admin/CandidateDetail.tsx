@@ -9,6 +9,12 @@ import PDFViewer from '@/components/ui/pdf-viewer';
 import CandidateSidebar from '@/components/candidates/CandidateSidebar';
 import AnalysisContent from '@/components/candidates/AnalysisContent';
 import ResumeContent from '@/components/candidates/ResumeContent';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import TeamsMeetingDialog, { MeetingData } from '@/components/candidates/TeamsMeetingDialog';
+import { sendWelcomeMessage } from '@/utils/evolution-api';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   fetchCandidateDetails, 
   saveAnalysisData, 
@@ -29,6 +35,13 @@ const CandidateDetail: React.FC = () => {
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [resumeContent, setResumeContent] = useState<string | null>(null);
+  const [isStatusModalOpen, setStatusModalOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
+  const [isTeamsDialogOpen, setIsTeamsDialogOpen] = useState(false);
+  const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | null>(null);
+  const [recruiters, setRecruiters] = useState<{id: string, first_name: string, last_name: string}[]>([]);
+  const [selectedRecruiter, setSelectedRecruiter] = useState("");
+  const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{id: string, first_name: string, last_name: string} | null>(null);
 
   useEffect(() => {
     const loadCandidate = async () => {
@@ -65,7 +78,34 @@ const CandidateDetail: React.FC = () => {
       }
     };
     
+    const fetchRecruiters = async () => {
+      // Get current authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('role', 'reclutador')
+        .order('first_name');
+      if (error) {
+        console.error("Error fetching recruiters:", error);
+      } else {
+        const recruitersList = data || [];
+        setRecruiters(recruitersList);
+
+        // Check if current user is a recruiter and set as default
+        if (user) {
+          const currentUserAsRecruiter = recruitersList.find(r => r.id === user.id);
+          if (currentUserAsRecruiter) {
+            setCurrentUserRecruiter(currentUserAsRecruiter);
+            setSelectedRecruiter(user.id); // Set current user as selected by default
+          }
+        }
+      }
+    };
+
     if (id) loadCandidate();
+    fetchRecruiters();
   }, [id, toast]);
 
   const handleSaveResumeText = async (text: string) => {
@@ -210,11 +250,172 @@ const CandidateDetail: React.FC = () => {
   const handleTextExtracted = (text: string) => {
     console.log("Texto extraído en el componente principal:", text.substring(0, 100) + "...");
     setResumeContent(text);
-    
-    toast({ 
-      title: "Texto extraído", 
+
+    toast({
+      title: "Texto extraído",
       description: "El contenido del CV ha sido extraído correctamente"
     });
+  };
+
+  const handleChangeStatus = () => {
+    setStatusModalOpen(true);
+  };
+
+  const handleStatusChange = async () => {
+    if (!newStatus || !candidate) return;
+
+    // For interview statuses, show Teams dialog instead of updating immediately
+    if (newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') {
+      setCurrentInterviewType(newStatus);
+      setIsTeamsDialogOpen(true);
+      setStatusModalOpen(false);
+      return;
+    }
+
+    try {
+      // Update status for all candidate applications
+      const updates = [];
+      if (candidate.applications) {
+        for (const app of candidate.applications) {
+          updates.push(
+            supabase
+              .from('applications')
+              .update({
+                status: newStatus,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', app.id)
+          );
+        }
+      }
+
+      await Promise.all(updates);
+
+      // Send welcome message to candidates whose status changed to "contratar"
+      if (newStatus === 'contratar') {
+        if (candidate.phone) {
+          try {
+            const candidateName = `${candidate.first_name} ${candidate.last_name}`;
+            await sendWelcomeMessage(candidate.phone, candidateName);
+            console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
+          } catch (error) {
+            console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
+            toast({
+              title: "Advertencia",
+              description: "El estado se cambió correctamente pero no se pudo enviar el mensaje de WhatsApp",
+              variant: "destructive"
+            });
+          }
+        } else {
+          console.warn(`No phone number found for candidate ${candidate.first_name} ${candidate.last_name}`);
+        }
+      }
+
+      toast({
+        title: "Estado actualizado",
+        description: "El estado del candidato ha sido actualizado correctamente",
+      });
+
+      setStatusModalOpen(false);
+      setNewStatus("");
+      setSelectedRecruiter("");
+
+      // Refresh candidate data
+      if (id) {
+        const candidateData = await fetchCandidateDetails(id);
+        setCandidate(candidateData);
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado del candidato",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleMeetingCreated = async (meetingData: MeetingData) => {
+    if (!candidate || !currentInterviewType) return;
+
+    try {
+      // Update candidate status to interview type
+      const updates = [];
+      if (candidate.applications) {
+        for (const app of candidate.applications) {
+          updates.push(
+            supabase
+              .from('applications')
+              .update({
+                status: currentInterviewType,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', app.id)
+          );
+        }
+      }
+
+      await Promise.all(updates);
+
+      // Send message via Evolution API
+      if (candidate.phone) {
+        try {
+          // Format time with AM/PM
+          const [hours, minutes] = meetingData.time.split(':');
+          const hour24 = parseInt(hours);
+          const ampm = hour24 >= 12 ? 'PM' : 'AM';
+          const hour12 = hour24 % 12 || 12;
+          const timeFormatted = `${hour12}:${minutes} ${ampm}`;
+
+          const interviewTypeText = currentInterviewType === 'entrevista-rc' ? 'Si entrevista RC' : 'Si entrevista Técnica';
+          const dateTimeStr = `${meetingData.date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
+
+          const message = `Felicidades, está en proceso de entrevista ${interviewTypeText}, quedo para el día ${dateTimeStr} con este link: ${meetingData.meetingLink}`;
+
+          const { sendEvolutionMessage } = await import('@/utils/evolution-api');
+          await sendEvolutionMessage(candidate.phone, message, true);
+
+          console.log(`Interview message sent to ${candidate.first_name} ${candidate.last_name} (${candidate.phone})`);
+        } catch (error) {
+          console.error(`Failed to send interview message to ${candidate.first_name} ${candidate.last_name}:`, error);
+          toast({
+            title: "Advertencia",
+            description: "La reunión se creó correctamente pero no se pudo enviar el mensaje de WhatsApp",
+            variant: "destructive"
+          });
+        }
+      } else {
+        console.warn(`No phone number found for candidate ${candidate.first_name} ${candidate.last_name}`);
+        toast({
+          title: "Advertencia",
+          description: "La reunión se creó correctamente pero el candidato no tiene número de teléfono registrado",
+          variant: "destructive"
+        });
+      }
+
+      toast({
+        title: "Reunión programada",
+        description: `Entrevista programada para ${meetingData.date.toLocaleDateString('es-ES')} a las ${meetingData.time}. Link enviado al candidato.`,
+      });
+
+      // Reset state
+      setCurrentInterviewType(null);
+      setNewStatus("");
+      setSelectedRecruiter("");
+
+      // Refresh candidate data
+      if (id) {
+        const candidateData = await fetchCandidateDetails(id);
+        setCandidate(candidateData);
+      }
+    } catch (error) {
+      console.error('Error creating meeting and updating status:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear la reunión y actualizar el estado",
+        variant: "destructive"
+      });
+    }
   };
 
   if (loading) {
@@ -269,6 +470,7 @@ const CandidateDetail: React.FC = () => {
           resumeContent={resumeContent}
           onViewResume={() => setPdfViewerOpen(true)}
           onAnalyzeCV={handleAnalyzeCV}
+          onChangeStatus={handleChangeStatus}
           getStatusText={getStatusText}
         />
         
@@ -302,6 +504,74 @@ const CandidateDetail: React.FC = () => {
           onAnalyze={() => handleAnalyzeCV(candidate.applications?.[0]?.id)}
         />
       )}
+
+      {/* Status Change Dialog */}
+      <Dialog open={isStatusModalOpen} onOpenChange={setStatusModalOpen}>
+        <DialogContent className="sm:max-w-[425px] p-0 border-none shadow-none">
+          <DialogHeader className="bg-hrm-dark-primary py-9 px-6 rounded-t-lg border-none shadow-none">
+            <DialogTitle className="text-white text-xl">Cambiar Estado del Candidato</DialogTitle>
+            <DialogDescription className="text-gray-200">
+              Selecciona el nuevo estado para {candidate.first_name} {candidate.last_name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4 px-6">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                Estado
+              </Label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger id="status" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
+                  <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
+                  <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
+                  <SelectItem value="contratar">Proceso de contratación</SelectItem>
+                  <SelectItem value="training">En Formación</SelectItem>
+                  <SelectItem value="rejected">Rechazado</SelectItem>
+                  <SelectItem value="discarded">Descartado</SelectItem>
+                  <SelectItem value="blocked">Bloqueado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* --- SELECT DE RECLUTADOR --- */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="recruiter" className="text-right">
+                Reclutador
+              </Label>
+              <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
+                <SelectTrigger id="recruiter" className="col-span-3">
+                  <SelectValue placeholder={currentUserRecruiter ? `${currentUserRecruiter.first_name} ${currentUserRecruiter.last_name}` : "Selecciona un reclutador"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {recruiters.map((recruiter) => (
+                    <SelectItem key={recruiter.id} value={recruiter.id}>
+                      {recruiter.first_name} {recruiter.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200">
+            <Button variant="ghost" onClick={() => setStatusModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleStatusChange}>Guardar Cambios</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Teams Meeting Dialog */}
+      <TeamsMeetingDialog
+        isOpen={isTeamsDialogOpen}
+        onClose={() => setIsTeamsDialogOpen(false)}
+        onMeetingCreated={handleMeetingCreated}
+        candidateName={`${candidate.first_name} ${candidate.last_name}`}
+        interviewType={currentInterviewType || 'entrevista-rc'}
+      />
     </div>
   );
 };

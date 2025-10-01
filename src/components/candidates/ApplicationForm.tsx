@@ -34,7 +34,6 @@ import { uploadFile, ensureBucketExists } from '@/services/file-storage';
 // Import the SUPABASE_PUBLISHABLE_KEY from the client file
 import { SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
 
-
 type JobType = {
   id: string;
   title: string;
@@ -68,9 +67,9 @@ const applicationSchema = z.object({
     .min(5, { message: 'La cédula debe tener al menos 5 dígitos' })
     .regex(/^[0-9]+$/, { message: 'La cédula solo debe contener números' }),
     
-  fechaNacimiento: z.string().min(1, { message: 'La fecha de nacimiento es requerida' }),
+  birth_date: z.string().min(1, { message: 'La fecha de nacimiento es requerida' }),
 
-  fuente: z.enum(['computrabajo', 'redes-sociales', 'referido', 'voz-a-voz'], {
+  application_source: z.enum(['computrabajo', 'redes-sociales', 'referido', 'voz-a-voz'], {
     errorMap: () => ({ message: 'Por favor, selecciona una opción.' }),
   }),
   resume: z.instanceof(File).optional().refine((file) => {
@@ -84,9 +83,9 @@ const applicationSchema = z.object({
 type ApplicationFormValues = z.infer<typeof applicationSchema>;
 
 const ApplicationForm = () => {
-  const { jobId } = useParams<{ jobId: string }>();
+  const {jobId} = useParams<{ jobId: string }>();
   const navigate = useNavigate();
-  const { toast: hookToast } = useToast();
+  const {toast: hookToast} = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [job, setJob] = useState<JobType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,8 +107,8 @@ const ApplicationForm = () => {
       phone: '',
       phoneCountry: '57', // Default to Colombia
       cedula: '',
-      fechaNacimiento: undefined,
-      fuente: undefined,
+      birth_date: '',
+      application_source: 'computrabajo',
       coverLetter: '',
     },
   });
@@ -207,7 +206,7 @@ const ApplicationForm = () => {
           if (hasAccess) {
             toast.success('Sistema de almacenamiento de CVs disponible');
           } else {
-            console.error('El bucket de CVs no está disponible o accesible');
+            console.error('El bucket de CVS no está disponible o accesible');
             toast.warning('El sistema de almacenamiento de CVs tiene acceso limitado');
           }
         }
@@ -252,7 +251,7 @@ const ApplicationForm = () => {
   };
 
   const onSubmit = async (values: ApplicationFormValues) => {
-    const dateObject = new Date(values.fechaNacimiento);
+    const dateObject = new Date(values.birth_date);
 
     if (!job || !jobId) return;
 
@@ -301,8 +300,8 @@ const ApplicationForm = () => {
               phone: values.phone,
               phoneCountry: values.phoneCountry,
               cedula: values.cedula,
-              fechaNacimiento: values.fechaNacimiento,
-              fuente: values.fuente,
+              birth_date: values.birth_date,
+              application_source: values.application_source,
               jobId: jobId,
               coverLetter: values.coverLetter,
               resumeUrl: resumeUrl
@@ -544,7 +543,7 @@ const ApplicationForm = () => {
                 {/* --- CAMPO FECHA DE NACIMIENTO --- */}
                 <FormField
                   control={form.control}
-                  name="fechaNacimiento"
+                  name="birth_date"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Fecha de nacimiento</FormLabel>
@@ -560,7 +559,7 @@ const ApplicationForm = () => {
             {/* --- CAMPO FUENTE DE LA VACANTE --- */}
             <FormField
               control={form.control}
-              name="fuente"
+              name="application_source"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>¿Cómo te enteraste de la vacante?</FormLabel>

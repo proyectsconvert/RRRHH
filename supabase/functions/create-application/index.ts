@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -42,8 +42,8 @@ serve(async (req) => {
       phone,
       phoneCountry,
       cedula,
-      fechaNacimiento,
-      fuente,
+      birth_date,
+      application_source,
       jobId,
       coverLetter,
       resumeUrl
@@ -56,8 +56,8 @@ serve(async (req) => {
       phone: phone ? '(hidden for privacy)' : null,
       phoneCountry,
       cedula,
-      fechaNacimiento,
-      fuente,
+      birth_date,
+      application_source,
       jobId,
       resumeUrl: resumeUrl ? 'Resume URL provided' : 'No resume URL'
     })
@@ -109,17 +109,37 @@ serve(async (req) => {
 
     let candidateId: string;
 
-    // Always use structured JSON in analysis_summary to ensure data is saved properly
-    // This works regardless of whether the migration has been applied
+    // Prepare data for database columns (migration should have been applied)
+    const candidateData = {
+      cedula: cedula || null,
+      birth_date: birth_date ? new Date(birth_date).toISOString().split('T')[0] : null, // Convert to DATE format
+      application_source: application_source || null
+    };
+
+    // Also keep structured data for backward compatibility and additional info
     const structuredData = {
-      cedula: cedula || '',
-      fechaNacimiento: fechaNacimiento || '',
-      fuente: fuente || '',
       coverLetter: coverLetter || '',
       submittedAt: new Date().toISOString()
     };
 
+    console.log('📋 Candidate data for columns:', candidateData);
     console.log('📋 Structured data to save:', structuredData);
+
+    // Debug: Check if columns exist by trying a simple select
+    try {
+      const { data: testData, error: testError } = await supabaseAdmin
+        .from('candidates')
+        .select('cedula, birth_date, application_source')
+        .limit(1);
+
+      if (testError) {
+        console.error('❌ Error checking column existence:', testError);
+      } else {
+        console.log('✅ Columns exist, sample data:', testData);
+      }
+    } catch (colError) {
+      console.error('❌ Error testing columns:', colError);
+    }
 
     if (existingCandidate) {
       // Update existing candidate
@@ -131,6 +151,9 @@ serve(async (req) => {
         phone: formattedPhone || null,
         phone_country: phoneCountry || null,
         resume_url: resumeUrl || null,
+        cedula: candidateData.cedula,
+        birth_date: candidateData.birth_date,
+        application_source: candidateData.application_source,
         analysis_summary: JSON.stringify(structuredData),
         updated_at: new Date().toISOString()
       };
@@ -157,6 +180,9 @@ serve(async (req) => {
         phone: formattedPhone || null,
         phone_country: phoneCountry || null,
         resume_url: resumeUrl || null,
+        cedula: candidateData.cedula,
+        birth_date: candidateData.birth_date,
+        application_source: candidateData.application_source,
         analysis_summary: JSON.stringify(structuredData)
       };
 
@@ -195,11 +221,25 @@ serve(async (req) => {
     }
 
     console.log('Application created successfully with ID:', application.id);
-    
+
+    // Get the updated candidate data to verify it was saved correctly
+    const { data: candidate, error: candidateError } = await supabaseAdmin
+      .from('candidates')
+      .select('*')
+      .eq('id', candidateId)
+      .single();
+
+    if (candidateError) {
+      console.error('Error fetching candidate data:', candidateError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
-        data: application
+        data: {
+          application,
+          candidate: candidate || null
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -209,20 +249,25 @@ serve(async (req) => {
     
   } catch (error) {
     console.error('Error in create-application function:', error);
-    
+
+    const errorMessage = error instanceof Error ? error.message : 'Error al enviar la aplicación';
+
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'Error al enviar la aplicación',
-        details: typeof error === 'object' ? Object.getOwnPropertyNames(error).reduce((acc, key) => {
-          acc[key] = error[key];
-          return acc;
-        }, {}) : null
+      JSON.stringify({
+        error: errorMessage,
+        details: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        } : null
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
+        status: 400
       }
     )
   }
+  
 })
+
 
