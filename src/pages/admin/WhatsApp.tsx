@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 // Define types for historychat table
 interface HistoryChatMessage {
@@ -537,7 +538,7 @@ const WhatsApp = () => {
   );
 
   return (
-    <div className="h-full flex gap-4">
+    <div className="h-full w-full flex ">
       {/* Debug Panel */}
       {showDebug && (
         <Card className="w-1/4">
@@ -637,6 +638,7 @@ const WhatsApp = () => {
           </div>
         </CardHeader>
 
+      
         {/* El contenido ahora solo se encarga de la lista */}
         <CardContent className="flex-1 p-4 pt-0">
           <ScrollArea className="h-full">
@@ -680,11 +682,37 @@ const WhatsApp = () => {
 
     	{/* Chat Area */}
     	<Card className={showDebug ? "flex-1" : "flex-1"}>
-    	  <CardHeader>
-    	    <CardTitle>
-    	      {selectedUser ? `${selectedUser.hicusername} (${selectedUser.hicnumerouser})` : 'Selecciona un chat'}
-    	    </CardTitle>
+    	  <CardHeader className="flex flex-row items-center gap-4 p-4">
+
+        {selectedUser && (
+              <Avatar>
+                <AvatarFallback>
+                  {selectedUser.hicusername.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            )}
+
+          <div>
+        	    <CardTitle className="text-xl font-semibold">
+                {selectedUser ? (
+                  <>
+                    <span>
+                      {selectedUser.hicusername}
+                    </span>
+                    
+                    <span className="text-sm text-gray-500 font-normal ml-2">
+                      ({selectedUser.hicnumerouser})
+                    </span>
+                  </>
+                ) : (
+                  'Selecciona un chat'
+                )}
+              </CardTitle>
+          </div>
     	  </CardHeader>
+
+        <Separator />
+
     	  <CardContent className="flex flex-col h-[600px]">
     	    {/* Messages */}
     	    <ScrollArea className="flex-1 mb-4">
@@ -693,23 +721,25 @@ const WhatsApp = () => {
     	          <div key={index} className="flex">
     	            {message.hicmessagebot && (
     	              <div className="flex justify-end w-full">
-    	                <div className="bg-blue-500 text-white p-3 rounded-lg max-w-xs">
-    	                  <p>{message.hicmessagebot}</p>
-    	                </div>
-    	              </div>
-    	            )}
+                      <div className="bg-hrm-teal text-white p-3 rounded-lg max-w-xs">
+                        <p>{message.hicmessagebot}</p>
+                      </div>
+                    </div>
+                  )}
     	            {message.hicmessageuser && (
     	              <div className="flex justify-start w-full">
-    	                <div className="bg-gray-200 text-gray-800 p-3 rounded-lg max-w-xs">
-    	                  <p>{message.hicmessageuser}</p>
-    	                </div>
-    	              </div>
-    	            )}
+                      <div className="bg-gray-200 text-gray-800 p-3 rounded-lg max-w-xs">
+                        <p>{message.hicmessageuser}</p>
+                      </div>
+                    </div>
+                  )}
     	          </div>
     	        ))}
     	      </div>
     	    </ScrollArea>
 
+          <Separator />
+          
     	    {/* Send Message Form */}
     	    {selectedUser && (
     	      <div className="flex gap-2">

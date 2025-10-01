@@ -100,20 +100,20 @@ const getCandidateStatus = (applications?: Application[]) => {
 // Get status display info
 const getStatusDisplay = (status: string | null) => {
   const statusConfig = {
-    'new': { label: 'Nuevo', variant: 'secondary' as const, color: 'bg-blue-100 text-blue-800' },
-    'applied': { label: 'Aplicado', variant: 'secondary' as const, color: 'bg-blue-100 text-blue-800' },
-    'under_review': { label: 'En Revisión', variant: 'secondary' as const, color: 'bg-yellow-100 text-yellow-800' },
-    'entrevista-rc': { label: 'Entrevista RC', variant: 'secondary' as const, color: 'bg-purple-100 text-purple-800' },
-    'entrevista-et': { label: 'Entrevista Técnica', variant: 'secondary' as const, color: 'bg-purple-100 text-purple-800' },
-    'asignar-campana': { label: 'En Campaña', variant: 'secondary' as const, color: 'bg-indigo-100 text-indigo-800' },
-    'contratar': { label: 'Contratado', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
+    'new': { label: 'Nuevo Candidato', variant: 'outline' as const, color: 'text-destructive border-destructive', className: 'font-bold text-sm' },
+    'applied': { label: 'Aplicado', variant: 'outline' as const, color: 'text-destructive border-destructive', className: 'font-bold text-sm' },
+    'under_review': { label: 'Bajo Revisión', variant: 'outline' as const, color: 'text-destructive border-destructive', className: 'font-bold text-sm' },
+    'entrevista-rc': { label: 'Entrevista Inicial', variant: 'outline' as const, color: 'text-yellow-600 border-yellow-600' , className: 'font-bold text-sm'},
+    'entrevista-et': { label: 'Entrevista Técnica', variant: 'default' as const, color: 'bg-yellow-100 text-yellow-800 ' },
+    'asignar-campana': { label: 'En Campaña', variant: 'outline' as const, color: 'text-hrm-teal border-hrm-teal' },
+    'contratar': { label: 'Contratado', variant: 'secondary' as const, color: '' },
     'training': { label: 'En Formación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'rejected': { label: 'Rechazado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
     'discarded': { label: 'Descartado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
     'blocked': { label: 'Bloqueado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' }
   };
 
-  return statusConfig[status || ''] || { label: 'Sin Estado', variant: 'secondary' as const, color: 'bg-gray-100 text-gray-800' };
+  return statusConfig[status || ''] || { label: 'Sin Revisar', variant: 'outline' as const, color: 'text-destructive border-destructive', className: 'font-bold text-sm' };
 };
 
 interface Campaign {
@@ -434,8 +434,8 @@ const Candidates = () => {
         });
       } else {
         const statusFilters: { [key: string]: string[] } = {
-          'en-entrevista': ['entrevista-rc', 'entrevista-et', 'asignar-campana'],
-          'en-formacion': ['contratar', 'training'],
+          'en-entrevista': ['entrevista-rc', 'entrevista-et'],
+          'en-formacion': ['asignar-campana'],
           'contratados': ['contratar'],
           'discarded': ['rejected', 'discarded', 'blocked']
         };
@@ -913,12 +913,12 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                   </TableHead>
                   <TableHead className="w-[20%]" >Candidato</TableHead>
                   {columnVisibility.vacante && <TableHead className="w-[12%]">Vacante</TableHead>}
-                  {columnVisibility.campana && <TableHead className="w-[10%]">Campaña</TableHead>}
+                  {columnVisibility.campana  && !['sin-revisar', 'en-entrevista'].includes(activeTab) &&  <TableHead className="w-[10%]">Campaña</TableHead>}
                   {columnVisibility.compatibilidad && <TableHead>Compatibilidad</TableHead>}
-                  {columnVisibility.experiencia && <TableHead>Experiencia</TableHead>}
-                  {columnVisibility.habilidades && <TableHead className="w-[12%]">Habilidades</TableHead>}
-                  {columnVisibility.aplicaciones && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
-                  {activeTab === 'all' && columnVisibility.estado_aplicacion && <TableHead>Estado</TableHead>}
+                  {columnVisibility.experiencia && !['en-formacion' , 'contratados'].includes(activeTab) && <TableHead>Experiencia</TableHead>}
+                  {columnVisibility.habilidades && !['en-formacion' , 'discarded' , 'contratados'].includes(activeTab) && <TableHead className="w-[12%]">Habilidades</TableHead>}
+                  {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
+                  {columnVisibility.estado_aplicacion && <TableHead>Estado</TableHead>}
                   {columnVisibility.fecha && <TableHead>Fecha</TableHead>}
                   <TableHead className="text-right">Detalles</TableHead>
                 </TableRow>
@@ -993,7 +993,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </div>
                         </TableCell>}
 
-                        {columnVisibility.campana && <TableCell>
+                        {columnVisibility.campana && activeTab && !['sin-revisar', 'en-entrevista'].includes(activeTab) && <TableCell>
                           <div className="flex flex-col gap-1">
                             {candidate.applications && candidate.applications.length > 0 ? (
                               candidate.applications
@@ -1029,11 +1029,11 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </TableCell>
                         )}
 
-                        {columnVisibility.experiencia && <TableCell>
+                        {columnVisibility.experiencia && !['en-formacion' , 'contratados'].includes(activeTab) && <TableCell>
                           {candidate.experience_years ? `${candidate.experience_years} meses` : 'No especificada'}
                         </TableCell>}
 
-                        {columnVisibility.habilidades && <TableCell>
+                        {columnVisibility.habilidades && !['en-formacion' , 'discarded' , 'contratados'].includes(activeTab) && <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {candidate.skills && candidate.skills.length > 0 ? 
                               candidate.skills.slice(0, 2).map((skill, i) => (
@@ -1050,7 +1050,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </div>
                         </TableCell>}
 
-                        {columnVisibility.aplicaciones &&<TableCell className='text-center'>
+                        {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) &&<TableCell className='text-center'>
                           <span 
                             className={`font-medium ${candidate.applications && candidate.applications.length > 0 
                               ? 'text-hrm-black/80' 
@@ -1060,7 +1060,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </span>
                         </TableCell>}
 
-                        {activeTab === 'all' && columnVisibility.estado_aplicacion && <TableCell>
+                        {columnVisibility.estado_aplicacion && <TableCell>
                           {(() => {
                             const primaryStatus = getCandidateStatus(candidate.applications);
                             const statusDisplay = getStatusDisplay(primaryStatus);
