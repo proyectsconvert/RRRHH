@@ -8,7 +8,7 @@ const PublicLayout = () => {
   return <div className="min-h-screen flex flex-col bg-white">
       <header className="border-b border-hrm-light-gray">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="flex items-center ">
             <ConvertIALogo size={10} textColor="text-hrm-dark-cyan" />
           </Link>
           <nav>
