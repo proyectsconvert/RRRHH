@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-// 1. Importar el ícono de búsqueda
-import { Send, MessageSquare, Bot, Webhook, Power, PowerOff, Search } from 'lucide-react'; 
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, MessageSquare, Bot, Webhook, Power, PowerOff, Search, SquareMousePointer } from 'lucide-react'; 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,9 +37,17 @@ const WhatsApp = () => {
   const [webhookEnabled, setWebhookEnabled] = useState(false);
   const [botLoading, setBotLoading] = useState(false);
   const [webhookLoading, setWebhookLoading] = useState(false);
-  // 2. Añadir estado para la consulta de búsqueda (MECANISMO 1)
   const [searchQuery, setSearchQuery] = useState(''); 
   const { toast } = useToast();
+  const messagesEndRef = useRef<null | HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Load users
   const loadUsers = async () => {
@@ -674,6 +681,7 @@ const WhatsApp = () => {
                   No se encontraron chats.
                 </p>
               )}
+              
             </div>
           </ScrollArea>
         </CardContent>
@@ -682,7 +690,7 @@ const WhatsApp = () => {
 
     	{/* Chat Area */}
     	<Card className={showDebug ? "flex-1" : "flex-1"}>
-    	  <CardHeader className="flex flex-row items-center gap-4 p-4">
+    	  <CardHeader className="items-start flex flex-row gap-2 p-4 !mt-0">
 
         {selectedUser && (
               <Avatar>
@@ -692,8 +700,8 @@ const WhatsApp = () => {
               </Avatar>
             )}
 
-          <div>
-        	    <CardTitle className="text-xl font-semibold">
+          <div className="items-center !mt-0">
+        	    <CardTitle className="text-xl font-semibold !mt-0">
                 {selectedUser ? (
                   <>
                     <span>
@@ -705,7 +713,10 @@ const WhatsApp = () => {
                     </span>
                   </>
                 ) : (
-                  'Selecciona un chat'
+                  <span className="text-xl font-semibold text-gray-400 flex items-center gap-3">
+                    <SquareMousePointer className="h-6 w-6" />
+                    <span>Selecciona un chat</span>
+                  </span>
                 )}
               </CardTitle>
           </div>
@@ -715,8 +726,8 @@ const WhatsApp = () => {
 
     	  <CardContent className="flex flex-col h-[600px]">
     	    {/* Messages */}
-    	    <ScrollArea className="flex-1 mb-4">
-    	      <div className="space-y-4">
+    	    <ScrollArea className="flex-1 mb-2 mt-0">
+    	      <div className="space-y-2 ">
     	        {messages.map((message, index) => (
     	          <div key={index} className="flex">
     	            {message.hicmessagebot && (
@@ -735,6 +746,7 @@ const WhatsApp = () => {
                   )}
     	          </div>
     	        ))}
+              <div ref={messagesEndRef} />
     	      </div>
     	    </ScrollArea>
 
