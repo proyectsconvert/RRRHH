@@ -5,7 +5,7 @@ import { Candidate, Application } from '@/types/candidate';
 export async function fetchCandidateDetails(candidateId: string): Promise<Candidate> {
   const { data: candidateData, error: candidateError } = await supabase
     .from('candidates')
-    .select('*, applications(id, status, job_id, created_at)')
+    .select('*, applications(id, status, job_id, created_at, recruiter_id)')
     .eq('id', candidateId)
     .single();
   

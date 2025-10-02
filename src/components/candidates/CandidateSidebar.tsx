@@ -75,6 +75,7 @@ interface CandidateSidebarProps {
   onAnalyzeCV: (applicationId?: string) => void;
   onChangeStatus?: () => void;
   getStatusText: (status: string) => string;
+  canModifyCandidate?: (candidate: Candidate) => boolean;
 }
 
 const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
@@ -84,7 +85,8 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
   onViewResume,
   onAnalyzeCV,
   onChangeStatus,
-  getStatusText
+  getStatusText,
+  canModifyCandidate
 }) => {
   return (
     <div className="lg:col-span-1 space-y-6">
@@ -184,7 +186,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
             )}
           </Button>
 
-          {onChangeStatus && (
+          {onChangeStatus && canModifyCandidate && canModifyCandidate(candidate) && (
             <Button
               variant="outline"
               className="w-full"

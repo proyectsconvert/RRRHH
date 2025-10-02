@@ -36,48 +36,121 @@ const Dashboard = () => {
       trend: { value: 0, isPositive: true },
     },
   ]);
-  
+
   const [recentCandidates, setRecentCandidates] = useState<any[]>([]);
   const [popularJobs, setPopularJobs] = useState<any[]>([]);
   const [applicationsByStatus, setApplicationsByStatus] = useState<any[]>([]);
+  const [interviewStats, setInterviewStats] = useState({
+    rcAssigned: 0,
+    etAssigned: 0,
+    totalActive: 0,
+    inProcess: 0,
+  });
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   // Función para cargar los datos del dashboard
   const loadDashboardData = async () => {
     try {
+      // Get current user info
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        setCurrentUserId(user.id);
+
+        // Get current user's role
+        const { data: userProfile, error: userError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (!userError && userProfile) {
+          setCurrentUserRole(userProfile.role);
+        }
+      }
+
       // Obtener conteo de candidatos
       const { count: candidatesCount, error: candidatesError } = await supabase
         .from('candidates')
         .select('*', { count: 'exact', head: true });
-      
+
       if (candidatesError) throw candidatesError;
-      
+
       // Obtener vacantes activas
       const { count: activeJobsCount, error: jobsError } = await supabase
         .from('jobs')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'open');
-      
+
       if (jobsError) throw jobsError;
-      
+
       // Obtener entrevistas programadas (aplicaciones en estado 'interview')
       const { count: interviewsCount, error: interviewsError } = await supabase
         .from('applications')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'interview');
-      
+
       if (interviewsError) throw interviewsError;
-      
+
       // Obtener contrataciones del mes actual
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      
+
       const { count: hiresCount, error: hiresError } = await supabase
         .from('applications')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'hired')
         .gte('updated_at', firstDayOfMonth);
-      
+
       if (hiresError) throw hiresError;
+
+      // Get candidates data for interview statistics
+      const { data: candidatesData, error: candidatesDataError } = await supabase
+        .from('candidates')
+        .select(`
+          id,
+          applications(
+            id,
+            status,
+            recruiter_id
+          )
+        `);
+
+      if (candidatesDataError) throw candidatesDataError;
+
+      // Calculate interview statistics
+      let rcAssigned = 0;
+      let etAssigned = 0;
+      let totalActive = 0;
+      let inProcess = 0;
+
+      candidatesData?.forEach(candidate => {
+        candidate.applications?.forEach(app => {
+          if (currentUserRole === 'reclutador' && currentUserId) {
+            // For recruiters, only count their assigned interviews
+            if (app.recruiter_id === currentUserId) {
+              if (app.status === 'entrevista-rc') rcAssigned++;
+              if (app.status === 'entrevista-et') etAssigned++;
+              if (['entrevista-rc', 'entrevista-et'].includes(app.status)) totalActive++;
+              if (['entrevista-rc', 'entrevista-et', 'asignar-campana'].includes(app.status)) inProcess++;
+            }
+          } else {
+            // For admins, count all interviews
+            if (app.status === 'entrevista-rc') rcAssigned++;
+            if (app.status === 'entrevista-et') etAssigned++;
+            if (['entrevista-rc', 'entrevista-et'].includes(app.status)) totalActive++;
+            if (['entrevista-rc', 'entrevista-et', 'asignar-campana'].includes(app.status)) inProcess++;
+          }
+        });
+      });
+
+      setInterviewStats({
+        rcAssigned,
+        etAssigned,
+        totalActive,
+        inProcess,
+      });
       
       // Actualizar los estados con los datos obtenidos
       setStats([
@@ -175,14 +248,17 @@ const Dashboard = () => {
     // Configurar suscripción en tiempo real para cambios en las tablas
     const channel = supabase
       .channel('dashboard-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'candidates' }, 
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'candidates' },
         () => loadDashboardData())
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'jobs' }, 
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'jobs' },
         () => loadDashboardData())
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'applications' }, 
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'applications' },
+        () => loadDashboardData())
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
         () => loadDashboardData())
       .subscribe();
     
@@ -225,7 +301,68 @@ const Dashboard = () => {
           <StatsCard key={index} {...stat} />
         ))}
       </div>
-      
+
+      {/* Interview Statistics Cards */}
+      {(currentUserRole === 'reclutador' || currentUserRole === 'admin') && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Entrevistas RC Asignadas</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {interviewStats.rcAssigned}
+                </p>
+              </div>
+              <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <span className="text-purple-600 font-semibold">RC</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Entrevistas Técnicas Asignadas</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {interviewStats.etAssigned}
+                </p>
+              </div>
+              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 font-semibold">ET</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Entrevistas Activas</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {interviewStats.totalActive}
+                </p>
+              </div>
+              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-green-600 font-semibold">∑</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Candidatos en Proceso</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {interviewStats.inProcess}
+                </p>
+              </div>
+              <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 font-semibold">⚡</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-8">
         <Card className="bg-white p-4 rounded-lg shadow-sm border border-hrm-light-gray">
           <CardHeader>

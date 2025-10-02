@@ -154,6 +154,32 @@ const Candidates = () => {
   const [currentCandidate, setCurrentCandidate] = useState<Candidate | null>(null);
   const [interviewTypeFilter, setInterviewTypeFilter] = useState<'all' | 'entrevista-rc' | 'entrevista-et'>('all');
 
+  // Helper function to check if current user can modify a candidate's status
+  const canModifyCandidate = (candidate: Candidate): boolean => {
+    // Admins can modify all candidates
+    if (currentUserRole === 'admin') return true;
+
+    // Non-recruiters can't modify candidates
+    if (currentUserRole !== 'reclutador') return false;
+
+    // Recruiters can only modify candidates where:
+    // 1. No interview is assigned (recruiter_id is null), OR
+    // 2. The interview is assigned to them (recruiter_id === currentUserId)
+    if (!candidate.applications || candidate.applications.length === 0) return true;
+
+    return candidate.applications.some(app =>
+      !app.recruiter_id || app.recruiter_id === currentUserId
+    );
+  };
+
+  // Helper function to check if selected candidates can be modified
+  const canModifySelectedCandidates = (): boolean => {
+    return selectedCandidates.every(candidateId => {
+      const candidate = candidates.find(c => c.id === candidateId);
+      return candidate && canModifyCandidate(candidate);
+    });
+  };
+
   const handleJobSelectionChange = (jobId: string, isChecked: boolean) => {
     setSelectedJob(prev => {
       if (isChecked) {
@@ -394,6 +420,17 @@ const Candidates = () => {
   const handleStatusChange = async () => {
     if (!newStatus || selectedCandidates.length === 0) return;
 
+    // Check permissions before allowing status change
+    if (!canModifySelectedCandidates()) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para cambiar el estado de los candidatos seleccionados",
+        variant: "destructive"
+      });
+      setStatusModalOpen(false);
+      return;
+    }
+
     // Validate campaign selection if status is "asignar-campana"
     if (newStatus === 'asignar-campana' && !selectedCampaign) {
       toast({
@@ -460,7 +497,8 @@ const Candidates = () => {
           if (candidate?.phone) {
             try {
               const candidateName = `${candidate.first_name} ${candidate.last_name}`;
-              await sendWelcomeMessage(candidate.phone, candidateName);
+              const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}`;
+              await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
               console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
             } catch (error) {
               console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
@@ -502,6 +540,16 @@ const Candidates = () => {
   const handleMeetingCreated = async (meetingData: MeetingData) => {
     if (!currentCandidate || !currentInterviewType || !currentUserId) {
       console.error('Missing required data for meeting creation');
+      return;
+    }
+
+    // Double-check permissions before creating meeting and updating status
+    if (!canModifyCandidate(currentCandidate)) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para cambiar el estado de este candidato",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -592,6 +640,17 @@ const Candidates = () => {
   const handleDiscardCandidates = async () => {
     if (selectedCandidates.length === 0) return;
 
+    // Check permissions before discarding candidates
+    if (!canModifySelectedCandidates()) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para descartar estos candidatos",
+        variant: "destructive"
+      });
+      setDiscardModalOpen(false);
+      return;
+    }
+
     try {
       // Update status to 'discarded' for all selected candidates' applications
       const updates = [];
@@ -635,6 +694,17 @@ const Candidates = () => {
   // Handle block candidates
   const handleBlockCandidates = async () => {
     if (selectedCandidates.length === 0) return;
+
+    // Check permissions before blocking candidates
+    if (!canModifySelectedCandidates()) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para bloquear estos candidatos",
+        variant: "destructive"
+      });
+      setBlockModalOpen(false);
+      return;
+    }
 
     try {
       // Update status to 'blocked' for all selected candidates' applications
@@ -861,84 +931,6 @@ const Candidates = () => {
         </div>
       </div>
 
-      {/* Recruiter-specific Stats Cards */}
-      {currentUserRole === 'reclutador' && currentUserId && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Entrevistas RC Asignadas</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {candidates.filter(candidate =>
-                    candidate.applications?.some(app =>
-                      app.status === 'entrevista-rc' && app.recruiter_id === currentUserId
-                    )
-                  ).length}
-                </p>
-              </div>
-              <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-purple-600 font-semibold">RC</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Entrevistas Técnicas Asignadas</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {candidates.filter(candidate =>
-                    candidate.applications?.some(app =>
-                      app.status === 'entrevista-et' && app.recruiter_id === currentUserId
-                    )
-                  ).length}
-                </p>
-              </div>
-              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-blue-600 font-semibold">ET</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Entrevistas Activas</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {candidates.filter(candidate =>
-                    candidate.applications?.some(app =>
-                      (app.status === 'entrevista-rc' || app.status === 'entrevista-et') &&
-                      app.recruiter_id === currentUserId
-                    )
-                  ).length}
-                </p>
-              </div>
-              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-green-600 font-semibold">∑</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Candidatos en Proceso</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {candidates.filter(candidate =>
-                    candidate.applications?.some(app =>
-                      app.recruiter_id === currentUserId &&
-                      ['entrevista-rc', 'entrevista-et', 'asignar-campana'].includes(app.status)
-                    )
-                  ).length}
-                </p>
-              </div>
-              <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-orange-600 font-semibold">⚡</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="flex justify-between items-center mb-4">
         <Tabs defaultValue={activeTab} className="w-full" onValueChange={setActiveTab}>
@@ -1032,7 +1024,12 @@ const Candidates = () => {
                 <>
                   <Dialog open={isDiscardModalOpen} onOpenChange={setDiscardModalOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" size="sm">
+                      <Button
+                        variant="outline"
+                        className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        size="sm"
+                        disabled={!canModifySelectedCandidates()}
+                      >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Descartar
                       </Button>
@@ -1064,7 +1061,11 @@ const Candidates = () => {
 
                   <Dialog open={isBlockModalOpen} onOpenChange={setBlockModalOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={!canModifySelectedCandidates()}
+                      >
                         <Ban className="mr-2 h-4 w-4" />
                         Bloquear
                       </Button>
@@ -1097,7 +1098,11 @@ const Candidates = () => {
                   {/* 👇 AQUÍ EMPIEZA LA IMPLEMENTACIÓN DEL DIALOG 👇 */}
                   <Dialog open={isStatusModalOpen} onOpenChange={setStatusModalOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="secondary" size="sm">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={!canModifySelectedCandidates()}
+                      >
                         <SquareArrowRight className="mr-2 h-4 w-4" />
                         Cambiar Estado
                       </Button>
@@ -1200,6 +1205,7 @@ const Candidates = () => {
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
               activeTab={activeTab}
+              canModifyCandidate={canModifyCandidate}
             />
           </TabsContent>
 
@@ -1214,6 +1220,7 @@ const Candidates = () => {
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
               activeTab={activeTab}
+              canModifyCandidate={canModifyCandidate}
             />
           </TabsContent>
 
@@ -1228,6 +1235,7 @@ const Candidates = () => {
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
               activeTab={activeTab}
+              canModifyCandidate={canModifyCandidate}
             />
           </TabsContent>
 
@@ -1242,6 +1250,7 @@ const Candidates = () => {
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
               activeTab={activeTab}
+              canModifyCandidate={canModifyCandidate}
             />
           </TabsContent>
 
@@ -1281,6 +1290,7 @@ const Candidates = () => {
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
               activeTab={activeTab}
+              canModifyCandidate={canModifyCandidate}
             />
           </TabsContent>
 
@@ -1295,6 +1305,7 @@ const Candidates = () => {
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
               activeTab={activeTab}
+              canModifyCandidate={canModifyCandidate}
             />
           </TabsContent>
 
@@ -1352,10 +1363,11 @@ interface CandidatesTableProps {
   setBlockModalOpen: (isOpen: boolean) => void;
   setStatusModalOpen: (isOpen: boolean) => void;
   activeTab: string;
+  canModifyCandidate: (candidate: Candidate) => boolean;
 }
 
 const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, selectedCandidates,
-  setSelectedCandidates,columnVisibility, setDiscardModalOpen, setBlockModalOpen,setStatusModalOpen, activeTab }) => {
+  setSelectedCandidates,columnVisibility, setDiscardModalOpen, setBlockModalOpen,setStatusModalOpen, activeTab, canModifyCandidate }) => {
     const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedCandidates(candidates.map(c => c.id));
@@ -1594,13 +1606,15 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedCandidates([candidate.id]);
-                                setStatusModalOpen(true);
-                              }}>
-                                <SquareArrowRight className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
-                                <span>Cambiar Estado</span>
-                              </DropdownMenuItem>
+                              {canModifyCandidate(candidate) && (
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedCandidates([candidate.id]);
+                                  setStatusModalOpen(true);
+                                }}>
+                                  <SquareArrowRight className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
+                                  <span>Cambiar Estado</span>
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               
                               <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => {

@@ -81,8 +81,11 @@ export const sendEvolutionMessage = async (
   }
 };
 
-export const sendWelcomeMessage = async (candidatePhone: string, candidateName: string): Promise<void> => {
-  const welcomeMessage = `Hola ${candidateName}, bienvenido a Convertia, estás en el proceso de contratación, por favor sube estos documentos a este link: youtube.com`;
+export const sendWelcomeMessage = async (candidatePhone: string, candidateName: string, documentUrl?: string): Promise<void> => {
+  const baseUrl = window.location.origin;
+  const defaultDocumentUrl = documentUrl || `${baseUrl}/candidate-documents`;
+
+  const welcomeMessage = `¡Felicidades ${candidateName}! Has avanzado al proceso de contratación en Convertia. Para continuar, por favor sube los documentos requeridos en el siguiente enlace: ${defaultDocumentUrl}`;
 
   await sendEvolutionMessage(candidatePhone, welcomeMessage, true);
 };

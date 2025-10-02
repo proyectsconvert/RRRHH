@@ -48,6 +48,8 @@ export interface Application {
   job_requirements?: string | null;
   job_responsibilities?: string | null;
   job_description?: string | null;
+  recruiter_id?: string;
+  recruiter?: { first_name: string; last_name: string };
 }
 
 export interface Candidate {

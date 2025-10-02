@@ -24,6 +24,7 @@ import JobDetail from "./pages/public/JobDetail";
 import ThankYou from "./pages/public/ThankYou";
 import ApplicationForm from "@/components/candidates/ApplicationForm";
 import TrainingChat from "./pages/public/TrainingChat";
+import CandidateDocuments from "./pages/public/CandidateDocuments";
 
 // Admin Pages
 import Login from "./pages/admin/Login";
@@ -147,6 +148,7 @@ function App() {
                 <Route path="postularse/:jobId" element={<ApplicationForm />} />
                 <Route path="gracias" element={<ThankYou />} />
                 <Route path="entrenamiento" element={<TrainingChat />} />
+                <Route path="candidate-documents/:candidateId" element={<CandidateDocuments />} />
               </Route>
               
               {/* Admin Routes */}

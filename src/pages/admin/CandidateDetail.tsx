@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import TeamsMeetingDialog, { MeetingData } from '@/components/candidates/TeamsMeetingDialog';
+import DocumentChecklist from '@/components/candidates/DocumentChecklist';
 import { sendWelcomeMessage } from '@/utils/evolution-api';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -42,6 +43,8 @@ const CandidateDetail: React.FC = () => {
   const [recruiters, setRecruiters] = useState<{id: string, first_name: string, last_name: string}[]>([]);
   const [selectedRecruiter, setSelectedRecruiter] = useState("");
   const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{id: string, first_name: string, last_name: string} | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadCandidate = async () => {
@@ -81,6 +84,24 @@ const CandidateDetail: React.FC = () => {
     const fetchRecruiters = async () => {
       // Get current authenticated user
       const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        setCurrentUserId(user.id);
+
+        // Get current user's role
+        const { data: userProfile, error: userError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (!userError && userProfile) {
+          setCurrentUserRole(userProfile.role);
+        } else {
+          // Fallback: if role is not found, assume regular user (show all candidates)
+          setCurrentUserRole(null);
+        }
+      }
 
       const { data, error } = await supabase
         .from('profiles')
@@ -257,12 +278,49 @@ const CandidateDetail: React.FC = () => {
     });
   };
 
+  // Helper function to check if current user can modify this candidate
+  const canModifyCandidate = (candidate: Candidate): boolean => {
+    // Admins can modify all candidates
+    if (currentUserRole === 'admin') return true;
+
+    // Non-recruiters can't modify candidates
+    if (currentUserRole !== 'reclutador') return false;
+
+    // Recruiters can only modify candidates where:
+    // 1. No interview is assigned (recruiter_id is null), OR
+    // 2. The interview is assigned to them (recruiter_id === currentUserId)
+    if (!candidate.applications || candidate.applications.length === 0) return true;
+
+    return candidate.applications.some(app =>
+      !app.recruiter_id || app.recruiter_id === currentUserId
+    );
+  };
+
   const handleChangeStatus = () => {
+    if (candidate && !canModifyCandidate(candidate)) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para cambiar el estado de este candidato",
+        variant: "destructive"
+      });
+      return;
+    }
     setStatusModalOpen(true);
   };
 
   const handleStatusChange = async () => {
     if (!newStatus || !candidate) return;
+
+    // Check permissions before allowing status change
+    if (!canModifyCandidate(candidate)) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para cambiar el estado de este candidato",
+        variant: "destructive"
+      });
+      setStatusModalOpen(false);
+      return;
+    }
 
     // For interview statuses, show Teams dialog instead of updating immediately
     if (newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') {
@@ -296,7 +354,8 @@ const CandidateDetail: React.FC = () => {
         if (candidate.phone) {
           try {
             const candidateName = `${candidate.first_name} ${candidate.last_name}`;
-            await sendWelcomeMessage(candidate.phone, candidateName);
+            const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}`;
+            await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
             console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
           } catch (error) {
             console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
@@ -337,6 +396,16 @@ const CandidateDetail: React.FC = () => {
 
   const handleMeetingCreated = async (meetingData: MeetingData) => {
     if (!candidate || !currentInterviewType) return;
+
+    // Double-check permissions before creating meeting and updating status
+    if (!canModifyCandidate(candidate)) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para cambiar el estado de este candidato",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
       // Update candidate status to interview type
@@ -449,6 +518,9 @@ const CandidateDetail: React.FC = () => {
 
   const pdfUrl = candidate.resume_url ? getResumeUrl(candidate.resume_url) : null;
 
+  // Check if candidate is in hiring process
+  const isInHiringProcess = candidate.applications?.some(app => app.status === 'contratar');
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -461,7 +533,7 @@ const CandidateDetail: React.FC = () => {
           <h1 className="text-2xl font-bold">Perfil del Candidato</h1>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sidebar */}
         <CandidateSidebar
@@ -472,8 +544,9 @@ const CandidateDetail: React.FC = () => {
           onAnalyzeCV={handleAnalyzeCV}
           onChangeStatus={handleChangeStatus}
           getStatusText={getStatusText}
+          canModifyCandidate={canModifyCandidate}
         />
-        
+
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           <AnalysisContent
@@ -484,12 +557,24 @@ const CandidateDetail: React.FC = () => {
             onAnalyzeCV={handleAnalyzeCV}
             applicationId={candidate.applications?.[0]?.id}
           />
-          
-          <ResumeContent 
-            resumeContent={resumeContent} 
+
+          <ResumeContent
+            resumeContent={resumeContent}
             onSaveContent={handleSaveResumeText}
             isSaving={savingResumeText}
           />
+
+          {/* Document Checklist - Only show for candidates in hiring process */}
+          {isInHiringProcess && (
+            <DocumentChecklist
+              candidateId={candidate.id}
+              candidateName={`${candidate.first_name} ${candidate.last_name}`}
+              onDocumentUploaded={() => {
+                // Optional: refresh candidate data if needed
+                console.log('Document uploaded, candidate data refresh if needed');
+              }}
+            />
+          )}
         </div>
       </div>
       
