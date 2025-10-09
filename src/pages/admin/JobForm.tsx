@@ -23,12 +23,13 @@ import { Loader2 } from 'lucide-react';
 // Define job types and statuses as const arrays to use in the schema and component
 const JOB_TYPES = ['full-time', 'part-time', 'contract', 'internship', 'temporary'] as const;
 const JOB_STATUSES = ['open', 'in_progress', 'closed', 'draft'] as const;
+const JOB_LOCATIONS = ['bogota', 'remoto', 'hibrido'] as const;
 
 // Define the schema with explicit types
 const formSchema = z.object({
   title: z.string().min(2, "El título debe tener al menos 2 caracteres"),
   department: z.string().min(2, "El departamento es requerido"),
-  location: z.string().min(2, "La ubicación es requerida"),
+  location: z.enum(JOB_LOCATIONS),
   type: z.enum(JOB_TYPES),
   status: z.enum(JOB_STATUSES),
   description: z.string().min(10, "La descripción debe tener al menos 10 caracteres"),
@@ -51,7 +52,7 @@ const JobForm = () => {
     defaultValues: {
       title: "",
       department: "",
-      location: "",
+      location: "remoto",
       type: "full-time",
       status: "open",
       description: "",
@@ -133,11 +134,15 @@ const JobForm = () => {
         if (error) throw error;
         
         if (data) {
+          const isValidLocation = JOB_LOCATIONS.includes(data.location as any);
+          const isValidType = JOB_TYPES.includes(data.type as any);
+          const isValidStatus = JOB_STATUSES.includes(data.status as any);
+
           // Cast the values to ensure they match the schema types
           form.reset({
             title: data.title || "",
             department: data.department || "",
-            location: data.location || "",
+            location: isValidLocation ? data.location : "remoto",
             type: data.type as typeof JOB_TYPES[number] || "full-time",
             status: data.status as typeof JOB_STATUSES[number] || "open",
             description: data.description || "",
@@ -158,8 +163,10 @@ const JobForm = () => {
       }
     };
     
-    fetchJob();
-  }, [id, toast, form]);
+    if (isEditing) {
+            fetchJob();
+          }
+        }, [id, isEditing, toast, form.reset]);
   
   return (
     <div>
@@ -197,20 +204,25 @@ const JobForm = () => {
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ubicación</FormLabel>
+              <FormField control={form.control} name="location" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ubicación</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <Input placeholder="Remoto" {...field} />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona la ubicación" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
+                    <SelectContent>
+                      <SelectItem value="bogota">Bogotá</SelectItem>
+                      <SelectItem value="remoto">Remoto</SelectItem>
+                      <SelectItem value="hibrido">Híbrido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
               <FormField
                 control={form.control}
                 name="type"

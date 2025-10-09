@@ -5,11 +5,12 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import AdminSidebar from './Sidebar';
 import AdminHeader from './Header';
 import Chatbot from '../chatbot/Chatbot';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const AdminLayout = () => {
   // Get current location to help with preserving state
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false); 
+  const [isOpen, setIsOpen] = useState(true);
   const esModuloWhatsapp = location.pathname.startsWith('/admin/whatsapp');
   
   const containerClasses = esModuloWhatsapp
@@ -17,10 +18,10 @@ const AdminLayout = () => {
   : "p-6";           
 
   return (
-    <SidebarProvider>
+    <SidebarProvider open={isOpen} onOpenChange={setIsOpen}>
       <div className="min-h-screen flex w-full bg-gray-50">
         <AdminSidebar />
-        <div className="flex-1">
+          <div className="flex-1">
         <AdminHeader/>
           <main className={containerClasses}>
             <Outlet />

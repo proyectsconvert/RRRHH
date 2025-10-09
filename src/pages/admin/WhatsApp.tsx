@@ -690,7 +690,7 @@ const WhatsApp = () => {
 
     	{/* Chat Area */}
     	<Card className={showDebug ? "flex-1" : "flex-1"}>
-    	  <CardHeader className="items-start flex flex-row gap-2 p-4 !mt-0">
+    	  <CardHeader className="content-center flex flex-row gap-2 p-4 mt-0 mb-2 ml-1">
 
         {selectedUser && (
               <Avatar>
@@ -700,17 +700,17 @@ const WhatsApp = () => {
               </Avatar>
             )}
 
-          <div className="items-center !mt-0">
-        	    <CardTitle className="text-xl font-semibold !mt-0">
+          <div className="flex flex-col justify-center ml-1">
                 {selectedUser ? (
                   <>
-                    <span>
-                      {selectedUser.hicusername}
-                    </span>
-                    
-                    <span className="text-sm text-gray-500 font-normal ml-2">
-                      ({selectedUser.hicnumerouser})
-                    </span>
+                    <div>
+                      <p className="font-semibold leading-none text-lg">
+                        {selectedUser.hicusername}
+                      </p>
+                      <p className="text-sm text-gray-500 leading-none mt-1"> 
+                        ({selectedUser.hicnumerouser})
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <span className="text-xl font-semibold text-gray-400 flex items-center gap-3">
@@ -718,7 +718,6 @@ const WhatsApp = () => {
                     <span>Selecciona un chat</span>
                   </span>
                 )}
-              </CardTitle>
           </div>
     	  </CardHeader>
 
@@ -732,16 +731,30 @@ const WhatsApp = () => {
     	          <div key={index} className="flex">
     	            {message.hicmessagebot && (
     	              <div className="flex justify-end w-full">
+                    <div className="flex flex-col items-end">
                       <div className="bg-hrm-teal text-white p-3 rounded-lg max-w-xs">
                         <p>{message.hicmessagebot}</p>
                       </div>
+                      {message.created_at && (
+                          <span className="text-xs text-gray-500 mt-1 px-1">
+                            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                    </div>
                     </div>
                   )}
     	            {message.hicmessageuser && (
     	              <div className="flex justify-start w-full">
+                    <div className="flex flex-col items-end">
                       <div className="bg-gray-200 text-gray-800 p-3 rounded-lg max-w-xs">
                         <p>{message.hicmessageuser}</p>
                       </div>
+                      {message.created_at && (
+                          <span className="text-xs text-gray-500 mt-1 px-1">
+                            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                    </div>
                     </div>
                   )}
     	          </div>

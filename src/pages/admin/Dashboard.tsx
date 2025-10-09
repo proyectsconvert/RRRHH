@@ -250,7 +250,7 @@ const Dashboard = () => {
                       content={<ChartTooltipContent />} 
                     />
                     <Legend />
-                    <Bar dataKey="count" name="Cantidad" fill="#4f46e5" />
+                    <Bar dataKey="count" name="Cantidad" fill="#008a8a" />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>

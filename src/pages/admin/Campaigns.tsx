@@ -1,14 +1,15 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Calendar, FileText, BarChart, Loader2, Users } from 'lucide-react';
+import { Plus, Calendar, FileText, BarChart, Loader2, Users, User, MoreHorizontal, Eye, PencilLine, Power, Trash } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
 
 interface Campaign {
   id: string;
@@ -18,6 +19,7 @@ interface Campaign {
   created_at: string;
   responsable?: string;
   jobs?: any[] | null;
+  candidate_count?: number; // <-- Añadido para el conteo de candidatos
 }
 
 const Campaigns = () => {
@@ -70,22 +72,30 @@ const Campaigns = () => {
           }
         }
 
-        // Then fetch jobs for each campaign
-        const campaignsWithJobs = await Promise.all(
+        // Then fetch jobs and candidate counts for each campaign
+        const campaignsWithDetails = await Promise.all(
           (campaignsData || []).map(async (campaign) => {
+            // Fetch jobs
             const { data: jobsData } = await supabase
               .from('jobs')
               .select('id, title, status')
               .eq('campaign_id', campaign.id);
 
+            // Fetch candidate count
+            const { count: candidateCount } = await supabase
+              .from('applications')
+              .select('candidate_id', { count: 'exact', head: true })
+              .eq('campaign_id', campaign.id);
+
             return {
               ...campaign,
-              jobs: jobsData || []
+              jobs: jobsData || [],
+              candidate_count: candidateCount || 0
             };
           })
         );
 
-        setCampaigns(campaignsWithJobs);
+        setCampaigns(campaignsWithDetails);
         setResponsables(responsablesMap);
       } catch (error) {
         console.error('Error:', error);
@@ -201,8 +211,8 @@ const Campaigns = () => {
                       <TableHead>Nombre</TableHead>
                       <TableHead>Responsable</TableHead>
                       <TableHead>Vacantes</TableHead>
+                      <TableHead>Candidatos</TableHead> {/* <-- Nueva columna */}
                       <TableHead>Estado</TableHead>
-                      <TableHead>Progreso</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -240,38 +250,58 @@ const Campaigns = () => {
                               )}
                             </div>
                           </TableCell>
+                          {/* Nueva celda para el conteo de candidatos */}
+                          <TableCell>
+                            <div className="flex items-center">
+                                <Users className="h-4 w-4 mr-1 text-hrm-dark-cyan" />
+                                <span className="font-medium">
+                                  {campaign.candidate_count}
+                                </span>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             {getStatusBadge(campaign.status)}
                           </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-xs">
-                                <span className="text-gray-500">
-                                  Progreso: {calculateProgress(campaign)}%
-                                </span>
-                              </div>
-                              <Progress value={calculateProgress(campaign)} className="h-2" />
-                            </div>
-                          </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" asChild>
-                                <Link to={`/admin/campaigns/${campaign.id}`}>
-                                  Ver detalle
-                                </Link>
-                              </Button>
-                              <Button variant="outline" size="sm" asChild>
-                                <Link to={`/admin/campaigns/${campaign.id}/edit`}>
-                                  Editar
-                                </Link>
-                              </Button>
-                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Abrir menú</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/admin/campaigns/${campaign.id}`}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    Ver detalle
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/admin/campaigns/${campaign.id}/edit`}>
+                                    <PencilLine className="mr-2 h-4 w-4" />
+                                    Editar
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>
+                                  <Power className="mr-2 h-4 w-4" />
+                                  Desactivar
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600 focus:text-red-600">
+                                  <Trash className="mr-2 h-4 w-4" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-10 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-10 text-gray-500"> {/* <-- Colspan actualizado a 7 */}
                           No hay campañas disponibles. Crea una nueva campaña para comenzar.
                         </TableCell>
                       </TableRow>
