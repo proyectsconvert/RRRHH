@@ -1,14 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import DocumentChecklist from '@/components/candidates/DocumentChecklist';
-import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 import { Candidate } from '@/types/candidate';
+import { validateCandidateAccessToken } from '@/utils/candidate-access';
+
+// Create a completely anonymous Supabase client (no authentication)
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 const CandidateDocuments: React.FC = () => {
   const { candidateId } = useParams<{ candidateId: string }>();
+  const [searchParams] = useSearchParams();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +38,21 @@ const CandidateDocuments: React.FC = () => {
       try {
         setLoading(true);
 
-        // Check if candidate exists and is in hiring process
+        // Get the access token from URL parameters
+        const token = searchParams.get('token');
+
+        if (!token) {
+          throw new Error('Token de acceso no proporcionado. El enlace puede haber expirado.');
+        }
+
+        // Validate the access token
+        const validatedCandidateId = await validateCandidateAccessToken(token, candidateId);
+
+        if (!validatedCandidateId) {
+          throw new Error('Token de acceso inválido o expirado. Por favor solicite un nuevo enlace al reclutador.');
+        }
+
+        // Get candidate data using the validated access
         const { data: candidateData, error: candidateError } = await supabase
           .from('candidates')
           .select(`
@@ -42,13 +70,6 @@ const CandidateDocuments: React.FC = () => {
           throw new Error('Candidato no encontrado');
         }
 
-        // Check if candidate is in hiring process (has 'contratar' status)
-        const isInHiringProcess = candidateData.applications?.some((app: any) => app.status === 'contratar');
-
-        if (!isInHiringProcess) {
-          throw new Error('Este candidato no está en proceso de contratación');
-        }
-
         setCandidate(candidateData);
       } catch (err: any) {
         console.error('Error loading candidate:', err);
@@ -59,7 +80,7 @@ const CandidateDocuments: React.FC = () => {
     };
 
     loadCandidate();
-  }, [candidateId]);
+  }, [candidateId, searchParams]);
 
   if (loading) {
     return (

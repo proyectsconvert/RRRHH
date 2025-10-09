@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input";
 import { sendWelcomeMessage } from "@/utils/evolution-api";
+import { generateCandidateAccessToken } from "@/utils/candidate-access";
 import TeamsMeetingDialog, { MeetingData } from "@/components/candidates/TeamsMeetingDialog";
 
 interface Job {
@@ -505,7 +506,11 @@ const Candidates = () => {
           if (candidate?.phone) {
             try {
               const candidateName = `${candidate.first_name} ${candidate.last_name}`;
-              const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}`;
+
+              // Generate access token for this candidate
+              const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
+              const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
+
               await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
               console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
             } catch (error) {

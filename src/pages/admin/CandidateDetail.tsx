@@ -20,6 +20,7 @@ import { es } from 'date-fns/locale';
 import TeamsMeetingDialog, { MeetingData } from '@/components/candidates/TeamsMeetingDialog';
 import DocumentChecklist from '@/components/candidates/DocumentChecklist';
 import { sendWelcomeMessage } from '@/utils/evolution-api';
+import { generateCandidateAccessToken } from '@/utils/candidate-access';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { 
@@ -372,7 +373,11 @@ const CandidateDetail: React.FC = () => {
         if (candidate.phone) {
           try {
             const candidateName = `${candidate.first_name} ${candidate.last_name}`;
-            const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}`;
+
+            // Generate access token for this candidate
+            const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
+            const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
+
             await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
             console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
           } catch (error) {
