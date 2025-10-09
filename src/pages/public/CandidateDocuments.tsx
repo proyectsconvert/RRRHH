@@ -29,7 +29,7 @@ const CandidateDocuments: React.FC = () => {
           .from('candidates')
           .select(`
             *,
-            applications!inner(status)
+            applications(status)
           `)
           .eq('id', candidateId)
           .single();
