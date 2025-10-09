@@ -16,6 +16,7 @@ interface TeamsMeetingDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onMeetingCreated: (meetingData: MeetingData) => void;
+  onSkipMeeting?: () => void;
   candidateName: string;
   interviewType: 'entrevista-rc' | 'entrevista-et';
 }
@@ -33,6 +34,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
   isOpen,
   onClose,
   onMeetingCreated,
+  onSkipMeeting,
   candidateName,
   interviewType
 }) => {
@@ -190,16 +192,25 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-end space-x-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose} disabled={isCreating}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleCreateMeeting}
-            disabled={!date || !time || !meetingLink.trim() || isCreating}
-          >
-            {isCreating ? 'Procesando reunión...' : 'Programar Reunión'}
-          </Button>
+        <div className="flex justify-between space-x-2 pt-4 border-t">
+          <div>
+            {onSkipMeeting && (
+              <Button variant="ghost" onClick={onSkipMeeting} disabled={isCreating}>
+                Omitir reunión por ahora
+              </Button>
+            )}
+          </div>
+          <div className="flex space-x-2">
+            <Button variant="outline" onClick={onClose} disabled={isCreating}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateMeeting}
+              disabled={!date || !time || !meetingLink.trim() || isCreating}
+            >
+              {isCreating ? 'Procesando reunión...' : 'Programar Reunión'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

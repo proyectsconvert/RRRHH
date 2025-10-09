@@ -129,6 +129,7 @@ const CandidateDocuments: React.FC = () => {
         <DocumentChecklist
           candidateId={candidate.id}
           candidateName={`${candidate.first_name} ${candidate.last_name}`}
+          isAdmin={false} // Public view with limited functionality
           onDocumentUploaded={() => {
             // Optional: show success message or refresh data
             console.log('Document uploaded successfully');

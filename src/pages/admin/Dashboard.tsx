@@ -297,9 +297,17 @@ const Dashboard = () => {
       <h1 className="page-title">Dashboard</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
-        ))}
+        {stats
+          .filter((stat, index) => {
+            // Hide "Entrevistas Programadas" (index 2) and "Contrataciones este Mes" (index 3) for recruiters
+            if (currentUserRole === 'reclutador') {
+              return index !== 2 && index !== 3;
+            }
+            return true;
+          })
+          .map((stat, index) => (
+            <StatsCard key={index} {...stat} />
+          ))}
       </div>
 
       {/* Interview Statistics Cards */}

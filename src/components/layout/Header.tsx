@@ -1,35 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-
-
+import NotificationCenter from './NotificationCenter';
+import { supabase } from '@/integrations/supabase/client';
 
 const AdminHeader = () => {
-  return (
-    <header className="h-14 border-b border-hrm-light-gray bg-white flex items-center justify-between px-4">
-      {/* Contenedor para elementos a la izquierda */}
-      <div className="flex items-center gap-4">
-        {/*
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
-        <div className="relative w-64">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar..." className="pl-8 rounded-md border-hrm-light-gray focus:border-hrm-steel-blue" />
-        </div>
-        */}
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
 
-      </div>
+      if (user) {
+        setCurrentUserId(user.id);
 
-      {/* Contenedor para elementos a la derecha */}
-      <div className="flex items-center gap-4 ml-auto">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500"></span>
-        </Button>
-      </div>
-    </header>
-  );
+        // Get current user's role
+        const { data: userProfile, error: userError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (!userError && userProfile) {
+          setCurrentUserRole(userProfile.role);
+        }
+      }
+    };
+
+    getCurrentUser();
+  }, []);
+
+  return (
+    <header className="h-14 border-b border-hrm-light-gray bg-white flex items-center justify-between px-4">
+      {/* Contenedor para elementos a la izquierda */}
+      <div className="flex items-center gap-4">
+        {/*
+
+        <div className="relative w-64">
+          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Buscar..." className="pl-8 rounded-md border-hrm-light-gray focus:border-hrm-steel-blue" />
+        </div>
+        */}
+
+      </div>
+
+      {/* Contenedor para elementos a la derecha */}
+      <div className="flex items-center gap-4 ml-auto">
+        <NotificationCenter
+          currentUserId={currentUserId || undefined}
+          currentUserRole={currentUserRole || undefined}
+        />
+      </div>
+    </header>
+  );
 
 };
 

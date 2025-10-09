@@ -12,10 +12,16 @@ import ResumeContent from '@/components/candidates/ResumeContent';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import TeamsMeetingDialog, { MeetingData } from '@/components/candidates/TeamsMeetingDialog';
 import DocumentChecklist from '@/components/candidates/DocumentChecklist';
 import { sendWelcomeMessage } from '@/utils/evolution-api';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { 
   fetchCandidateDetails, 
   saveAnalysisData, 
@@ -31,6 +37,7 @@ const CandidateDetail: React.FC = () => {
   const { toast } = useToast();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [savingResumeText, setSavingResumeText] = useState(false);
   const [jobDetails, setJobDetails] = useState<any>(null);
@@ -45,21 +52,28 @@ const CandidateDetail: React.FC = () => {
   const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{id: string, first_name: string, last_name: string} | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isHireDialogOpen, setIsHireDialogOpen] = useState(false);
+  const [hireStartDate, setHireStartDate] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     const loadCandidate = async () => {
+      // Skip loading if data is already loaded for this candidate
+      if (dataLoaded && candidate?.id === id) {
+        return;
+      }
+
       try {
         setLoading(true);
-        
+
         if (!id) {
           throw new Error('ID de candidato no proporcionado');
         }
-        
+
         console.log('Buscando candidato con ID:', id);
-        
+
         const candidateData = await fetchCandidateDetails(id);
         console.log('Candidato cargado:', candidateData);
-        
+
         // Set resume content if it exists
         if (candidateData.resume_text) {
           console.log('Texto del CV encontrado, longitud:', candidateData.resume_text.length);
@@ -67,8 +81,9 @@ const CandidateDetail: React.FC = () => {
         } else {
           console.log('No se encontró texto del CV');
         }
-        
+
         setCandidate(candidateData);
+        setDataLoaded(true);
       } catch (error: any) {
         console.error('Error al cargar candidato:', error);
         toast({
@@ -80,8 +95,11 @@ const CandidateDetail: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     const fetchRecruiters = async () => {
+      // Only fetch recruiters if not already loaded
+      if (recruiters.length > 0) return;
+
       // Get current authenticated user
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -127,7 +145,7 @@ const CandidateDetail: React.FC = () => {
 
     if (id) loadCandidate();
     fetchRecruiters();
-  }, [id, toast]);
+  }, [id, toast, dataLoaded, candidate?.id, recruiters.length]);
 
   const handleSaveResumeText = async (text: string) => {
     try {
@@ -394,6 +412,75 @@ const CandidateDetail: React.FC = () => {
     }
   };
 
+  const handleHire = async () => {
+    if (!hireStartDate || !candidate) return;
+
+    try {
+      // Update status to "contratado" for all candidate applications
+      const updates = [];
+      if (candidate.applications) {
+        for (const app of candidate.applications) {
+          updates.push(
+            supabase
+              .from('applications')
+              .update({
+                status: 'contratado',
+                hire_date: hireStartDate.toISOString().split('T')[0], // YYYY-MM-DD format
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', app.id)
+          );
+        }
+      }
+
+      await Promise.all(updates);
+
+      // Send welcome message via Evolution API
+      if (candidate.phone) {
+        try {
+          const candidateName = `${candidate.first_name} ${candidate.last_name}`;
+          const formattedDate = format(hireStartDate, 'dd/MM/yyyy', { locale: es });
+          const message = `Bienvenido a convertía ${candidateName}, gracias por hacer parte de este equipo, inicias labores desde el día ${formattedDate}`;
+
+          const { sendEvolutionMessage } = await import('@/utils/evolution-api');
+          await sendEvolutionMessage(candidate.phone, message, true);
+
+          console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
+        } catch (error) {
+          console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
+          toast({
+            title: "Advertencia",
+            description: "El candidato fue contratado correctamente pero no se pudo enviar el mensaje de WhatsApp",
+            variant: "destructive"
+          });
+        }
+      } else {
+        console.warn(`No phone number found for candidate ${candidate.first_name} ${candidate.last_name}`);
+      }
+
+      toast({
+        title: "Candidato Contratado",
+        description: `${candidate.first_name} ${candidate.last_name} ha sido contratado exitosamente. Inicia labores el ${format(hireStartDate, 'dd/MM/yyyy', { locale: es })}.`,
+      });
+
+      setIsHireDialogOpen(false);
+      setHireStartDate(undefined);
+
+      // Refresh candidate data
+      if (id) {
+        const candidateData = await fetchCandidateDetails(id);
+        setCandidate(candidateData);
+      }
+    } catch (error) {
+      console.error('Error hiring candidate:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo contratar al candidato",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleMeetingCreated = async (meetingData: MeetingData) => {
     if (!candidate || !currentInterviewType) return;
 
@@ -569,11 +656,32 @@ const CandidateDetail: React.FC = () => {
             <DocumentChecklist
               candidateId={candidate.id}
               candidateName={`${candidate.first_name} ${candidate.last_name}`}
+              isAdmin={true} // Admin view with management buttons
               onDocumentUploaded={() => {
                 // Optional: refresh candidate data if needed
                 console.log('Document uploaded, candidate data refresh if needed');
               }}
             />
+          )}
+
+          {/* Hire Button - Only show for candidates in hiring process */}
+          {isInHiringProcess && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Acciones de Contratación</CardTitle>
+                <CardDescription>
+                  El candidato está en proceso de contratación. Si todos los documentos están completos y aprobado, puede proceder con la contratación final.
+                </CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <Button
+                  onClick={() => setIsHireDialogOpen(true)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Contratar
+                </Button>
+              </CardFooter>
+            </Card>
           )}
         </div>
       </div>
@@ -657,6 +765,60 @@ const CandidateDetail: React.FC = () => {
         candidateName={`${candidate.first_name} ${candidate.last_name}`}
         interviewType={currentInterviewType || 'entrevista-rc'}
       />
+
+      {/* Hire Dialog */}
+      <Dialog open={isHireDialogOpen} onOpenChange={setIsHireDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] p-0 border-none shadow-none">
+          <DialogHeader className="bg-hrm-dark-primary py-9 px-6 rounded-t-lg border-none shadow-none">
+            <DialogTitle className="text-white text-xl">Contratar Candidato</DialogTitle>
+            <DialogDescription className="text-gray-200">
+              Selecciona la fecha de inicio de labores para {candidate.first_name} {candidate.last_name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4 px-6">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="hire-date" className="text-right">
+                Fecha de Inicio
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "col-span-3 justify-start text-left font-normal",
+                      !hireStartDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {hireStartDate ? format(hireStartDate, "PPP", { locale: es }) : "Seleccionar fecha"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={hireStartDate}
+                    onSelect={setHireStartDate}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200">
+            <Button variant="ghost" onClick={() => setIsHireDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handleHire}
+              disabled={!hireStartDate}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Contratar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

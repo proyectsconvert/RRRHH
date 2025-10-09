@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, FileText, Image, CheckCircle, XCircle, AlertCircle, Download, Eye } from 'lucide-react';
+import { Upload, FileText, Image, CheckCircle, XCircle, AlertCircle, Download, Eye, Trash2, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import DocumentViewer from './DocumentViewer';
@@ -19,6 +19,8 @@ interface DocumentItem {
   fileUrl?: string;
   uploadedAt?: string;
   fileName?: string;
+  needsReupload?: boolean;
+  reuploadRequestedAt?: string;
 }
 
 interface DocumentCategory {
@@ -32,6 +34,7 @@ interface DocumentChecklistProps {
   candidateId: string;
   candidateName: string;
   onDocumentUploaded?: () => void;
+  isAdmin?: boolean; // New prop to differentiate admin vs public view
 }
 
 const DOCUMENT_CATEGORIES: Record<string, DocumentCategory> = {
@@ -281,7 +284,8 @@ const DOCUMENT_CATEGORIES: Record<string, DocumentCategory> = {
 const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
   candidateId,
   candidateName,
-  onDocumentUploaded
+  onDocumentUploaded,
+  isAdmin = false // Default to public view
 }) => {
   const { toast } = useToast();
   const [documents, setDocuments] = useState<{[key: string]: DocumentItem}>({});
@@ -349,7 +353,9 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
             uploaded: !!existingDoc,
             fileUrl: fileUrl,
             uploadedAt: existingDoc?.uploaded_at,
-            fileName: existingDoc?.file_name
+            fileName: existingDoc?.file_name,
+            needsReupload: existingDoc?.needs_reupload || false,
+            reuploadRequestedAt: existingDoc?.reupload_requested_at
           };
         }
       }
@@ -497,6 +503,115 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
     }
   };
 
+  const handleDeleteDocument = async (documentId: string) => {
+    try {
+      // Delete from Supabase storage
+      const existingDoc = Object.values(documents).find(doc => doc.id === documentId && doc.uploaded);
+      if (existingDoc?.fileUrl) {
+        // Extract file path from signed URL
+        const urlParts = existingDoc.fileUrl.split('/');
+        const fileName = urlParts[urlParts.length - 1].split('?')[0]; // Remove query params
+        const filePath = `${candidateId}/${fileName}`;
+
+        const { error: storageError } = await supabase.storage
+          .from('candidate-documents')
+          .remove([filePath]);
+
+        if (storageError) {
+          console.error('Error deleting from storage:', storageError);
+        }
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('candidate_documents')
+        .delete()
+        .eq('candidate_id', candidateId)
+        .eq('document_type', documentId);
+
+      if (dbError) {
+        throw dbError;
+      }
+
+      // Update local state
+      setDocuments(prev => ({
+        ...prev,
+        [documentId]: {
+          ...prev[documentId],
+          uploaded: false,
+          fileUrl: undefined,
+          uploadedAt: undefined,
+          fileName: undefined
+        }
+      }));
+
+      toast({
+        title: "Documento eliminado",
+        description: `${documents[documentId]?.name} ha sido eliminado correctamente`
+      });
+
+      onDocumentUploaded?.();
+    } catch (error: any) {
+      console.error('Error deleting document:', error);
+      toast({
+        title: "Error al eliminar documento",
+        description: error.message || "No se pudo eliminar el documento",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRequestReupload = async (documentId: string) => {
+    try {
+      // Mark document as needing re-upload by updating the database
+      const { error } = await supabase
+        .from('candidate_documents')
+        .upsert({
+          candidate_id: candidateId,
+          document_type: documentId,
+          file_url: null, // Clear the URL to indicate it needs re-upload
+          file_name: null,
+          file_size: null,
+          uploaded_at: null,
+          needs_reupload: true, // Add this field to track re-upload requests
+          reupload_requested_at: new Date().toISOString(),
+          reupload_requested_by: 'recruiter' // Track who requested the re-upload
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setDocuments(prev => ({
+        ...prev,
+        [documentId]: {
+          ...prev[documentId],
+          uploaded: false,
+          fileUrl: undefined,
+          uploadedAt: undefined,
+          fileName: undefined,
+          needsReupload: true,
+          reuploadRequestedAt: new Date().toISOString()
+        }
+      }));
+
+      toast({
+        title: "Re-carga solicitada",
+        description: `Se ha solicitado la re-carga de ${documents[documentId]?.name}. El candidato podrá subir el documento corregido.`
+      });
+
+      onDocumentUploaded?.();
+    } catch (error: any) {
+      console.error('Error requesting re-upload:', error);
+      toast({
+        title: "Error al solicitar re-carga",
+        description: error.message || "No se pudo solicitar la re-carga del documento",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getFileIcon = (fileName?: string) => {
     if (!fileName) return <FileText className="h-4 w-4" />;
 
@@ -634,54 +749,133 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
                     <div className="flex items-center gap-2">
                       {doc?.uploaded && doc.fileUrl && (
                         <div className="flex items-center gap-1">
-                          {getFileIcon(doc.fileUrl)}
+                          {getFileIcon(doc.fileName || doc.fileUrl)}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleViewDocument(doc)}
+                            title="Ver documento"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </div>
                       )}
 
-                      <div>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
-                          onChange={(e) => handleFileSelect(item.id, e)}
-                          className="hidden"
-                          id={`file-${item.id}`}
-                          disabled={isUploading}
-                        />
-                        <label htmlFor={`file-${item.id}`}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                            disabled={isUploading}
-                          >
-                            <span className="cursor-pointer">
-                              {isUploading ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600 mr-2"></div>
-                                  Subiendo...
-                                </>
-                              ) : doc?.uploaded ? (
-                                <>
-                                  <Upload className="h-4 w-4 mr-2" />
-                                  Reemplazar
-                                </>
-                              ) : (
-                                <>
-                                  <Upload className="h-4 w-4 mr-2" />
-                                  Subir
-                                </>
-                              )}
-                            </span>
-                          </Button>
-                        </label>
-                      </div>
+                      {isAdmin ? (
+                        // Admin view: Show all management buttons including upload
+                        <div className="flex items-center gap-2">
+                          {/* Upload/Replace button for recruiters */}
+                          <div>
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
+                              onChange={(e) => handleFileSelect(item.id, e)}
+                              className="hidden"
+                              id={`file-${item.id}`}
+                              disabled={isUploading}
+                            />
+                            <label htmlFor={`file-${item.id}`}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                disabled={isUploading}
+                              >
+                                <span className="cursor-pointer">
+                                  {isUploading ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600 mr-2"></div>
+                                      Subiendo...
+                                    </>
+                                  ) : doc?.uploaded ? (
+                                    <>
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Reemplazar
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Subir
+                                    </>
+                                  )}
+                                </span>
+                              </Button>
+                            </label>
+                          </div>
+
+                          {/* Management buttons - only show if document is uploaded */}
+                          {doc?.uploaded && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteDocument(item.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Eliminar documento"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRequestReupload(item.id)}
+                                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                title="Solicitar re-carga"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Show re-upload requested indicator */}
+                          {doc?.needsReupload && !doc?.uploaded && (
+                            <Badge variant="outline" className="text-orange-600 border-orange-300">
+                              Re-carga solicitada
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        // Public view: Hide upload button once document is uploaded
+                        !doc?.uploaded && (
+                          <div>
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
+                              onChange={(e) => handleFileSelect(item.id, e)}
+                              className="hidden"
+                              id={`file-${item.id}`}
+                              disabled={isUploading}
+                            />
+                            <label htmlFor={`file-${item.id}`}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                disabled={isUploading}
+                              >
+                                <span className="cursor-pointer">
+                                  {isUploading ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600 mr-2"></div>
+                                      Subiendo...
+                                    </>
+                                  ) : doc?.needsReupload ? (
+                                    <>
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Subir corregido
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Subir
+                                    </>
+                                  )}
+                                </span>
+                              </Button>
+                            </label>
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 );

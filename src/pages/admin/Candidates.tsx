@@ -76,14 +76,16 @@ const getCandidateStatus = (applications?: Application[]) => {
     'blocked': 1,
     'rejected': 2,
     'discarded': 3,
-    'contratar': 4,
-    'training': 5,
-    'entrevista-et': 6,
-    'entrevista-rc': 7,
-    'asignar-campana': 8,
-    'under_review': 9,
-    'applied': 10,
-    'new': 11
+    'contratado': 4,
+    'contratar': 5,
+    'training': 6,
+    'prueba-tecnica': 7,
+    'entrevista-et': 8,
+    'entrevista-rc': 9,
+    'asignar-campana': 10,
+    'under_review': 11,
+    'applied': 12,
+    'new': 13
   };
 
   // Find the application with highest priority status (lowest number)
@@ -109,8 +111,10 @@ const getStatusDisplay = (status: string | null) => {
     'under_review': { label: 'Bajo Revisión', variant: 'outline' as const, color: 'text-destructive border-destructive', className: 'font-bold text-sm' },
     'entrevista-rc': { label: 'Entrevista Inicial', variant: 'outline' as const, color: 'text-yellow-600 border-yellow-600' , className: 'font-bold text-sm'},
     'entrevista-et': { label: 'Entrevista Técnica', variant: 'default' as const, color: 'bg-yellow-100 text-yellow-800 ' },
+    'prueba-tecnica': { label: 'Prueba Técnica', variant: 'default' as const, color: 'bg-blue-100 text-blue-800' },
     'asignar-campana': { label: 'En Campaña', variant: 'outline' as const, color: 'text-hrm-teal border-hrm-teal' },
-    'contratar': { label: 'Contratado', variant: 'secondary' as const, color: '' },
+    'contratar': { label: 'Proceso de Contratación', variant: 'secondary' as const, color: '' },
+    'contratado': { label: 'Contratado', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'training': { label: 'En Formación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'rejected': { label: 'Rechazado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
     'discarded': { label: 'Descartado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
@@ -132,6 +136,7 @@ const Candidates = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const { toast } = useToast();const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<string[]>([]);
@@ -222,6 +227,7 @@ const Candidates = () => {
 
       // Por ahora, solo asignar los datos sin campañas hasta que se ejecute la migración
       setCandidates(data || []);
+      setDataLoaded(true);
     } catch (err) {
       console.error('Error:', err);
       toast({
@@ -318,8 +324,10 @@ const Candidates = () => {
   }, []);
 
   useEffect(() => {
-    fetchCandidates();
-    
+    // Only show loading screen on initial load, not on subsequent navigation
+    const shouldShowLoading = !dataLoaded;
+    fetchCandidates(shouldShowLoading);
+
     // Set up subscription for real-time updates (silent updates without loading screen)
     const channel = supabase
       .channel('candidates-changes')
@@ -348,7 +356,7 @@ const Candidates = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, [toast, dataLoaded]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -441,7 +449,7 @@ const Candidates = () => {
       return;
     }
 
-    // For interview statuses, show Teams dialog instead of updating immediately
+    // For interview statuses, update status immediately and then show Teams dialog for scheduling
     if (newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') {
       const candidate = candidates.find(c => c.id === selectedCandidates[0]);
       if (candidate) {
@@ -449,8 +457,8 @@ const Candidates = () => {
         setCurrentInterviewType(newStatus);
         setIsTeamsDialogOpen(true);
         setStatusModalOpen(false);
+        // Continue with status update below
       }
-      return;
     }
 
     try {
@@ -474,8 +482,8 @@ const Candidates = () => {
             }
 
             // Save recruiter_id for interview statuses
-            if ((newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') && selectedRecruiter) {
-              updateData.recruiter_id = selectedRecruiter;
+            if (newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') {
+              updateData.recruiter_id = currentUserId; // Always assign current user as recruiter for interviews
             }
 
             updates.push(
@@ -536,25 +544,15 @@ const Candidates = () => {
     }
   };
 
-  // Handle meeting creation and status update
+  // Handle meeting creation and add meeting details (status already updated)
   const handleMeetingCreated = async (meetingData: MeetingData) => {
     if (!currentCandidate || !currentInterviewType || !currentUserId) {
       console.error('Missing required data for meeting creation');
       return;
     }
 
-    // Double-check permissions before creating meeting and updating status
-    if (!canModifyCandidate(currentCandidate)) {
-      toast({
-        title: "Acceso denegado",
-        description: "No tienes permisos para cambiar el estado de este candidato",
-        variant: "destructive"
-      });
-      return;
-    }
-
     try {
-      // Update candidate status to interview type and assign recruiter
+      // Update applications with meeting details (status already set)
       const updates = [];
       if (currentCandidate.applications) {
         for (const app of currentCandidate.applications) {
@@ -562,8 +560,10 @@ const Candidates = () => {
             supabase
               .from('applications')
               .update({
-                status: currentInterviewType,
-                recruiter_id: currentUserId, // Assign current user as recruiter
+                meeting_date: meetingData.date.toISOString().split('T')[0], // YYYY-MM-DD format
+                meeting_time: meetingData.time, // HH:MM format
+                meeting_link: meetingData.meetingLink,
+                meeting_title: meetingData.title,
                 updated_at: new Date().toISOString()
               })
               .eq('id', app.id)
@@ -573,7 +573,7 @@ const Candidates = () => {
 
       await Promise.all(updates);
 
-      console.log(`Interview assigned: ${currentInterviewType} to candidate ${currentCandidate.first_name} ${currentCandidate.last_name} by recruiter ${currentUserId}`);
+      console.log(`Meeting scheduled: ${currentInterviewType} for candidate ${currentCandidate.first_name} ${currentCandidate.last_name}`);
 
       // Send message via Evolution API
       if (currentCandidate.phone) {
@@ -585,7 +585,7 @@ const Candidates = () => {
           const hour12 = hour24 % 12 || 12;
           const timeFormatted = `${hour12}:${minutes} ${ampm}`;
 
-          const interviewTypeText = currentInterviewType === 'entrevista-rc' ? 'Si entrevista RC' : 'Si entrevista Técnica';
+          const interviewTypeText = currentInterviewType === 'entrevista-rc' ? 'RC/Tecnica' : 'Tecnica';
           const dateTimeStr = `${meetingData.date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
 
           const message = `Felicidades, está en proceso de entrevista ${interviewTypeText}, quedo para el día ${dateTimeStr} con este link: ${meetingData.meetingLink}`;
@@ -627,10 +627,10 @@ const Candidates = () => {
       // Refresh data immediately (silently)
       setTimeout(() => fetchCandidates(false), 500);
     } catch (error) {
-      console.error('Error creating meeting and updating status:', error);
+      console.error('Error creating meeting:', error);
       toast({
         title: "Error",
-        description: "No se pudo crear la reunión y actualizar el estado",
+        description: "No se pudo crear la reunión",
         variant: "destructive"
       });
     }
@@ -816,8 +816,8 @@ const Candidates = () => {
           // Candidatos cuyas aplicaciones no están en otras categorías procesadas
           return candidate.applications.some(app => {
             const processedStatuses = [
-              'entrevista-rc', 'entrevista-et', 'asignar-campana',
-              'contratar', 'training', 'rejected', 'discarded', 'blocked'
+              'entrevista-rc', 'entrevista-et', 'prueba-tecnica', 'asignar-campana',
+              'contratar', 'contratado', 'training', 'rejected', 'discarded', 'blocked'
             ];
             return !processedStatuses.includes(app.status) || app.status === 'new' || app.status === 'applied' || app.status === 'under_review';
           });
@@ -825,8 +825,9 @@ const Candidates = () => {
       } else {
         const statusFilters: { [key: string]: string[] } = {
           'en-entrevista': ['entrevista-rc', 'entrevista-et'],
+          'prueba-tecnica': ['prueba-tecnica'],
           'en-formacion': ['asignar-campana'],
-          'contratados': ['contratar'],
+          'contratados': ['contratar', 'contratado'],
           'discarded': ['rejected', 'discarded', 'blocked']
         };
 
@@ -836,13 +837,16 @@ const Candidates = () => {
         );
 
         // Apply role-based filtering for interview statuses
-        if (tabFilter === 'en-entrevista' && currentUserRole === 'reclutador' && currentUserId) {
-          // For recruiters, only show candidates where they are the assigned recruiter
-          filtered = filtered.filter(candidate =>
-            candidate.applications?.some(app =>
-              allowedStatuses.includes(app.status) && app.recruiter_id === currentUserId
-            )
-          );
+        if (tabFilter === 'en-entrevista') {
+          if (currentUserRole === 'reclutador' && currentUserId) {
+            // For recruiters, only show candidates where they are the assigned recruiter
+            filtered = filtered.filter(candidate =>
+              candidate.applications?.some(app =>
+                allowedStatuses.includes(app.status) && app.recruiter_id === currentUserId
+              )
+            );
+          }
+          // For admins, show all interviews (no additional filtering needed)
         }
 
         // For other tabs, show all candidates regardless of role (recruiters need to be able to assign interviews)
@@ -940,10 +944,11 @@ const Candidates = () => {
               <TabsList>
                 <TabsTrigger value="sin-revisar">Sin Revisar ({filteredCandidates('sin-revisar').length})</TabsTrigger>
                 <TabsTrigger value="en-entrevista">En Entrevista ({filteredCandidates('en-entrevista').length})</TabsTrigger>
-                <TabsTrigger value="en-formacion">En Formación ({filteredCandidates('en-formacion').length})</TabsTrigger>
+                <TabsTrigger value="prueba-tecnica">Prueba Técnica ({filteredCandidates('prueba-tecnica').length})</TabsTrigger>
+                <TabsTrigger value="en-formacion">En Campaña ({filteredCandidates('en-formacion').length})</TabsTrigger>
                 <div className="h-6 w-px bg-gray-400 mx-2" />
                 <TabsTrigger value="all">Todos ({filteredCandidates('all').length})</TabsTrigger>
-                <TabsTrigger value="contratados">Contratados ({filteredCandidates('contratados').length})</TabsTrigger>
+                <TabsTrigger value="contratados">Proceso de Contratación ({filteredCandidates('contratados').length})</TabsTrigger>
                 <TabsTrigger value="discarded">Descartados ({filteredCandidates('discarded').length})</TabsTrigger>
 
               </TabsList>
@@ -1129,6 +1134,7 @@ const Candidates = () => {
                             <SelectContent>
                               <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
                               <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
+                              <SelectItem value="prueba-tecnica">Prueba Técnica</SelectItem>
                               <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
                               <SelectItem value="contratar">Proceso de contratación</SelectItem>
                             </SelectContent>
@@ -1294,6 +1300,21 @@ const Candidates = () => {
             />
           </TabsContent>
 
+          <TabsContent value="prueba-tecnica">
+            <CandidatesTable
+              candidates={filteredCandidates('prueba-tecnica')}
+              loading={loading}
+              selectedCandidates={selectedCandidates}
+              setSelectedCandidates={setSelectedCandidates}
+              columnVisibility={columnVisibility}
+              setDiscardModalOpen={setDiscardModalOpen}
+              setBlockModalOpen={setBlockModalOpen}
+              setStatusModalOpen={setStatusModalOpen}
+              activeTab={activeTab}
+              canModifyCandidate={canModifyCandidate}
+            />
+          </TabsContent>
+
           <TabsContent value="en-formacion">
             <CandidatesTable
               candidates={filteredCandidates('en-formacion')}
@@ -1346,6 +1367,17 @@ const Candidates = () => {
         isOpen={isTeamsDialogOpen}
         onClose={() => setIsTeamsDialogOpen(false)}
         onMeetingCreated={handleMeetingCreated}
+        onSkipMeeting={() => {
+          // Just close the dialog and refresh data - status was already updated
+          setIsTeamsDialogOpen(false);
+          setCurrentCandidate(null);
+          setCurrentInterviewType(null);
+          setNewStatus("");
+          setSelectedRecruiter("");
+          setSelectedCampaign("");
+          setSelectedCandidates([]);
+          setTimeout(() => fetchCandidates(false), 500);
+        }}
         candidateName={currentCandidate ? `${currentCandidate.first_name} ${currentCandidate.last_name}` : ''}
         interviewType={currentInterviewType || 'entrevista-rc'}
       />
@@ -1413,7 +1445,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                   {columnVisibility.habilidades && <TableHead className="w-[12%]">Habilidades</TableHead>}
                   {columnVisibility.aplicaciones && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
                   {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableHead>Estado</TableHead>}
-                  {activeTab === 'all' && columnVisibility.reclutador && <TableHead className="w-[12%]">Reclutador</TableHead>}
+                  {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.reclutador && <TableHead className="w-[12%]">Reclutador</TableHead>}
                   {columnVisibility.fecha && <TableHead>Fecha</TableHead>}
                   <TableHead className="text-right">Detalles</TableHead>
                 </TableRow>
@@ -1567,7 +1599,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           })()}
                         </TableCell>}
 
-                        {activeTab === 'all' && columnVisibility.reclutador && <TableCell>
+                        {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.reclutador && <TableCell>
                           <div className="flex flex-col gap-1">
                             {candidate.applications && candidate.applications.length > 0 ? (
                               candidate.applications

@@ -3,12 +3,24 @@
 
 export function getStatusText(status: string) {
   const statusMap: {[key: string]: string} = {
-    'new': 'Nuevo',
+    'new': 'Nuevo Candidato',
+    'applied': 'Aplicado',
+    'under_review': 'Bajo Revisión',
+    'entrevista-rc': 'Entrevista Inicial',
+    'entrevista-et': 'Entrevista Técnica',
+    'prueba-tecnica': 'Prueba Técnica',
+    'asignar-campana': 'En Campaña',
+    'contratar': 'Proceso de Contratación',
+    'contratado': 'Contratado',
+    'training': 'En Formación',
+    'rejected': 'Rechazado',
+    'discarded': 'Descartado',
+    'blocked': 'Bloqueado',
+    // Legacy mappings for backward compatibility
     'reviewing': 'En revisión',
     'interview': 'Entrevista',
     'selected': 'Seleccionado',
-    'rejected': 'Rechazado',
-    'hired': 'Contratado',
+    'hired': 'Proceso de Contratación',
     'pending': 'Pendiente'
   };
   return statusMap[status] || status;
