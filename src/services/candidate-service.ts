@@ -8,6 +8,28 @@ export async function fetchCandidateDetails(candidateId: string): Promise<Candid
     .select('*, applications(id, status, job_id, created_at, recruiter_id)')
     .eq('id', candidateId)
     .single();
+
+  if (candidateError) {
+    throw candidateError;
+  }
+
+  if (!candidateData) {
+    throw new Error('No se encontró el candidato');
+  }
+
+  // Check if document_id exists in the database, if not, try to get it from profiles table
+  let documentId = candidateData.document_id;
+  if (!documentId) {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('document_id')
+      .eq('id', candidateId)
+      .single();
+
+    if (profileData?.document_id) {
+      documentId = profileData.document_id;
+    }
+  }
   
   if (candidateError) {
     throw candidateError;
@@ -66,6 +88,7 @@ export async function fetchCandidateDetails(candidateId: string): Promise<Candid
 
   return {
     ...candidateData,
+    document_id: documentId,
     analysis_data: analysisData,
     applications: appsWithJobDetails
   };
@@ -168,12 +191,27 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
     if (!extractedText || extractedText.trim().length === 0) {
       throw new Error('No hay texto para analizar');
     }
-    
+
+    // Check if the text looks like raw PDF content (starts with %PDF)
+    if (extractedText.trim().startsWith('%PDF-')) {
+      throw new Error('El texto extraído parece ser contenido binario de PDF. Por favor, extrae el texto correctamente desde el visor de PDF.');
+    }
+
+    // Check if the text contains PDF object definitions (common issue)
+    if (extractedText.includes('obj <</Type/') || extractedText.includes('/Filter/FlateDecode')) {
+      throw new Error('El texto extraído contiene datos binarios del PDF. Por favor, abre el visor de PDF y haz clic en "Analizar con IA" para extraer el texto correctamente.');
+    }
+
+    // Check if text is too short or empty
+    if (extractedText.trim().length < 50) {
+      throw new Error('El texto extraído es demasiado corto. Asegúrate de que el PDF contenga texto legible y no solo imágenes.');
+    }
+
     // Retry mechanism
     let retryCount = 0;
     const maxRetries = 3;
     let lastError = null;
-    
+
     while (retryCount < maxRetries) {
       try {
         // Direct fetch approach without authorization since verify_jwt is false
@@ -183,7 +221,7 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
             'Content-Type': 'application/json',
             'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1Z29jZHRlc2FjemJmcndibHNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1NzA0MjUsImV4cCI6MjA2MjE0NjQyNX0.nHNWlTMfxuwAKYaiw145IFTAx3R3sbfWygviPVSH-Zc"
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             extractedText,
             jobDetails
           })
@@ -193,16 +231,16 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
           const errorText = await response.text();
           throw new Error(`Edge function returned error: ${response.status}, ${errorText}`);
         }
-        
+
         const data = await response.json();
 
         if (!data?.success) {
           throw new Error(
-            data?.error || 
+            data?.error ||
             "Error durante el análisis del CV. Verifica los logs para más detalles."
           );
         }
-        
+
         return data.analysis;
       } catch (error) {
         lastError = error;
@@ -215,10 +253,10 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
         }
       }
     }
-    
+
     // If we've exhausted retries
     throw lastError || new Error('Error al invocar la función Edge después de múltiples intentos');
-    
+
   } catch (error) {
     throw error;
   }

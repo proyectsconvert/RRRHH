@@ -72,6 +72,7 @@ interface CandidateSidebarProps {
   candidate: Candidate;
   analyzing: boolean;
   resumeContent: string | null;
+  transcribing?: boolean;
   onViewResume: () => void;
   onAnalyzeCV: (applicationId?: string) => void;
   onChangeStatus?: () => void;
@@ -83,6 +84,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
   candidate,
   analyzing,
   resumeContent,
+  transcribing = false,
   onViewResume,
   onAnalyzeCV,
   onChangeStatus,
@@ -107,14 +109,20 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
               <Mail className="h-4 w-4 text-muted-foreground" />
               <span>{candidate.email}</span>
             </div>
-            
+
             {candidate.phone && (
               <div className="flex items-center gap-2 text-sm">
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 <span>{candidate.phone}</span>
               </div>
             )}
-            
+
+            {/* Cédula */}
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span>Cédula: {candidate.document_id || 'No especificada'}</span>
+            </div>
+
             {candidate.location && (
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -155,38 +163,21 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
           {candidate.resume_url && (
             <div>
               <h3 className="text-sm font-medium mb-2">Curriculum Vitae</h3>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="w-full"
                 onClick={onViewResume}
+                disabled={transcribing}
               >
                 <FileText className="mr-2 h-4 w-4" />
-                Ver CV
+                {transcribing ? 'Transcribiendo...' : 'Ver CV'}
               </Button>
             </div>
           )}
         </CardContent>
         
         <CardFooter className="flex flex-col gap-2">
-          <Button
-            className="w-full"
-            onClick={() => onAnalyzeCV(candidate.applications?.[0]?.id)}
-            disabled={analyzing || !candidate.resume_url || !resumeContent}
-          >
-            {analyzing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analizando...
-              </>
-            ) : (
-              <>
-                <User className="mr-2 h-4 w-4" />
-                {candidate.analysis_data ? 'Reanalizar CV' : 'Analizar CV con IA'}
-              </>
-            )}
-          </Button>
-
           {onChangeStatus && canModifyCandidate && canModifyCandidate(candidate) && (
             <Button
               variant="outline"

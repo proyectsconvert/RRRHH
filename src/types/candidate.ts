@@ -58,6 +58,7 @@ export interface Candidate {
   last_name: string;
   email: string;
   phone?: string;
+  document_id?: string;
   location?: string;
   experience_years?: number;
   skills?: string[];

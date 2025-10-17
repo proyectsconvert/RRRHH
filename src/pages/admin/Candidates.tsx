@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { sendWelcomeMessage } from "@/utils/evolution-api";
 import { generateCandidateAccessToken } from "@/utils/candidate-access";
 import TeamsMeetingDialog, { MeetingData } from "@/components/candidates/TeamsMeetingDialog";
+import { analyzeResume, saveAnalysisData } from "@/services/candidate-service";
 
 interface Job {
   id?: string;
@@ -52,8 +53,11 @@ interface Candidate {
   skills?: string[];
   created_at: string;
   resume_url?: string;
+  resume_text?: string | null;
   applications?: Application[];
-  analysis_summary?: string | null; 
+  analysis_summary?: string | null;
+  transcription_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  analysis_status?: 'pending' | 'analyzing' | 'completed' | 'failed';
 }
 
 const initialColumnVisibility = {
@@ -159,6 +163,10 @@ const Candidates = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentCandidate, setCurrentCandidate] = useState<Candidate | null>(null);
   const [interviewTypeFilter, setInterviewTypeFilter] = useState<'all' | 'entrevista-rc' | 'entrevista-et'>('all');
+  const [transcribingCandidates, setTranscribingCandidates] = useState<Set<string>>(new Set());
+  const [transcriptionStatus, setTranscriptionStatus] = useState<{[key: string]: 'pending' | 'processing' | 'completed' | 'failed'}>({});
+  const [analysisStatus, setAnalysisStatus] = useState<{[key: string]: 'pending' | 'analyzing' | 'completed' | 'failed'}>({});
+  const [processedCandidates, setProcessedCandidates] = useState<Set<string>>(new Set());
 
   // Helper function to check if current user can modify a candidate's status
   const canModifyCandidate = (candidate: Candidate): boolean => {
@@ -216,6 +224,29 @@ const Candidates = () => {
         `)
         .order('created_at', { ascending: false });
 
+      // If we have candidates, fetch document_id from profiles table for those missing it
+      if (data && data.length > 0) {
+        const candidatesNeedingDocumentId = data.filter(candidate => !candidate.document_id);
+
+        if (candidatesNeedingDocumentId.length > 0) {
+          const candidateIds = candidatesNeedingDocumentId.map(c => c.id);
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, document_id')
+            .in('id', candidateIds);
+
+          // Merge document_id from profiles into candidates
+          if (profilesData) {
+            data.forEach(candidate => {
+              const profile = profilesData.find(p => p.id === candidate.id);
+              if (profile?.document_id && !candidate.document_id) {
+                candidate.document_id = profile.document_id;
+              }
+            });
+          }
+        }
+      }
+
       if (error) {
         console.error('Error fetching candidates:', error);
         toast({
@@ -226,8 +257,99 @@ const Candidates = () => {
         return;
       }
 
-      // Por ahora, solo asignar los datos sin campañas hasta que se ejecute la migración
-      setCandidates(data || []);
+      // Process candidates and check transcription status
+      const processedCandidates = (data || []).map(candidate => {
+        let transcription_status: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
+
+        // Check current transcription status from state first
+        if (transcriptionStatus[candidate.id]) {
+          transcription_status = transcriptionStatus[candidate.id];
+        } else if (candidate.resume_text && candidate.resume_text.trim().length > 0) {
+          // Check if text is valid (not PDF binary content)
+          const isValidText = !candidate.resume_text.trim().startsWith('%PDF-') &&
+                            !candidate.resume_text.includes('obj <</Type/') &&
+                            !candidate.resume_text.includes('/Filter/FlateDecode');
+
+          transcription_status = isValidText ? 'completed' : 'failed';
+        } else if (candidate.resume_url && transcribingCandidates.has(candidate.id)) {
+          transcription_status = 'processing';
+        }
+
+        // Determine analysis status
+        let analysis_status: 'pending' | 'analyzing' | 'completed' | 'failed' = 'pending';
+        if (analysisStatus[candidate.id]) {
+          analysis_status = analysisStatus[candidate.id];
+        } else if (candidate.analysis_summary) {
+          analysis_status = 'completed';
+        }
+
+        return {
+          ...candidate,
+          transcription_status,
+          analysis_status
+        };
+      });
+
+      // Only process candidates that haven't been fully processed yet (both transcription and analysis completed)
+      const unprocessedCandidates = processedCandidates.filter(candidate =>
+        !(candidate.transcription_status === 'completed' && candidate.analysis_status === 'completed')
+      );
+
+      // Auto-transcribe new candidates without resume_text (only once per candidate)
+      const candidatesToTranscribe = unprocessedCandidates.filter(candidate =>
+        candidate.resume_url &&
+        (!candidate.resume_text || candidate.resume_text.trim().length === 0 ||
+          candidate.resume_text.trim().startsWith('%PDF-') ||
+          candidate.resume_text.includes('obj <</Type/') ||
+          candidate.resume_text.includes('/Filter/FlateDecode')) &&
+        !transcribingCandidates.has(candidate.id) &&
+        transcriptionStatus[candidate.id] !== 'processing' &&
+        transcriptionStatus[candidate.id] !== 'completed'
+      );
+
+      if (candidatesToTranscribe.length > 0) {
+        console.log(`🚀 Iniciando transcripción automática para ${candidatesToTranscribe.length} candidatos nuevos`);
+        // Start transcription for new candidates
+        candidatesToTranscribe.forEach(candidate => {
+          setTranscribingCandidates(prev => new Set(prev).add(candidate.id));
+          setTranscriptionStatus(prev => ({ ...prev, [candidate.id]: 'processing' }));
+
+          // Send "ejecutarIA" variable to trigger analysis
+          console.log(`📝 Enviando transcripción para candidato: ${candidate.first_name} ${candidate.last_name}`);
+          autoTranscribeCandidate(candidate);
+        });
+      }
+
+      // Check for candidates with completed transcription but no analysis - trigger automatic analysis (only once per candidate)
+      const candidatesToAnalyze = unprocessedCandidates.filter(candidate =>
+        candidate.resume_text &&
+        candidate.resume_text.trim().length > 0 &&
+        !candidate.resume_text.trim().startsWith('%PDF-') &&
+        !candidate.resume_text.includes('obj <</Type/') &&
+        !candidate.resume_text.includes('/Filter/FlateDecode') &&
+        !candidate.analysis_summary &&
+        candidate.transcription_status === 'completed' &&
+        analysisStatus[candidate.id] !== 'analyzing' &&
+        analysisStatus[candidate.id] !== 'completed' &&
+        candidate.analysis_status !== 'completed'
+      );
+
+      if (candidatesToAnalyze.length > 0) {
+        console.log(`🤖 Iniciando análisis automático para ${candidatesToAnalyze.length} candidatos con texto pero sin análisis`);
+        candidatesToAnalyze.forEach(candidate => {
+          setAnalysisStatus(prev => ({ ...prev, [candidate.id]: 'analyzing' }));
+          setCandidates(prev => prev.map(c =>
+            c.id === candidate.id
+              ? { ...c, analysis_status: 'analyzing' as const }
+              : c
+          ));
+
+          // Perform automatic analysis
+          performAutomaticAnalysis(candidate);
+        });
+      }
+
+      setCandidates(processedCandidates);
       setDataLoaded(true);
     } catch (err) {
       console.error('Error:', err);
@@ -363,6 +485,254 @@ const Candidates = () => {
     setRefreshing(true);
     fetchCandidates();
   };
+
+  // Function to perform automatic AI analysis
+  const performAutomaticAnalysis = async (candidate: Candidate, extractedText?: string) => {
+    const textToAnalyze = extractedText || candidate.resume_text;
+
+    if (!textToAnalyze) {
+      console.log('❌ No hay texto del CV para analizar');
+      setAnalysisStatus(prev => ({ ...prev, [candidate.id]: 'failed' }));
+      setCandidates(prev => prev.map(c =>
+        c.id === candidate.id
+          ? { ...c, analysis_status: 'failed' as const }
+          : c
+      ));
+      return;
+    }
+
+    try {
+      console.log(`🤖 Iniciando análisis automático para candidato: ${candidate.first_name} ${candidate.last_name}`);
+
+      // Get job details for context
+      let jobContext = null;
+      if (candidate.applications && candidate.applications.length > 0) {
+        const app = candidate.applications[0];
+        jobContext = {
+          title: app.jobs?.title || 'Vacante'
+          // Note: job requirements, responsibilities, and description are not available in the Application type
+          // They would need to be fetched separately from the jobs table if needed
+        };
+      }
+
+      // Call the analysis function with the extracted text from transcription
+      console.log('🔍 TEXTO QUE SE ENVÍA AL ANÁLISIS:', textToAnalyze.substring(0, 500) + (textToAnalyze.length > 500 ? '...' : ''));
+      console.log('📏 LONGITUD DEL TEXTO PARA ANÁLISIS:', textToAnalyze.length);
+      console.log('📄 TEXTO COMPLETO PARA ANÁLISIS:', textToAnalyze);
+      const analysisResult = await analyzeResume(textToAnalyze, jobContext);
+
+      // Save analysis data
+      await saveAnalysisData(candidate.id, analysisResult, candidate.resume_text);
+
+      console.log('✅ Análisis automático completado exitosamente');
+      setAnalysisStatus(prev => ({ ...prev, [candidate.id]: 'completed' }));
+      setCandidates(prev => prev.map(c =>
+        c.id === candidate.id
+          ? {
+              ...c,
+              analysis_status: 'completed' as const,
+              analysis_summary: JSON.stringify(analysisResult),
+              analysis_data: analysisResult
+            }
+          : c
+      ));
+
+    } catch (error) {
+      console.error('❌ Error en análisis automático:', error);
+      setAnalysisStatus(prev => ({ ...prev, [candidate.id]: 'failed' }));
+      setCandidates(prev => prev.map(c =>
+        c.id === candidate.id
+          ? { ...c, analysis_status: 'failed' as const }
+          : c
+      ));
+    }
+  };
+
+  // Function to automatically transcribe a candidate's resume
+  const autoTranscribeCandidate = async (candidate: Candidate) => {
+    if (!candidate.resume_url) return;
+
+    try {
+      console.log(`Iniciando transcripción automática para candidato: ${candidate.first_name} ${candidate.last_name}`);
+
+      // Get the resume URL
+      const resumeUrl = candidate.resume_url.startsWith('http')
+        ? candidate.resume_url
+        : `https://kugocdtesaczbfrwblsi.supabase.co/storage/v1/object/public/resumes/${candidate.resume_url}`;
+
+      // Use the existing PDF text extraction logic from pdf-viewer.tsx
+      // Load PDF and extract text
+      const pdfjsLib = await import('pdfjs-dist');
+
+      // Initialize PDF.js worker
+      if (typeof window !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.mjs',
+          import.meta.url
+        ).toString();
+      }
+
+      // Load the PDF document
+      const loadingTask = pdfjsLib.getDocument(resumeUrl);
+      const pdf = await loadingTask.promise;
+      console.log(`PDF cargado con ${pdf.numPages} páginas para candidato ${candidate.id}`);
+
+      let extractedText = '';
+
+      // Extract text from all pages
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items
+          .map((item: any) => {
+            const cleanText = item.str
+              .replace(/\s+/g, ' ')
+              .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+              .trim();
+            return cleanText;
+          })
+          .filter((text: string) => text.length > 0)
+          .join(' ');
+
+        if (pageText.trim()) {
+          extractedText += pageText + '\n\n';
+        }
+      }
+
+      // Final cleanup
+      extractedText = extractedText
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/^\s+|\s+$/g, '')
+        .replace(/\s+\n/g, '\n')
+        .replace(/\n\s+/g, '\n');
+
+      // Validate extracted text
+      const isValidText = extractedText &&
+        extractedText.trim().length > 0 &&
+        !extractedText.trim().startsWith('%PDF-') &&
+        !extractedText.includes('obj <</Type/') &&
+        !extractedText.includes('/Filter/FlateDecode');
+
+      if (!isValidText) {
+        throw new Error('El texto extraído no es válido o contiene datos binarios');
+      }
+
+      // Print the extracted text for debugging
+      console.log('📄 TEXTO EXTRAÍDO INICIAL PARA CANDIDATO:', candidate.first_name, candidate.last_name);
+      console.log('📝 CONTENIDO COMPLETO:', extractedText);
+      console.log('📏 LONGITUD DEL TEXTO:', extractedText.length, 'caracteres');
+      console.log('📋 PRIMEROS 500 CARACTERES:', extractedText.substring(0, 500) + (extractedText.length > 500 ? '...' : ''));
+
+      // Save the extracted text
+      const { error: saveError } = await supabase
+        .from('candidates')
+        .update({
+          resume_text: extractedText,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', candidate.id);
+
+      if (saveError) {
+        console.error('Error guardando texto extraído:', saveError);
+        // Update transcription status to failed
+        setCandidates(prev => prev.map(c =>
+          c.id === candidate.id
+            ? { ...c, transcription_status: 'failed' as const }
+            : c
+        ));
+      } else {
+        console.log(`Transcripción completada para candidato: ${candidate.first_name} ${candidate.last_name}`);
+        // Update transcription status to completed
+        setTranscriptionStatus(prev => ({ ...prev, [candidate.id]: 'completed' }));
+        setCandidates(prev => prev.map(c =>
+          c.id === candidate.id
+            ? { ...c, transcription_status: 'completed' as const, resume_text: extractedText }
+            : c
+        ));
+
+        // After transcription is complete, trigger automatic AI analysis
+        console.log(`🎯 Enviando variable "ejecutarIA" después de completar transcripción para candidato: ${candidate.first_name} ${candidate.last_name}`);
+
+        // Update analysis status to analyzing
+        setAnalysisStatus(prev => ({ ...prev, [candidate.id]: 'analyzing' }));
+        setCandidates(prev => prev.map(c =>
+          c.id === candidate.id
+            ? { ...c, analysis_status: 'analyzing' as const }
+            : c
+        ));
+
+        // Instead of relying on CandidateDetail component being mounted, perform the analysis directly here
+        console.log('🔄 Ejecutando análisis automático directamente desde Candidates...');
+        performAutomaticAnalysis(candidate, extractedText);
+      }
+
+    } catch (error) {
+      console.error(`Error en transcripción automática para candidato ${candidate.id}:`, error);
+      // Update transcription status to failed
+      setTranscriptionStatus(prev => ({ ...prev, [candidate.id]: 'failed' }));
+      setAnalysisStatus(prev => ({ ...prev, [candidate.id]: 'failed' }));
+      setCandidates(prev => prev.map(c =>
+        c.id === candidate.id
+          ? { ...c, transcription_status: 'failed' as const, analysis_status: 'failed' as const }
+          : c
+      ));
+    } finally {
+      // Remove from transcribing set
+      setTranscribingCandidates(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(candidate.id);
+        return newSet;
+      });
+    }
+  };
+
+  // Listen for analysis status events from CandidateDetail page
+  useEffect(() => {
+    const handleAnalysisStarted = (event: CustomEvent) => {
+      const { candidateId } = event.detail;
+      console.log('📥 Evento analysisStarted recibido para candidato:', candidateId);
+      setAnalysisStatus(prev => ({ ...prev, [candidateId]: 'analyzing' }));
+      setCandidates(prev => prev.map(c =>
+        c.id === candidateId
+          ? { ...c, analysis_status: 'analyzing' as const }
+          : c
+      ));
+    };
+
+    const handleAnalysisCompleted = (event: CustomEvent) => {
+      const { candidateId } = event.detail;
+      console.log('📥 Evento analysisCompleted recibido para candidato:', candidateId);
+      setAnalysisStatus(prev => ({ ...prev, [candidateId]: 'completed' }));
+      setCandidates(prev => prev.map(c =>
+        c.id === candidateId
+          ? { ...c, analysis_status: 'completed' as const }
+          : c
+      ));
+    };
+
+    const handleAnalysisFailed = (event: CustomEvent) => {
+      const { candidateId } = event.detail;
+      console.log('📥 Evento analysisFailed recibido para candidato:', candidateId);
+      setAnalysisStatus(prev => ({ ...prev, [candidateId]: 'failed' }));
+      setCandidates(prev => prev.map(c =>
+        c.id === candidateId
+          ? { ...c, analysis_status: 'failed' as const }
+          : c
+      ));
+    };
+
+    console.log('👂 Agregando listeners para eventos de análisis en Candidates');
+    window.addEventListener('analysisStarted', handleAnalysisStarted as EventListener);
+    window.addEventListener('analysisCompleted', handleAnalysisCompleted as EventListener);
+    window.addEventListener('analysisFailed', handleAnalysisFailed as EventListener);
+
+    return () => {
+      console.log('🗑️ Removiendo listeners para eventos de análisis en Candidates');
+      window.removeEventListener('analysisStarted', handleAnalysisStarted as EventListener);
+      window.removeEventListener('analysisCompleted', handleAnalysisCompleted as EventListener);
+      window.removeEventListener('analysisFailed', handleAnalysisFailed as EventListener);
+    };
+  }, []);
 
   // Function to fix existing interview assignments (assign recruiter_id to current user)
   const fixExistingInterviews = async () => {
@@ -1490,6 +1860,46 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                             <Link to={`/admin/candidates/${candidate.id}`} className="hover:text-hrm-dark-cyan">
                               {candidate.first_name} {candidate.last_name}
                             </Link>
+                            {/* Status Indicators */}
+                            {(candidate.transcription_status || candidate.analysis_status) && (
+                              <div className="mt-1 space-y-1">
+                                {/* Transcription Status */}
+                                {candidate.transcription_status === 'processing' && (
+                                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-600">
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                    Transcribiendo...
+                                  </Badge>
+                                )}
+                                {candidate.transcription_status === 'completed' && (
+                                  <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                                    ✓ Transcripción completa
+                                  </Badge>
+                                )}
+                                {candidate.transcription_status === 'failed' && (
+                                  <Badge variant="outline" className="text-xs text-red-600 border-red-600">
+                                    ✗ Error en transcripción
+                                  </Badge>
+                                )}
+
+                                {/* Analysis Status */}
+                                {candidate.analysis_status === 'analyzing' && (
+                                  <Badge variant="outline" className="text-xs text-purple-600 border-purple-600">
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                    Analizando con IA...
+                                  </Badge>
+                                )}
+                                {candidate.analysis_status === 'completed' && (
+                                  <div className="text-xs text-green-600">
+                                    ✓ Analizado con IA
+                                  </div>
+                                )}
+                                {candidate.analysis_status === 'failed' && (
+                                  <div className="text-xs text-red-600">
+                                    ✗ Error en análisis
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center text-sm">

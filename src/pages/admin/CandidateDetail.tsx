@@ -41,6 +41,7 @@ const CandidateDetail: React.FC = () => {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [savingResumeText, setSavingResumeText] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [resumeContent, setResumeContent] = useState<string | null>(null);
@@ -55,6 +56,19 @@ const CandidateDetail: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isHireDialogOpen, setIsHireDialogOpen] = useState(false);
   const [hireStartDate, setHireStartDate] = useState<Date | undefined>(undefined);
+  const [textExtracted, setTextExtracted] = useState(false);
+
+  // Debug: Log when component mounts and receives props
+  useEffect(() => {
+    console.log('🏗️ CandidateDetail component mounted/updated:', {
+      id,
+      hasCandidate: !!candidate,
+      candidateId: candidate?.id,
+      hasResumeContent: !!resumeContent,
+      resumeContentLength: resumeContent?.length
+    });
+  }, [id, candidate, resumeContent]);
+
 
   useEffect(() => {
     const loadCandidate = async () => {
@@ -75,13 +89,43 @@ const CandidateDetail: React.FC = () => {
         const candidateData = await fetchCandidateDetails(id);
         console.log('Candidato cargado:', candidateData);
 
-        // Set resume content if it exists
-        if (candidateData.resume_text) {
-          console.log('Texto del CV encontrado, longitud:', candidateData.resume_text.length);
+        // Load resume_text from database to check if extraction is needed
+        console.log('Verificando si existe texto del CV en la base de datos...');
+
+        // Check if candidate has valid resume_text (not PDF binary content)
+        const hasValidText = candidateData.resume_text &&
+          candidateData.resume_text.trim().length > 0 &&
+          !candidateData.resume_text.trim().startsWith('%PDF-') &&
+          !candidateData.resume_text.includes('obj <</Type/') &&
+          !candidateData.resume_text.includes('/Filter/FlateDecode');
+
+        if (hasValidText) {
+          console.log('--Texto válido del CV encontrado en la base de datos, cargando...');
           setResumeContent(candidateData.resume_text);
-        } else {
-          console.log('No se encontró texto del CV');
+          setTextExtracted(true);
+
+        } else if (candidateData.resume_url && !textExtracted) {
+          // Extract automatically if no valid text exists and we haven't extracted yet
+          console.log('No hay texto válido guardado, extrayendo automáticamente del CV...');
+          setTranscribing(true);
+          // Wait a bit for the component to fully render before opening
+          setTimeout(() => {
+            setPdfViewerOpen(true);
+          }, 500);
+        } else if (candidateData.resume_text && !hasValidText) {
+          // If we have invalid binary content, force re-extraction
+          console.log('Texto binario detectado, forzando re-extracción...');
+          setTranscribing(true);
+          setTimeout(() => {
+            setPdfViewerOpen(true);
+          }, 500);
         }
+
+        // Set resume content for auto-analysis check
+        if (hasValidText) {
+          setResumeContent(candidateData.resume_text);
+        }
+
 
         setCandidate(candidateData);
         setDataLoaded(true);
@@ -148,6 +192,7 @@ const CandidateDetail: React.FC = () => {
     fetchRecruiters();
   }, [id, toast, dataLoaded, candidate?.id, recruiters.length]);
 
+
   const handleSaveResumeText = async (text: string) => {
     try {
       if (!id) return;
@@ -201,16 +246,13 @@ const CandidateDetail: React.FC = () => {
   };
 
   const handleAnalyzeCV = async (applicationId?: string) => {
-    if (!candidate?.resume_url) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No hay CV disponible para análisis"
-      });
-      return;
-    }
+    console.log('handleAnalyzeCV called with applicationId:', applicationId);
+    console.log('resumeContent length:', resumeContent?.length);
+    console.log('candidate resume_url:', candidate?.resume_url);
 
+    // If we don't have resume content, try to open PDF viewer to extract it first
     if (!resumeContent) {
+      console.log('No resume content found, opening PDF viewer');
       toast({
         title: "Información",
         description: "Primero debe extraer el texto del CV. Abriendo visor de PDF..."
@@ -218,6 +260,8 @@ const CandidateDetail: React.FC = () => {
       setPdfViewerOpen(true);
       return;
     }
+
+    console.log('Proceeding with CV analysis...');
 
     try {
       setAnalyzing(true);
@@ -237,43 +281,56 @@ const CandidateDetail: React.FC = () => {
         }
       }
 
+      console.log('Setting analyzing state to true');
       toast({ title: "Analizando", description: "Evaluando ajuste del candidato..." });
 
       // Asegurar que el texto del CV esté guardado antes de analizar
+      console.log('Saving resume text before analysis...');
       await handleSaveResumeText(resumeContent);
+      console.log('Resume text saved, proceeding with analysis');
 
+      console.log('Calling analyzeResume function...');
       const analysisResult = await analyzeResume(resumeContent, jobContext);
-      
+      console.log('analyzeResume completed, result type:', typeof analysisResult);
+
       // Parse the result to ensure it's JSON
       let parsedAnalysis;
       try {
         // If it's already an object (already parsed by Supabase client)
         if (typeof analysisResult === 'object') {
           parsedAnalysis = analysisResult;
+          console.log('Analysis result is already an object');
         } else {
           // If it's a JSON string
+          console.log('Parsing analysis result as JSON string');
           parsedAnalysis = JSON.parse(analysisResult);
         }
+        console.log('Parsed analysis:', parsedAnalysis);
       } catch (error) {
         console.error("Error al parsear el análisis:", error);
         parsedAnalysis = { error: "No se pudo parsear el análisis" };
       }
 
       // Save analysis data and resume text
+      console.log('Saving analysis data...');
       await handleSaveAnalysisData(analysisResult, resumeContent);
+      console.log('Analysis data saved');
 
       // Update local state
-      setCandidate(prev => prev ? { 
-        ...prev, 
+      console.log('Updating local candidate state...');
+      setCandidate(prev => prev ? {
+        ...prev,
         analysis_summary: analysisResult,
         analysis_data: parsedAnalysis,
         resume_text: resumeContent
       } : null);
+      console.log('Local state updated');
 
       toast({
         title: "Análisis completado",
         description: "Evaluación del candidato finalizada correctamente"
       });
+      console.log('Analysis process completed successfully');
       
     } catch (error: any) {
       console.error('Error de análisis:', error);
@@ -283,13 +340,46 @@ const CandidateDetail: React.FC = () => {
         description: error.message || "Error al analizar el CV"
       });
     } finally {
+      console.log('Setting analyzing state to false');
       setAnalyzing(false);
     }
   };
 
-  const handleTextExtracted = (text: string) => {
-    console.log("Texto extraído en el componente principal:", text.substring(0, 100) + "...");
+  const handleTextExtracted = async (text: string) => {
+    console.log("📄 Texto extraído en el componente principal:", text.substring(0, 100) + "...");
+
+    // Validate that we got actual readable text, not PDF binary content
+    const isValidText = text &&
+      text.trim().length > 0 &&
+      !text.trim().startsWith('%PDF-') &&
+      !text.includes('obj <</Type/') &&
+      !text.includes('/Filter/FlateDecode');
+
+    if (!isValidText) {
+      console.error('❌ Texto extraído contiene datos binarios del PDF, no se guardará');
+      setTranscribing(false);
+      toast({
+        variant: "destructive",
+        title: "Error de extracción",
+        description: "No se pudo extraer texto legible del PDF. El documento puede contener solo imágenes."
+      });
+      return;
+    }
+
+    console.log('✅ Texto válido extraído, actualizando estado...');
     setResumeContent(text);
+    setTranscribing(false);
+    setTextExtracted(true);
+
+    // Automatically save the extracted text to database
+    try {
+      console.log('💾 Guardando texto extraído automáticamente...');
+      await saveResumeText(id!, text);
+      console.log('✅ Texto guardado exitosamente en la base de datos');
+    } catch (error) {
+      console.error('❌ Error al guardar texto automáticamente:', error);
+      // Don't show error toast for auto-save, just log it
+    }
 
     toast({
       title: "Texto extraído",
@@ -632,6 +722,7 @@ const CandidateDetail: React.FC = () => {
           candidate={candidate}
           analyzing={analyzing}
           resumeContent={resumeContent}
+          transcribing={transcribing}
           onViewResume={() => setPdfViewerOpen(true)}
           onAnalyzeCV={handleAnalyzeCV}
           onChangeStatus={handleChangeStatus}
@@ -699,7 +790,6 @@ const CandidateDetail: React.FC = () => {
           onOpenChange={setPdfViewerOpen}
           title={`CV de ${candidate.first_name} ${candidate.last_name}`}
           onTextExtracted={handleTextExtracted}
-          onAnalyze={() => handleAnalyzeCV(candidate.applications?.[0]?.id)}
         />
       )}
 

@@ -75,31 +75,51 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
 
   const extractText = async () => {
     if (!url || !onTextExtracted) return;
-    
+
     try {
       setExtractingText(true);
       console.log('Extrayendo texto del PDF en el visor...');
-      
+
       // Cargar el documento PDF
       const loadingTask = pdfjsLib.getDocument(url);
       const pdf = await loadingTask.promise;
       console.log(`PDF cargado con ${pdf.numPages} páginas`);
-      
+
       let extractedText = '';
-      
+
       // Extraer texto de todas las páginas
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const pageText = content.items
-          .map((item: any) => item.str)
+          .map((item: any) => {
+            // Clean up the text - remove excessive spaces and control characters
+            const cleanText = item.str
+              .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+              .replace(/[\x00-\x1F\x7F-\x9F]/g, '')  // Remove control characters
+              .trim();
+
+            return cleanText;
+          })
+          .filter((text: string) => text.length > 0)  // Remove empty strings
           .join(' ');
-        
-        extractedText += pageText + '\n\n';
-        console.log(`Texto extraído de la página ${i}`);
+
+        if (pageText.trim()) {
+          extractedText += pageText + '\n\n';
+        }
+        console.log(`Texto extraído de la página ${i}, longitud: ${pageText.length}`);
       }
-      
+
+      // Final cleanup of extracted text
+      extractedText = extractedText
+        .replace(/\n{3,}/g, '\n\n')  // Replace 3+ newlines with 2
+        .replace(/^\s+|\s+$/g, '')  // Trim whitespace
+        .replace(/\s+\n/g, '\n')    // Remove spaces before newlines
+        .replace(/\n\s+/g, '\n');   // Remove spaces after newlines
+
       console.log(`Texto extraído completo, longitud: ${extractedText.length} caracteres`);
+      console.log('Primeros 200 caracteres:', extractedText.substring(0, 200));
+
       if (onTextExtracted) {
         onTextExtracted(extractedText);
       }
@@ -128,26 +148,6 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
             <Button variant="outline" size="icon" onClick={handleDownload} title="Descargar">
               <Download className="h-4 w-4" />
             </Button>
-            {onAnalyze && (
-              <Button 
-                variant="default" 
-                className="bg-hrm-dark-cyan hover:bg-hrm-steel-blue"
-                onClick={async () => {
-                  if (onTextExtracted) {
-                    try {
-                      await extractText();
-                    } catch (error) {
-                      console.error('Error during text extraction:', error);
-                    }
-                  }
-                  onOpenChange(false);
-                  onAnalyze();
-                }}
-                disabled={extractingText}
-              >
-                {extractingText ? 'Extrayendo texto...' : 'Analizar con IA'}
-              </Button>
-            )}
           </div>
         </DialogHeader>
         <div className="relative flex-1 min-h-0 w-full overflow-auto">
