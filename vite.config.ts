@@ -28,10 +28,32 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
-          supabase: ['@supabase/supabase-js'],
+        manualChunks: (id) => {
+          // Separate Supabase client into its own chunk
+          if (id.includes('supabase/client')) {
+            return 'supabase-client';
+          }
+          // Separate PDF.js into its own chunk
+          if (id.includes('pdfjs-dist')) {
+            return 'pdfjs';
+          }
+          // Separate evolution-api utils
+          if (id.includes('evolution-api')) {
+            return 'evolution-api';
+          }
+          // Vendor chunk for React and core libraries
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor';
+            }
+            if (id.includes('@radix-ui')) {
+              return 'ui';
+            }
+            if (id.includes('@supabase')) {
+              return 'supabase';
+            }
+            return 'vendor-other';
+          }
         },
       },
     },
@@ -40,6 +62,7 @@ export default defineConfig(({ mode }) => ({
     // Optimizaciones adicionales
     cssCodeSplit: true,
     reportCompressedSize: false, // Desactivar reporte de tamaño para builds más rápidos
+    chunkSizeWarningLimit: 2000, // Aumentar límite de advertencia a 2000KB para evitar warnings
   },
   // Optimizaciones para desarrollo
   optimizeDeps: {
