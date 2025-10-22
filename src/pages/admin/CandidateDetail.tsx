@@ -790,6 +790,7 @@ const CandidateDetail: React.FC = () => {
           onOpenChange={setPdfViewerOpen}
           title={`CV de ${candidate.first_name} ${candidate.last_name}`}
           onTextExtracted={handleTextExtracted}
+          onAnalyze={() => handleAnalyzeCV(candidate.applications?.[0]?.id)}
         />
       )}
 

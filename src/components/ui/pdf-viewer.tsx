@@ -148,6 +148,39 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
             <Button variant="outline" size="icon" onClick={handleDownload} title="Descargar">
               <Download className="h-4 w-4" />
             </Button>
+            {onAnalyze && (
+              <Button
+                variant="default"
+                className="bg-hrm-dark-cyan hover:bg-hrm-steel-blue"
+                onClick={async () => {
+                  try {
+                    // Always extract fresh text before analyzing
+                    const extractedText = await extractText();
+
+                    // Validate that we got readable text
+                    if (!extractedText || extractedText.trim().length < 50) {
+                      throw new Error('No se pudo extraer texto legible del PDF. El documento podría contener solo imágenes.');
+                    }
+
+                    if (extractedText.includes('%PDF-') || extractedText.includes('obj <</Type/')) {
+                      throw new Error('El PDF contiene datos binarios. Intenta con un PDF que tenga texto seleccionable.');
+                    }
+
+                    console.log('Texto validado para análisis:', extractedText.substring(0, 100) + '...');
+                  } catch (error) {
+                    console.error('Error during text extraction:', error);
+                    setError(error instanceof Error ? error.message : 'Error al extraer texto del PDF');
+                    return; // Don't proceed with analysis
+                  }
+
+                  onOpenChange(false);
+                  onAnalyze();
+                }}
+                disabled={extractingText}
+              >
+                {extractingText ? 'Extrayendo texto...' : 'Analizar con IA'}
+              </Button>
+            )}
           </div>
         </DialogHeader>
         <div className="relative flex-1 min-h-0 w-full overflow-auto">
