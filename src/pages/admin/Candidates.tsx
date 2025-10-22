@@ -1432,15 +1432,6 @@ const Candidates = () => {
             {exporting ? 'Exportando...' : 'Exportar Candidatos'}
           </Button>
 
-          {currentUserRole === 'reclutador' && (
-            <Button
-              variant="outline"
-              onClick={fixExistingInterviews}
-              className="flex items-center gap-1 text-orange-600 border-orange-300 hover:bg-orange-50"
-            >
-              🔧 Asignar Entrevistas Existentes
-            </Button>
-          )}
           {/*
           <Button className="bg-hrm-dark-cyan hover:bg-hrm-steel-blue" asChild>
             <Link to="/admin/candidates/new">

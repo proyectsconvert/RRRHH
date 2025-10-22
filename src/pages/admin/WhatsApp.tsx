@@ -795,36 +795,6 @@ window.removeEventListener('popstate', preventNavigation);
               <MessageSquare className="h-5 w-5" />
               Chats
             </div>
-            <div className="flex items-center gap-2">
-              {/* Botones */}
-              <Button
-                onClick={toggleN8NBot}
-                size="sm"
-                variant={botEnabled ? "default" : "outline"}
-                disabled={botLoading}
-                className="flex items-center gap-1"
-              >
-                {botLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Bot className="h-4 w-4" />}
-                {botEnabled ? <PowerOff className="h-3 w-3" /> : <Power className="h-3 w-3" />}
-                <span className="hidden sm:inline">{botEnabled ? 'Detener Bot' : 'Iniciar Bot'}</span>
-              </Button>
-
-              <Button
-                onClick={toggleWebhook}
-                size="sm"
-                variant={webhookEnabled ? "default" : "outline"}
-                disabled={webhookLoading}
-                className="flex items-center gap-1"
-              >
-                {webhookLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Webhook className="h-4 w-4" />}
-                {webhookEnabled ? <PowerOff className="h-3 w-3" /> : <Power className="h-3 w-3" />}
-                <span className="hidden sm:inline">{webhookEnabled ? 'Detener Webhook' : 'Iniciar Webhook'}</span>
-              </Button>
-
-              <Button onClick={() => setShowDebug(!showDebug)} size="sm" variant="outline">
-                Debug
-              </Button>
-            </div>
           </CardTitle>
 
           {/* Fila 2: Barra de Búsqueda */}
