@@ -99,7 +99,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
             {candidate.first_name} {candidate.last_name}
           </CardTitle>
           <CardDescription>
-            {candidate.experience_years ? `${candidate.experience_years} años de experiencia` : 'Experiencia no especificada'}
+            {candidate.experience_years ? `${candidate.experience_years} ${candidate.experience_years === 1 ? 'mes' : 'meses'}` : 'Experiencia no especificada'}
           </CardDescription>
         </CardHeader>
         

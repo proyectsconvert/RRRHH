@@ -302,9 +302,9 @@ const ApplicationForm = () => {
               cedula: values.cedula,
               birth_date: values.birth_date,
               application_source: values.application_source,
-              jobId: jobId,
+              jobId,
               coverLetter: values.coverLetter,
-              resumeUrl: resumeUrl
+              resumeUrl
             })
           });
 

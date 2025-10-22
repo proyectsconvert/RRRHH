@@ -30,7 +30,7 @@ serve(async (req: Request) => {
 
     // Prepare payload for N8N
     const payload = {
-      action: action,
+      action,
       workflowId: 'qpBj0IpMs21Q7zha',
       service: 'whatsapp-bot',
       timestamp: new Date().toISOString(),

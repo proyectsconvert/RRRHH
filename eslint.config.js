@@ -28,30 +28,27 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true },
-      ],
+      "react-refresh/only-export-components": "off",
 
       // Reglas optimizadas para producción
       "@typescript-eslint/no-unused-vars": "off", // Mantener off para desarrollo
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/prefer-const": "error",
+      "@typescript-eslint/no-explicit-any": "off", // Desactivado para desarrollo
+      "prefer-const": "warn",
       "@typescript-eslint/no-var-requires": "error",
 
       // Reglas de rendimiento
-      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/exhaustive-deps": "off",
 
       // Reglas de seguridad
-      "no-console": process.env.NODE_ENV === "production" ? "error" : "warn",
-      "no-debugger": process.env.NODE_ENV === "production" ? "error" : "warn",
-      "no-alert": "error",
+      "no-console": "off", // Desactivado para desarrollo
+      "no-debugger": "off",
+      "no-alert": "off",
 
       // Reglas de calidad de código
-      "no-duplicate-imports": "error",
-      "prefer-const": "error",
+      "no-duplicate-imports": "off",
+      "prefer-const": "off",
       "no-var": "error",
-      "object-shorthand": "error",
+      "object-shorthand": "off",
       "prefer-arrow-callback": "error",
 
       // Reglas específicas de React

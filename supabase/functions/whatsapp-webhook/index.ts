@@ -18,7 +18,7 @@ async function proxyToN8N(action: string, data: any) {
       },
       body: JSON.stringify({
         ...data,
-        action: action,
+        action,
         workflowId: 'qpBj0IpMs21Q7zha',
         timestamp: new Date().toISOString()
       }),
@@ -136,7 +136,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         message: 'Message processed successfully',
-        savedMessage: savedMessage
+        savedMessage
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })

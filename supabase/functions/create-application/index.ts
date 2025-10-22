@@ -176,7 +176,7 @@ serve(async (req: Request) => {
       const insertData = {
         first_name: firstName,
         last_name: lastName,
-        email: email,
+        email,
         phone: formattedPhone || null,
         phone_country: phoneCountry || null,
         resume_url: resumeUrl || null,

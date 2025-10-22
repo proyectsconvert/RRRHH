@@ -1,10 +1,12 @@
 
 import React from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import Chatbot from '../chatbot/Chatbot';
 import { ConvertIALogo } from '../../assets/convert-ia-logo';
 
 const PublicLayout = () => {
+  const location = useLocation();
+  const isCandidateDocumentsPage = location.pathname.startsWith('/candidate-documents');
   return <div className="min-h-screen flex flex-col bg-white">
       <header className="border-b border-hrm-light-gray">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -29,11 +31,13 @@ const PublicLayout = () => {
                   Chat Entrenamiento
                 </Link>
               </li>*/}
-              <li>
-                <Link to="/admin/login" className="text-gray-600 hover:text-hrm-dark-cyan">
-                  Admin
-                </Link>
-              </li>
+              {!isCandidateDocumentsPage && (
+                <li>
+                  <Link to="/admin/login" className="text-gray-600 hover:text-hrm-dark-cyan">
+                    Admin
+                  </Link>
+                </li>
+              )}
               {/** 
               <li>
                 <Link to="/rrhh" className="text-gray-600 hover:text-purple-800 px-2 py-1 rounded-md border border-hrm-light-gray hover:border-purple-500 transition-colors">

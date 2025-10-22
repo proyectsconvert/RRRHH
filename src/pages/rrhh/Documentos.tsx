@@ -68,8 +68,8 @@ export default function Documentos() {
   useEffect(() => {
     loadDocuments({
       employeeId: selectedEmployeeId,
-      documentType: documentType,
-      searchTerm: searchTerm
+      documentType,
+      searchTerm
     });
   }, [selectedEmployeeId, documentType, searchTerm]);
 

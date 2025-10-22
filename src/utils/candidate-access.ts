@@ -31,7 +31,7 @@ export async function generateCandidateAccessToken(
       .from('candidate_access_tokens')
       .insert({
         candidate_id: candidateId,
-        token: token,
+        token,
         expires_at: expiresAt.toISOString()
       });
 

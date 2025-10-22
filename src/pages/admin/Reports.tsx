@@ -95,7 +95,7 @@ const Reports = () => {
       setGeneratingReport(type);
       
       // Generate sample report data
-      let reportData: Report = {
+      const reportData: Report = {
         id: Date.now().toString(),
         name: `${type.charAt(0).toUpperCase() + type.slice(1)} Report - ${format(new Date(), 'yyyy-MM-dd')}`,
         type,

@@ -70,6 +70,13 @@ const CandidateDocuments: React.FC = () => {
           throw new Error('Candidato no encontrado');
         }
 
+        // Check if candidate is in "Proceso de contratación" status
+        const hasHiringProcess = candidateData.applications?.some(app => app.status === 'contratar');
+
+        if (!hasHiringProcess) {
+          throw new Error('No tienes un proceso de contratación activo. El enlace solo es válido para candidatos en proceso de contratación.');
+        }
+
         setCandidate(candidateData);
       } catch (err: any) {
         console.error('Error loading candidate:', err);
@@ -103,6 +110,32 @@ const CandidateDocuments: React.FC = () => {
           <CardContent className="text-center space-y-4">
             <p className="text-gray-600">
               {error || 'No se pudo acceder a esta página'}
+            </p>
+            <Button asChild variant="outline">
+              <Link to="/">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Volver al Inicio
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Check if candidate is in "Proceso de contratación" status
+  const hasHiringProcess = candidate.applications?.some(app => app.status === 'contratar');
+
+  if (!hasHiringProcess) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <CardTitle className="text-red-600">Portal de Documentos Bloqueado</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-gray-600">
+              No tienes un proceso de contratación activo. El Portal de Documentos solo está disponible para candidatos en proceso de contratación.
             </p>
             <Button asChild variant="outline">
               <Link to="/">

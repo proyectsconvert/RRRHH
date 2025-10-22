@@ -386,9 +386,9 @@ async function handleChatMessage(supabase, openaiApiKey, sessionId, message, cor
     }
 
     // Analyze message history to identify candidate name and products/services mentioned
-    let candidateName = sessionData.candidate_name || "representante";
+    const candidateName = sessionData.candidate_name || "representante";
     let productsMentioned = [];
-    let isFirstMessage = historyData.length <= 1; // Considering current message is already in history
+    const isFirstMessage = historyData.length <= 1; // Considering current message is already in history
     
     // Extract product/service mentions from candidate messages
     for (const msg of historyData) {
@@ -465,7 +465,7 @@ async function handleChatMessage(supabase, openaiApiKey, sessionId, message, cor
     historyData.forEach(msg => {
       const role = msg.sender_type === 'ai' ? 'assistant' : 'user';
       messages.push({
-        role: role,
+        role,
         content: msg.content
       });
     });
@@ -482,7 +482,7 @@ async function handleChatMessage(supabase, openaiApiKey, sessionId, message, cor
         },
         body: JSON.stringify({
           model: "gpt-4o-mini",
-          messages: messages,
+          messages,
           max_tokens: 300,
           temperature: 0.7,
         }),
@@ -747,7 +747,7 @@ async function handleEndSession(supabase, openaiApiKey, sessionId, corsHeaders) 
       await supabase
         .from('training_sessions')
         .update({
-          score: score,
+          score,
           feedback: evaluationText,
         })
         .eq('id', sessionId);
@@ -757,7 +757,7 @@ async function handleEndSession(supabase, openaiApiKey, sessionId, corsHeaders) 
           success: true,
           evaluation: {
             text: evaluationText,
-            score: score,
+            score,
           }
         }),
         {

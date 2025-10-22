@@ -38,7 +38,7 @@ export const uploadFile = async (file: File, bucketName: string = 'resumes'): Pr
 
     // Intentar subir el archivo hasta 3 veces (retry simple)
     let uploadError = null;
-    let urlData = null;
+    const urlData = null;
 
     for (let i = 0; i < 3; i++) {
       const { data, error } = await supabase.storage

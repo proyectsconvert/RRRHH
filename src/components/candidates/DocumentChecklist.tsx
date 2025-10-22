@@ -351,7 +351,7 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
             ...item,
             category: categoryKey,
             uploaded: !!existingDoc,
-            fileUrl: fileUrl,
+            fileUrl,
             uploadedAt: existingDoc?.uploaded_at,
             fileName: existingDoc?.file_name,
             needsReupload: existingDoc?.needs_reupload || false,

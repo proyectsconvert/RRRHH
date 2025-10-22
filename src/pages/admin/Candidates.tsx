@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Filter, Loader2, Mail, Phone, MapPin, RefreshCw, Ellipsis, Columns3, EyeOff, Grid2x2X,Trash2, Ban, SquareArrowRight, Eye, Search } from 'lucide-react';
+import { Plus, Filter, Loader2, Mail, Phone, MapPin, RefreshCw, Ellipsis, Columns3, EyeOff, Grid2x2X,Trash2, Ban, SquareArrowRight, Eye, Search, Download } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,6 +25,7 @@ import { sendWelcomeMessage } from "@/utils/evolution-api";
 import { generateCandidateAccessToken } from "@/utils/candidate-access";
 import TeamsMeetingDialog, { MeetingData } from "@/components/candidates/TeamsMeetingDialog";
 import { analyzeResume, saveAnalysisData } from "@/services/candidate-service";
+import * as XLSX from 'xlsx';
 
 interface Job {
   id?: string;
@@ -163,6 +164,7 @@ const Candidates = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentCandidate, setCurrentCandidate] = useState<Candidate | null>(null);
   const [interviewTypeFilter, setInterviewTypeFilter] = useState<'all' | 'entrevista-rc' | 'entrevista-et'>('all');
+  const [exporting, setExporting] = useState(false);
   const [transcribingCandidates, setTranscribingCandidates] = useState<Set<string>>(new Set());
   const [transcriptionStatus, setTranscriptionStatus] = useState<{[key: string]: 'pending' | 'processing' | 'completed' | 'failed'}>({});
   const [analysisStatus, setAnalysisStatus] = useState<{[key: string]: 'pending' | 'analyzing' | 'completed' | 'failed'}>({});
@@ -224,27 +226,13 @@ const Candidates = () => {
         `)
         .order('created_at', { ascending: false });
 
-      // If we have candidates, fetch document_id from profiles table for those missing it
+      // Use cedula field directly from candidates table for all candidates
       if (data && data.length > 0) {
-        const candidatesNeedingDocumentId = data.filter(candidate => !candidate.document_id);
-
-        if (candidatesNeedingDocumentId.length > 0) {
-          const candidateIds = candidatesNeedingDocumentId.map(c => c.id);
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('id, document_id')
-            .in('id', candidateIds);
-
-          // Merge document_id from profiles into candidates
-          if (profilesData) {
-            data.forEach(candidate => {
-              const profile = profilesData.find(p => p.id === candidate.id);
-              if (profile?.document_id && !candidate.document_id) {
-                candidate.document_id = profile.document_id;
-              }
-            });
-          }
-        }
+        console.log('Using cedula field from candidates table for all candidates');
+        data.forEach(candidate => {
+          // The cedula field is already included in the select query (*)
+          console.log(`Candidate ${candidate.id} cedula:`, candidate.cedula);
+        });
       }
 
       if (error) {
@@ -486,6 +474,152 @@ const Candidates = () => {
     fetchCandidates();
   };
 
+  // Function to export all candidate data including AI analysis
+  const handleExportCandidates = async () => {
+    try {
+      setExporting(true);
+
+      // Get all candidates with full data
+      const { data: candidatesData, error } = await supabase
+        .from('candidates')
+        .select(`
+          *,
+          applications(
+            id,
+            job_id,
+            status,
+            campaign_id,
+            recruiter_id,
+            created_at,
+            updated_at,
+            jobs(title),
+            campaigns!campaign_id(name),
+            recruiter:recruiter_id(first_name, last_name)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching candidates for export:', error);
+        toast({
+          title: "Error",
+          description: "No se pudieron obtener los datos de los candidatos.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Process candidates data for export
+      const exportData = (candidatesData || []).map(candidate => {
+        // Parse analysis data
+        let analysisData = null;
+        if (candidate.analysis_summary) {
+          try {
+            analysisData = JSON.parse(candidate.analysis_summary);
+            if (typeof analysisData === 'string') {
+              analysisData = JSON.parse(analysisData);
+            }
+          } catch (e) {
+            analysisData = null;
+          }
+        }
+
+        // Get primary application status
+        const primaryStatus = getCandidateStatus(candidate.applications);
+
+        // Get primary job and campaign
+        const primaryApplication = candidate.applications?.[0];
+        const primaryJob = primaryApplication?.jobs?.title || 'N/A';
+        const primaryCampaign = primaryApplication?.campaigns?.name || 'N/A';
+        const primaryRecruiter = primaryApplication?.recruiter ?
+          `${primaryApplication.recruiter.first_name} ${primaryApplication.recruiter.last_name}` : 'N/A';
+
+        return {
+          // Personal Information
+          'ID': candidate.id,
+          'Nombre': candidate.first_name,
+          'Apellido': candidate.last_name,
+          'Cédula': candidate.cedula || 'N/A',
+          'Email': candidate.email,
+          'Teléfono': candidate.phone || 'N/A',
+          'Ubicación': candidate.location || 'N/A',
+          'Años de Experiencia': candidate.experience_years || 'N/A',
+          'Habilidades': candidate.skills ? candidate.skills.join(', ') : 'N/A',
+          'Fecha de Creación': format(new Date(candidate.created_at), 'dd/MM/yyyy HH:mm', { locale: es }),
+
+          // Application Information
+          'Vacante': primaryJob,
+          'Campaña': primaryCampaign,
+          'Estado': getStatusDisplay(primaryStatus).label,
+          'Reclutador': primaryRecruiter,
+          'Número de Aplicaciones': candidate.applications?.length || 0,
+
+          // AI Analysis Data
+          'Análisis IA - Compatibilidad (%)': analysisData?.compatibilidad?.porcentaje || 'N/A',
+          'Análisis IA - Fortalezas': analysisData?.compatibilidad?.fortalezas ? analysisData.compatibilidad.fortalezas.join('; ') : 'N/A',
+          'Análisis IA - Áreas de Mejora': analysisData?.areasAMejorar ? analysisData.areasAMejorar.join('; ') : 'N/A',
+          'Análisis IA - Recomendaciones': analysisData?.compatibilidad?.recomendacion || 'N/A'
+        };
+      });
+
+      // Convert to Excel
+      if (exportData.length === 0) {
+        toast({
+          title: "Sin datos",
+          description: "No hay candidatos para exportar.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Auto-size columns
+      const colWidths = Object.keys(exportData[0]).map(key => {
+        const maxLength = Math.max(
+          key.length,
+          ...exportData.map(row => String(row[key as keyof typeof row] || '').length)
+        );
+        return { wch: Math.min(maxLength + 2, 50) }; // Max width of 50 characters
+      });
+      ws['!cols'] = colWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Candidatos');
+
+      // Generate Excel file
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+      // Create and download file
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `candidatos_completos_${format(new Date(), 'yyyy-MM-dd_HH-mm', { locale: es })}.xlsx`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Exportación completada",
+        description: `Se exportaron ${exportData.length} candidatos con toda su información y análisis IA.`,
+      });
+
+    } catch (error) {
+      console.error('Error exporting candidates:', error);
+      toast({
+        title: "Error en exportación",
+        description: "No se pudo exportar los datos de los candidatos.",
+        variant: "destructive"
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Function to perform automatic AI analysis
   const performAutomaticAnalysis = async (candidate: Candidate, extractedText?: string) => {
     const textToAnalyze = extractedText || candidate.resume_text;
@@ -516,9 +650,7 @@ const Candidates = () => {
       }
 
       // Call the analysis function with the extracted text from transcription
-      console.log('🔍 TEXTO QUE SE ENVÍA AL ANÁLISIS:', textToAnalyze.substring(0, 500) + (textToAnalyze.length > 500 ? '...' : ''));
-      console.log('📏 LONGITUD DEL TEXTO PARA ANÁLISIS:', textToAnalyze.length);
-      console.log('📄 TEXTO COMPLETO PARA ANÁLISIS:', textToAnalyze);
+
       const analysisResult = await analyzeResume(textToAnalyze, jobContext);
 
       // Save analysis data
@@ -1290,6 +1422,16 @@ const Candidates = () => {
             Actualizar
           </Button>
 
+          <Button
+            variant="default"
+            onClick={handleExportCandidates}
+            disabled={exporting}
+            className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
+          >
+            <Download className={`h-4 w-4 ${exporting ? 'animate-spin' : ''}`} />
+            {exporting ? 'Exportando...' : 'Exportar Candidatos'}
+          </Button>
+
           {currentUserRole === 'reclutador' && (
             <Button
               variant="outline"
@@ -1972,7 +2114,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                         )}
 
                         {columnVisibility.experiencia && !['en-formacion' , 'contratados'].includes(activeTab) && <TableCell>
-                          {candidate.experience_years ? `${candidate.experience_years} meses` : 'No especificada'}
+                          {candidate.experience_years ? `${candidate.experience_years} ${candidate.experience_years === 1 ? 'mes' : 'meses'}` : 'No especificada'}
                         </TableCell>}
 
                         {columnVisibility.habilidades && !['en-formacion' , 'discarded' , 'contratados'].includes(activeTab) && <TableCell>

@@ -34,7 +34,7 @@ export const TrainingHistoryList = () => {
     setLoading(true);
     try {
       // Usar la función segura, que retorna TODAS las sesiones con información relevante y sin requerir acceso a users
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .rpc('get_complete_training_sessions');
 
       if (error) {

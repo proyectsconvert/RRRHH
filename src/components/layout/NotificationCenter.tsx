@@ -108,7 +108,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
             message: `${candidate.first_name} ${candidate.last_name} ha aplicado al cargo de ${jobTitle}`,
             candidateId: candidate.id,
             candidateName: `${candidate.first_name} ${candidate.last_name}`,
-            jobTitle: jobTitle,
+            jobTitle,
             createdAt: candidate.created_at,
             read: false
           });
@@ -145,8 +145,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
               title: 'Entrevista Asignada',
               message: `${recruiterName} asignó una entrevista de ${interviewType} al candidato ${candidateName}`,
               candidateId: app.candidates.id,
-              candidateName: candidateName,
-              recruiterName: recruiterName,
+              candidateName,
+              recruiterName,
               jobTitle: app.jobs?.title,
               createdAt: app.updated_at,
               read: false

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Bot, Webhook, Power, PowerOff, Search, SquareMousePointer } from 'lucide-react'; 
+import { Send, MessageSquare, Bot, Webhook, Power, PowerOff, Search, SquareMousePointer, Ban } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,11 +20,12 @@ interface HistoryChatMessage {
 }
 
 interface UserChat {
-  hicnumerouser: string;
-  hicusername: string;
-  lastMessage?: string;
-  lastMessageTime?: string;
-}
+ hicnumerouser: string;
+ hicusername: string;
+ lastMessage?: string;
+ lastMessageTime?: string;
+ botDisabled?: boolean;
+ }
 
 const WhatsApp = () => {
   const [users, setUsers] = useState<UserChat[]>([]);
@@ -49,141 +50,266 @@ const WhatsApp = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Load users
-  const loadUsers = async () => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('historychat')
-        .select('hicnumerouser, hicusername')
-        .order('created_at', { ascending: false });
+// Load users
+const loadUsers = async () => {
+try {
+const { data, error } = await (supabase as any)
+.from('historychat')
+.select('hicnumerouser, hicusername')
+.order('created_at', { ascending: false });
 
-      if (error) throw error;
+if (error) throw error;
 
-      // Group by user and get unique users
-      const uniqueUsers = data?.reduce((acc: UserChat[], curr: any) => {
-        const existing = acc.find(u => u.hicnumerouser === curr.hicnumerouser);
-        if (!existing) {
-          acc.push({
-            hicnumerouser: curr.hicnumerouser,
-            hicusername: curr.hicusername,
-          });
-        }
-        return acc;
-      }, []) || [];
+// Group by user and get unique users
+const uniqueUsers = data?.reduce((acc: UserChat[], curr: any) => {
+const existing = acc.find(u => u.hicnumerouser === curr.hicnumerouser);
+if (!existing) {
+acc.push({
+hicnumerouser: curr.hicnumerouser,
+hicusername: curr.hicusername,
+});
+}
+return acc;
+}, []) || [];
 
-      setUsers(uniqueUsers);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los usuarios",
-        variant: "destructive"
-      });
-    }
-  };
+// Check bot status for each user by looking up their phone in candidates table
+const usersWithBotStatus = await Promise.all(
+uniqueUsers.map(async (user) => {
+try {
+const { data: candidateData, error: candidateError } = await supabase
+.from('candidates')
+.select('activeWP')
+.eq('phone', user.hicnumerouser)
+.single();
 
-  // Load messages for selected user
-  const loadMessages = async (userId: string) => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('historychat')
-        .select('*')
-        .eq('hicnumerouser', userId)
-        .order('created_at', { ascending: true });
+if (!candidateError && candidateData) {
+return {
+...user,
+botDisabled: candidateData.activeWP === true
+};
+}
+} catch (error) {
+// Silent error - user might not be in candidates table
+}
 
-      if (error) throw error;
-      setMessages(data || []);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los mensajes",
-        variant: "destructive"
-      });
-    }
-  };
+return {
+...user,
+botDisabled: false
+};
+})
+);
 
-  // Send message
-  const sendMessage = async () => {
-    if (!selectedUser || !newMessage.trim()) return;
+setUsers(usersWithBotStatus);
+} catch (error) {
+toast({
+title: "Error",
+description: "No se pudieron cargar los usuarios",
+variant: "destructive"
+});
+}
+};
 
-    setLoading(true);
-    try {
-      // Get bot number from environment or use a default
-      const botNumber = import.meta.env.VITE_BOT_NUMBER || '3192463493';
-      const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
-      const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
-      const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
+// Load messages for selected user
+const loadMessages = async (userId: string) => {
+try {
+const { data, error } = await (supabase as any)
+.from('historychat')
+.select('*')
+.eq('hicnumerouser', userId)
+.order('created_at', { ascending: true });
 
-      if (!apiUrl || !apiToken) {
-        throw new Error('Evolution-API configuration missing. Please check VITE_EVOLUTION_API_URL and VITE_EVOLUTION_API_TOKEN environment variables.');
-      }
+if (error) throw error;
+setMessages(data || []);
+} catch (error) {
+console.error('Error loading messages:', error);
+toast({
+title: "Error",
+description: "No se pudieron cargar los mensajes",
+variant: "destructive"
+});
+}
+};
 
-      // Send to Evolution-API using bot number as sender and user number as recipient
-      const requestBody = {
-        number: selectedUser.hicnumerouser, // Recipient (user number)
-        text: newMessage.trim(), // Evolution-API typically uses 'text' instead of 'message'
-      };
+// Update messages in real-time without full reload
+const updateMessagesRealtime = (newMessage: HistoryChatMessage) => {
+setMessages(prevMessages => {
+// Check if message already exists to avoid duplicates
+// Use a more robust check based on content and timestamp
+const messageExists = prevMessages.some(msg => {
+const sameUser = msg.hicnumerouser === newMessage.hicnumerouser;
+const sameBotMessage = msg.hicmessagebot === newMessage.hicmessagebot && newMessage.hicmessagebot;
+const sameUserMessage = msg.hicmessageuser === newMessage.hicmessageuser && newMessage.hicmessageuser;
+const sameTimestamp = msg.created_at === newMessage.created_at;
 
-      const evolutionResponse = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`,
-          'apikey': apiToken, // Some Evolution-API versions require apikey header
-        },
-        body: JSON.stringify(requestBody),
-      });
+return sameUser && (sameBotMessage || sameUserMessage) && sameTimestamp;
+});
 
-      if (!evolutionResponse.ok) {
-        let errorMessage = `HTTP ${evolutionResponse.status}: ${evolutionResponse.statusText}`;
-        try {
-          const errorData = await evolutionResponse.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (parseError) {
-          // Silent error parsing
-        }
-        throw new Error(`Error sending message to Evolution-API: ${errorMessage}`);
-      }
+if (messageExists) {
+console.log('Message already exists, skipping duplicate');
+return prevMessages;
+}
 
-      const responseData = await evolutionResponse.json();
+// Add new message and sort by created_at
+const updatedMessages = [...prevMessages, newMessage].sort((a, b) =>
+new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime()
+);
 
-      // Save to Supabase
-      const { error } = await (supabase as any)
-        .from('historychat')
-        .insert({
-          hicnumerouser: selectedUser.hicnumerouser,
-          hicusername: selectedUser.hicusername,
-          hicsendnumbot: botNumber, // Bot number that sent the message
-          hicmessagebot: newMessage.trim(),
-          hicmessageuser: null,
-        });
+console.log('Added new message to chat:', newMessage);
+return updatedMessages;
+});
+};
 
-      if (error) {
-        throw new Error(`Error saving message to database: ${error.message}`);
-      }
+// Send message
+const sendMessage = async () => {
+if (!selectedUser || !newMessage.trim()) return;
 
-      setNewMessage('');
-      toast({
-        title: "Mensaje enviado",
-        description: "El mensaje se envió correctamente",
-      });
-    } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+const messageToSend = newMessage.trim();
+setLoading(true);
 
-  // Handle user selection
-  const handleUserSelect = (user: UserChat) => {
-    setSelectedUser(user);
-    loadMessages(user.hicnumerouser);
-  };
+try {
+// Get bot number from environment or use a default
+const botNumber = import.meta.env.VITE_BOT_NUMBER || '3192463493';
+const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
+const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
+const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
+
+if (!apiUrl || !apiToken) {
+throw new Error('Evolution-API configuration missing. Please check VITE_EVOLUTION_API_URL and VITE_EVOLUTION_API_TOKEN environment variables.');
+}
+
+// Optimistically add message to UI immediately for better UX
+const optimisticMessage: HistoryChatMessage = {
+hicnumerouser: selectedUser.hicnumerouser,
+hicusername: selectedUser.hicusername,
+hicsendnumbot: botNumber,
+hicmessagebot: messageToSend,
+hicmessageuser: null,
+created_at: new Date().toISOString()
+};
+
+console.log('Adding optimistic message to UI:', optimisticMessage);
+updateMessagesRealtime(optimisticMessage);
+
+// Clear message input immediately
+setNewMessage('');
+
+// Send to Evolution-API using bot number as sender and user number as recipient
+const requestBody = {
+number: selectedUser.hicnumerouser, // Recipient (user number)
+text: messageToSend, // Evolution-API typically uses 'text' instead of 'message'
+};
+
+const evolutionResponse = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+'Authorization': `Bearer ${apiToken}`,
+'apikey': apiToken, // Some Evolution-API versions require apikey header
+},
+body: JSON.stringify(requestBody),
+});
+
+if (!evolutionResponse.ok) {
+let errorMessage = `HTTP ${evolutionResponse.status}: ${evolutionResponse.statusText}`;
+try {
+const errorData = await evolutionResponse.json();
+errorMessage = errorData.message || errorData.error || errorMessage;
+} catch (parseError) {
+// Silent error parsing
+}
+throw new Error(`Error sending message to Evolution-API: ${errorMessage}`);
+}
+
+const responseData = await evolutionResponse.json();
+
+// Save to Supabase - this will trigger real-time updates and replace optimistic message
+const { error } = await (supabase as any)
+.from('historychat')
+.insert({
+hicnumerouser: selectedUser.hicnumerouser,
+hicusername: selectedUser.hicusername,
+hicsendnumbot: botNumber, // Bot number that sent the message
+hicmessagebot: messageToSend,
+hicmessageuser: null,
+});
+
+if (error) {
+throw new Error(`Error saving message to database: ${error.message}`);
+}
+
+console.log('Message sent successfully via Evolution API and saved to database');
+} catch (error) {
+console.error('Error sending message:', error);
+const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+// Remove optimistic message on error
+setMessages(prevMessages =>
+prevMessages.filter(msg =>
+!(msg.hicmessagebot === messageToSend &&
+msg.hicnumerouser === selectedUser.hicnumerouser &&
+!msg.created_at) // Remove messages without proper timestamp
+)
+);
+
+// Restore message input on error
+setNewMessage(messageToSend);
+
+toast({
+title: "Error",
+description: errorMessage,
+variant: "destructive"
+});
+} finally {
+setLoading(false);
+}
+};
+
+// Handle user selection
+const handleUserSelect = (user: UserChat) => {
+setSelectedUser(user);
+loadMessages(user.hicnumerouser);
+};
+
+// Toggle bot for specific user
+const toggleUserBot = async (user: UserChat) => {
+try {
+const newBotDisabled = !user.botDisabled;
+
+// Update the activeWP field in candidates table
+const { error } = await supabase
+.from('candidates')
+.update({ activeWP: newBotDisabled })
+.eq('phone', user.hicnumerouser);
+
+if (error) {
+throw new Error(`Error updating candidate: ${error.message}`);
+}
+
+// Update local state
+setUsers(prev => prev.map(u =>
+u.hicnumerouser === user.hicnumerouser
+? { ...u, botDisabled: newBotDisabled }
+: u
+));
+
+// Update selected user if it's the current one
+if (selectedUser?.hicnumerouser === user.hicnumerouser) {
+setSelectedUser(prev => prev ? { ...prev, botDisabled: newBotDisabled } : null);
+}
+
+toast({
+title: newBotDisabled ? "Bot deshabilitado" : "Bot habilitado",
+description: `El bot ha sido ${newBotDisabled ? 'deshabilitado' : 'habilitado'} para este usuario`,
+});
+} catch (error) {
+console.error('Error toggling user bot:', error);
+toast({
+title: "Error",
+description: error instanceof Error ? error.message : 'Error desconocido',
+variant: "destructive"
+});
+}
+};
 
   // Test N8N Workflow using Supabase proxy
   const testN8NWorkflow = async () => {
@@ -515,28 +641,96 @@ const WhatsApp = () => {
     }
   };
 
-  // Setup real-time subscription
-  useEffect(() => {
-    loadUsers();
-    checkInitialStatus();
+// Setup real-time subscription
+useEffect(() => {
+loadUsers();
+checkInitialStatus();
 
-    const channel = supabase
-      .channel('historychat-changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'historychat' },
-        (payload: any) => {
-          if (selectedUser && payload.new?.hicnumerouser === selectedUser.hicnumerouser) {
-            loadMessages(selectedUser.hicnumerouser);
-          }
-          loadUsers(); // Refresh user list in case of new users
-        }
-      )
-      .subscribe();
+const channel = supabase
+.channel('historychat-changes')
+.on('postgres_changes',
+{ event: 'INSERT', schema: 'public', table: 'historychat' },
+(payload: any) => {
+console.log('Real-time INSERT message received:', payload);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedUser]);
+// Handle INSERT events (new messages) - this covers both bot messages (hicmessagebot) and user messages (hicmessageuser)
+if (payload.new) {
+  const newMessage = payload.new as HistoryChatMessage;
+
+  // If we have a selected user and the message is for them, add to messages without full reload
+  if (selectedUser && newMessage.hicnumerouser === selectedUser.hicnumerouser) {
+    console.log('Adding new message to current chat in real-time:', {
+      user: newMessage.hicnumerouser,
+      botMessage: !!newMessage.hicmessagebot,
+      userMessage: !!newMessage.hicmessageuser,
+      timestamp: newMessage.created_at
+    });
+    updateMessagesRealtime(newMessage);
+  }
+
+  // Always refresh user list in case of new users or message updates
+  loadUsers();
+}
+}
+)
+.on('postgres_changes',
+{ event: 'UPDATE', schema: 'public', table: 'historychat' },
+(payload: any) => {
+console.log('Real-time UPDATE message received:', payload);
+
+// Handle UPDATE events (message edits/updates)
+if (payload.new) {
+  const updatedMessage = payload.new as HistoryChatMessage;
+
+  // Update existing message if it's in current chat
+  if (selectedUser && updatedMessage.hicnumerouser === selectedUser.hicnumerouser) {
+    setMessages(prevMessages =>
+      prevMessages.map(msg =>
+        msg.created_at === updatedMessage.created_at &&
+        msg.hicnumerouser === updatedMessage.hicnumerouser
+          ? updatedMessage
+          : msg
+      )
+    );
+  }
+}
+}
+)
+.subscribe();
+
+// Prevent automatic page refreshes
+const preventRefresh = (e: KeyboardEvent) => {
+if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+e.preventDefault();
+}
+if (e.key === 'F5') {
+e.preventDefault();
+}
+};
+
+const preventContextMenu = (e: MouseEvent) => {
+e.preventDefault();
+};
+
+window.addEventListener('keydown', preventRefresh);
+window.addEventListener('contextmenu', preventContextMenu);
+
+// Prevent browser back/forward navigation that might cause refreshes
+const preventNavigation = (e: PopStateEvent) => {
+e.preventDefault();
+window.history.pushState(null, '', window.location.href);
+};
+
+window.addEventListener('popstate', preventNavigation);
+window.history.pushState(null, '', window.location.href);
+
+return () => {
+supabase.removeChannel(channel);
+window.removeEventListener('keydown', preventRefresh);
+window.removeEventListener('contextmenu', preventContextMenu);
+window.removeEventListener('popstate', preventNavigation);
+};
+}, [selectedUser]);
 
   // 3. Crear la lista filtrada de usuarios (MECANISMO 3)
   const filteredUsers = users.filter(user =>
@@ -690,37 +884,49 @@ const WhatsApp = () => {
 
     	{/* Chat Area */}
     	<Card className={showDebug ? "flex-1" : "flex-1"}>
-    	  <CardHeader className="items-start flex flex-row gap-2 p-4 !mt-0">
+<CardHeader className="items-start flex flex-row gap-2 p-4 !mt-0">
 
-        {selectedUser && (
-              <Avatar>
-                <AvatarFallback>
-                  {selectedUser.hicusername.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            )}
+       {selectedUser && (
+             <Avatar>
+               <AvatarFallback>
+                 {selectedUser.hicusername.charAt(0).toUpperCase()}
+               </AvatarFallback>
+             </Avatar>
+           )}
 
-          <div className="items-center !mt-0">
-        	    <CardTitle className="text-xl font-semibold !mt-0">
-                {selectedUser ? (
-                  <>
-                    <span>
-                      {selectedUser.hicusername}
-                    </span>
-                    
-                    <span className="text-sm text-gray-500 font-normal ml-2">
-                      ({selectedUser.hicnumerouser})
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-xl font-semibold text-gray-400 flex items-center gap-3">
-                    <SquareMousePointer className="h-6 w-6" />
-                    <span>Selecciona un chat</span>
-                  </span>
-                )}
-              </CardTitle>
-          </div>
-    	  </CardHeader>
+         <div className="items-center !mt-0 flex-1">
+   <CardTitle className="text-xl font-semibold !mt-0">
+               {selectedUser ? (
+                 <>
+                   <span>
+                     {selectedUser.hicusername}
+                   </span>
+
+                   <span className="text-sm text-gray-500 font-normal ml-2">
+                     ({selectedUser.hicnumerouser})
+                   </span>
+                 </>
+               ) : (
+                 <span className="text-xl font-semibold text-gray-400 flex items-center gap-3">
+                   <SquareMousePointer className="h-6 w-6" />
+                   <span>Selecciona un chat</span>
+                 </span>
+               )}
+             </CardTitle>
+         </div>
+
+         {selectedUser && (
+           <Button
+             onClick={() => toggleUserBot(selectedUser)}
+             size="sm"
+             variant={selectedUser.botDisabled ? "destructive" : "outline"}
+             className="flex items-center gap-1"
+           >
+             <Ban className="h-4 w-4" />
+             {selectedUser.botDisabled ? 'Habilitar Bot' : 'Deshabilitar Bot'}
+           </Button>
+         )}
+</CardHeader>
 
         <Separator />
 

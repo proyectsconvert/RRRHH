@@ -94,7 +94,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       if (typeof callEdgeFunction === 'function') {
         data = await callEdgeFunction('training-chat', {
           action: 'send-message',
-          sessionId: sessionId,
+          sessionId,
           message: content
         });
       } else {
@@ -107,7 +107,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           },
           body: JSON.stringify({
             action: 'send-message',
-            sessionId: sessionId,
+            sessionId,
             message: content
           })
         });

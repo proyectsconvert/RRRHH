@@ -17,27 +17,9 @@ export async function fetchCandidateDetails(candidateId: string): Promise<Candid
     throw new Error('No se encontró el candidato');
   }
 
-  // Check if document_id exists in the database, if not, try to get it from profiles table
-  let documentId = candidateData.document_id;
-  if (!documentId) {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('document_id')
-      .eq('id', candidateId)
-      .single();
-
-    if (profileData?.document_id) {
-      documentId = profileData.document_id;
-    }
-  }
-  
-  if (candidateError) {
-    throw candidateError;
-  }
-  
-  if (!candidateData) {
-    throw new Error('No se encontró el candidato');
-  }
+  // Use cedula field directly from candidates table
+  const documentId = candidateData.cedula || candidateData.document_id;
+  console.log('Document ID from candidates table (cedula field):', documentId);
 
   let analysisData = null;
   
