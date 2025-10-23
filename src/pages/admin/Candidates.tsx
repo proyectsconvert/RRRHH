@@ -59,6 +59,7 @@ interface Candidate {
   analysis_summary?: string | null;
   transcription_status?: 'pending' | 'processing' | 'completed' | 'failed';
   analysis_status?: 'pending' | 'analyzing' | 'completed' | 'failed';
+  completeTranscription?: "content" | "empty";
 }
 
 const initialColumnVisibility = {
@@ -247,18 +248,22 @@ const Candidates = () => {
 
       // Process candidates and check transcription status
       const processedCandidates = (data || []).map(candidate => {
+        // Determine completeTranscription variable per candidate
+        const completeTranscription = (candidate.resume_text &&
+                                      candidate.resume_text.trim().length > 0 &&
+                                      !candidate.resume_text.trim().startsWith('%PDF-') &&
+                                      !candidate.resume_text.includes('obj <</Type/') &&
+                                      !candidate.resume_text.includes('/Filter/FlateDecode'))
+                                     ? "content" : "empty";
+
         let transcription_status: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
 
         // Check current transcription status from state first
         if (transcriptionStatus[candidate.id]) {
           transcription_status = transcriptionStatus[candidate.id];
-        } else if (candidate.resume_text && candidate.resume_text.trim().length > 0) {
-          // Check if text is valid (not PDF binary content)
-          const isValidText = !candidate.resume_text.trim().startsWith('%PDF-') &&
-                            !candidate.resume_text.includes('obj <</Type/') &&
-                            !candidate.resume_text.includes('/Filter/FlateDecode');
-
-          transcription_status = isValidText ? 'completed' : 'failed';
+        } else if (completeTranscription === "content") {
+          // If resume_text has valid content, transcription is complete
+          transcription_status = 'completed';
         } else if (candidate.resume_url && transcribingCandidates.has(candidate.id)) {
           transcription_status = 'processing';
         }
@@ -274,7 +279,8 @@ const Candidates = () => {
         return {
           ...candidate,
           transcription_status,
-          analysis_status
+          analysis_status,
+          completeTranscription
         };
       });
 
@@ -284,12 +290,10 @@ const Candidates = () => {
       );
 
       // Auto-transcribe new candidates without resume_text (only once per candidate)
+      // Use completeTranscription to control transcription processes
       const candidatesToTranscribe = unprocessedCandidates.filter(candidate =>
         candidate.resume_url &&
-        (!candidate.resume_text || candidate.resume_text.trim().length === 0 ||
-          candidate.resume_text.trim().startsWith('%PDF-') ||
-          candidate.resume_text.includes('obj <</Type/') ||
-          candidate.resume_text.includes('/Filter/FlateDecode')) &&
+        candidate.completeTranscription === "empty" &&
         !transcribingCandidates.has(candidate.id) &&
         transcriptionStatus[candidate.id] !== 'processing' &&
         transcriptionStatus[candidate.id] !== 'completed'
@@ -309,12 +313,9 @@ const Candidates = () => {
       }
 
       // Check for candidates with completed transcription but no analysis - trigger automatic analysis (only once per candidate)
+      // Use completeTranscription to control analysis processes
       const candidatesToAnalyze = unprocessedCandidates.filter(candidate =>
-        candidate.resume_text &&
-        candidate.resume_text.trim().length > 0 &&
-        !candidate.resume_text.trim().startsWith('%PDF-') &&
-        !candidate.resume_text.includes('obj <</Type/') &&
-        !candidate.resume_text.includes('/Filter/FlateDecode') &&
+        candidate.completeTranscription === "content" &&
         !candidate.analysis_summary &&
         candidate.transcription_status === 'completed' &&
         analysisStatus[candidate.id] !== 'analyzing' &&

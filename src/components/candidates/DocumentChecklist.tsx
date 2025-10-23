@@ -494,6 +494,14 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
         }
       }
 
+      // Additional fallback: check MIME type patterns in URL or filename
+      if (fileType === 'unknown' && document.fileName) {
+        const lowerFileName = document.fileName.toLowerCase();
+        if (lowerFileName.includes('pdf')) fileType = 'pdf';
+        else if (lowerFileName.includes('docx') || lowerFileName.includes('doc')) fileType = 'docx';
+        else if (lowerFileName.includes('jpg') || lowerFileName.includes('jpeg') || lowerFileName.includes('png') || lowerFileName.includes('gif')) fileType = 'image';
+      }
+
       setViewerDocument({
         url: document.fileUrl,
         name: document.name,

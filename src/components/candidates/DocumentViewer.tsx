@@ -25,8 +25,8 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
     // Check by document type first
     if (type) {
       if (type.includes('pdf')) return 'pdf';
-      if (type.includes('image')) return 'image';
-      if (type.includes('word') || type.includes('document')) return 'document';
+      if (type.includes('image') || type.includes('jpg') || type.includes('jpeg') || type.includes('png') || type.includes('gif')) return 'image';
+      if (type.includes('word') || type.includes('document') || type.includes('doc') || type.includes('docx')) return 'document';
     }
 
     // Fallback to URL extension
@@ -108,11 +108,11 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
               />
             </div>
           ) : fileType === 'image' ? (
-            <div className="flex justify-center">
+            <div className="w-full h-[70vh] overflow-auto flex justify-center items-start">
               <img
                 src={documentUrl}
                 alt={documentName || 'Documento'}
-                className="max-w-full max-h-[70vh] object-contain rounded border"
+                className="max-w-full max-h-full object-contain rounded border"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const parent = e.currentTarget.parentElement;
@@ -132,16 +132,41 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
               />
             </div>
           ) : fileType === 'document' ? (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-              <FileText className="h-16 w-16 mb-4 text-blue-500" />
-              <p className="text-lg font-medium mb-2">Documento de Word</p>
-              <p className="text-sm text-center mb-4">
-                Los documentos de Word no se pueden previsualizar en el navegador.
-              </p>
-              <Button onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-2" />
-                Descargar para ver
-              </Button>
+            <div className="w-full h-[70vh]">
+              <iframe
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(documentUrl || '')}&embedded=true`}
+                className="w-full h-full border rounded"
+                title={documentName || 'Documento Word'}
+                onError={(e) => {
+                  // Fallback to download message if Google Docs viewer fails
+                  const iframe = e.currentTarget;
+                  const parent = iframe.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `
+                      <div class="flex flex-col items-center justify-center h-64 text-gray-500">
+                        <svg class="h-16 w-16 mb-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p class="text-lg font-medium mb-2">Documento de Word</p>
+                        <p class="text-sm text-center mb-4">
+                          No se pudo cargar la vista previa. Haz clic en "Descargar" para ver el documento.
+                        </p>
+                        <button class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                          <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Descargar para ver
+                        </button>
+                      </div>
+                    `;
+                    // Add download functionality to the button
+                    const downloadBtn = parent.querySelector('button');
+                    if (downloadBtn) {
+                      downloadBtn.addEventListener('click', handleDownload);
+                    }
+                  }
+                }}
+              />
             </div>
           ) : (
             <Alert>
