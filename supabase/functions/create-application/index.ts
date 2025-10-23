@@ -88,9 +88,11 @@ serve(async (req: Request) => {
     console.log('Note: Migration for new candidate fields needs to be applied manually in Supabase Dashboard');
     console.log('SQL to run: ALTER TABLE candidates ADD COLUMN IF NOT EXISTS cedula VARCHAR(20); etc.');
 
-    // Format phone number correctly
+    // Format phone number correctly for database (with +) and WhatsApp format (without + and with @s.whatsapp.net)
     const formattedPhone = phoneCountry && phone ? `+${phoneCountry}${phone}` : null
-    console.log('Formatted phone:', formattedPhone)
+    const whatsappFormattedPhone = phoneCountry && phone ? `${phoneCountry}${phone}@s.whatsapp.net` : null
+    console.log('Formatted phone for database:', formattedPhone)
+    console.log('Formatted phone for WhatsApp:', whatsappFormattedPhone)
     
     // Explicitly log phone_country parameter to verify it's being passed correctly
     console.log('Phone country parameter:', phoneCountry || '')
@@ -105,6 +107,30 @@ serve(async (req: Request) => {
     if (checkError && checkError.code !== 'PGRST116') {
       console.error('Error checking existing candidate:', checkError);
       throw new Error('Error al verificar candidato existente');
+    }
+
+    // Check if candidate already has an application for this specific job
+    let existingApplication = null;
+    if (existingCandidate) {
+      const { data: appData, error: appError } = await supabaseAdmin
+        .from('applications')
+        .select('id, status')
+        .eq('candidate_id', existingCandidate.id)
+        .eq('job_id', jobId)
+        .maybeSingle();
+
+      if (appError && appError.code !== 'PGRST116') {
+        console.error('Error checking existing application:', appError);
+        throw new Error('Error al verificar aplicación existente');
+      }
+
+      existingApplication = appData;
+    }
+
+    // If candidate already has an application for this job, prevent duplicate
+    if (existingApplication) {
+      console.log('Candidate already has an application for this job:', existingApplication.id);
+      throw new Error('Ya tienes una aplicación pendiente para esta vacante. No puedes postularte nuevamente.');
     }
 
     let candidateId: string;
@@ -148,7 +174,7 @@ serve(async (req: Request) => {
       const updateData = {
         first_name: firstName,
         last_name: lastName,
-        phone: formattedPhone || null,
+        phone: whatsappFormattedPhone || null, // Store WhatsApp formatted number
         phone_country: phoneCountry || null,
         resume_url: resumeUrl || null,
         cedula: candidateData.cedula,
@@ -177,7 +203,7 @@ serve(async (req: Request) => {
         first_name: firstName,
         last_name: lastName,
         email,
-        phone: formattedPhone || null,
+        phone: whatsappFormattedPhone || null, // Store WhatsApp formatted number
         phone_country: phoneCountry || null,
         resume_url: resumeUrl || null,
         cedula: candidateData.cedula,

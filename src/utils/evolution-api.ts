@@ -30,9 +30,21 @@ export const sendEvolutionMessage = async (
 ): Promise<void> => {
   const config = getEvolutionApiConfig();
 
+  // Format phone number for Evolution API (remove + and add @s.whatsapp.net)
+  let formattedNumber = recipientNumber;
+  if (recipientNumber.startsWith('+')) {
+    // Remove the + and add @s.whatsapp.net
+    formattedNumber = recipientNumber.substring(1) + '@s.whatsapp.net';
+  } else if (!recipientNumber.includes('@s.whatsapp.net')) {
+    // If it doesn't already have the suffix, add it
+    formattedNumber = recipientNumber + '@s.whatsapp.net';
+  }
+
+  console.log('Original number:', recipientNumber, 'Formatted number:', formattedNumber);
+
   // Send to Evolution-API
   const requestBody = {
-    number: recipientNumber,
+    number: formattedNumber,
     text: message.trim(),
   };
 
