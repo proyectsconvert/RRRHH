@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { X, Download, FileText, Image, AlertCircle } from 'lucide-react';
+import { X, Download, FileText, Image, AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface DocumentViewerProps {
@@ -10,6 +10,8 @@ interface DocumentViewerProps {
   documentUrl?: string;
   documentName?: string;
   documentType?: string;
+  onTextExtracted?: (text: string) => void;
+  onAnalyze?: () => void;
 }
 
 const DocumentViewer: React.FC<DocumentViewerProps> = ({
@@ -17,7 +19,9 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
   onClose,
   documentUrl,
   documentName,
-  documentType
+  documentType,
+  onTextExtracted,
+  onAnalyze
 }) => {
   const getFileType = (url?: string, type?: string) => {
     if (!url) return 'unknown';
@@ -48,6 +52,15 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
   };
 
   const fileType = getFileType(documentUrl, documentType);
+  const [extractingText, setExtractingText] = useState(false);
+  const [wordTextExtracted, setWordTextExtracted] = useState(false);
+
+  // Extract text from Word documents when viewer opens
+  useEffect(() => {
+    if (isOpen && documentUrl && fileType === 'document' && onTextExtracted && !wordTextExtracted) {
+      extractTextFromWordDocument();
+    }
+  }, [isOpen, documentUrl, fileType, onTextExtracted, wordTextExtracted]);
 
   const handleDownload = () => {
     if (documentUrl) {
@@ -58,6 +71,50 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+  };
+
+  const extractTextFromWordDocument = async () => {
+    if (!documentUrl || !onTextExtracted) return;
+
+    try {
+      setExtractingText(true);
+      console.log('Extrayendo texto del documento Word desde:', documentUrl);
+
+      // Use the same approach as PDF extraction - call the Edge function
+      const response = await fetch('https://kugocdtesaczbfrwblsi.supabase.co/functions/v1/extract-pdf-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1Z29jZHRlc2FjemJmcndibHNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1NzA0MjUsImV4cCI6MjA2MjE0NjQyNX0.nHNWlTMfxuwAKYaiw145IFTAx3R3sbfWygviPVSH-Zc"
+        },
+        body: JSON.stringify({
+          documentUrl: documentUrl,
+          isWordDocument: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al procesar documento Word: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.text) {
+        console.log('Texto extraído exitosamente del documento Word:', data.text.substring(0, 200) + '...');
+        onTextExtracted(data.text);
+        setWordTextExtracted(true);
+      } else {
+        throw new Error(data.error || 'No se pudo extraer texto del documento Word');
+      }
+
+    } catch (error) {
+      console.error('Error extrayendo texto del documento Word:', error);
+      // For Word documents, if extraction fails, we should still allow the user to proceed
+      // but inform them that text extraction failed
+      console.warn('Extracción de texto falló, pero el documento se puede visualizar normalmente');
+    } finally {
+      setExtractingText(false);
     }
   };
 
@@ -133,6 +190,16 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
             </div>
           ) : fileType === 'document' ? (
             <div className="w-full h-[70vh]">
+              {(extractingText || wordTextExtracted) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-hrm-dark-cyan" />
+                    <span className="text-sm">
+                      {extractingText ? 'Extrayendo texto del documento...' : 'Texto extraído correctamente'}
+                    </span>
+                  </div>
+                </div>
+              )}
               <iframe
                 src={`https://docs.google.com/gview?url=${encodeURIComponent(documentUrl || '')}&embedded=true`}
                 className="w-full h-full border rounded"
@@ -149,7 +216,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({
                         </svg>
                         <p class="text-lg font-medium mb-2">Documento de Word</p>
                         <p class="text-sm text-center mb-4">
-                          No se pudo cargar la vista previa. Haz clic en "Descargar" para ver el documento.
+                          ${wordTextExtracted ? 'Texto extraído correctamente. ' : ''}No se pudo cargar la vista previa. Haz clic en "Descargar" para ver el documento.
                         </p>
                         <button class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
                           <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

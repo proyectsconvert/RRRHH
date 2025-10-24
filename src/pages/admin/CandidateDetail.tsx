@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import TeamsMeetingDialog, { MeetingData } from '@/components/candidates/TeamsMeetingDialog';
 import DocumentChecklist from '@/components/candidates/DocumentChecklist';
+import DocumentViewer from '@/components/candidates/DocumentViewer';
 import { sendWelcomeMessage } from '@/utils/evolution-api';
 import { generateCandidateAccessToken } from '@/utils/candidate-access';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,23 +104,9 @@ const CandidateDetail: React.FC = () => {
           console.log('--Texto válido del CV encontrado en la base de datos, cargando...');
           setResumeContent(candidateData.resume_text);
           setTextExtracted(true);
-
-        } else if (candidateData.resume_url && !textExtracted) {
-          // Extract automatically if no valid text exists and we haven't extracted yet
-          console.log('No hay texto válido guardado, extrayendo automáticamente del CV...');
-          setTranscribing(true);
-          // Wait a bit for the component to fully render before opening
-          setTimeout(() => {
-            setPdfViewerOpen(true);
-          }, 500);
-        } else if (candidateData.resume_text && !hasValidText) {
-          // If we have invalid binary content, force re-extraction
-          console.log('Texto binario detectado, forzando re-extracción...');
-          setTranscribing(true);
-          setTimeout(() => {
-            setPdfViewerOpen(true);
-          }, 500);
         }
+        // Removed automatic CV opening and text extraction from candidate profile
+        // Users must manually click "Ver CV" button to open the PDF viewer
 
         // Set resume content for auto-analysis check
         if (hasValidText) {
@@ -356,12 +343,12 @@ const CandidateDetail: React.FC = () => {
       !text.includes('/Filter/FlateDecode');
 
     if (!isValidText) {
-      console.error('❌ Texto extraído contiene datos binarios del PDF, no se guardará');
+      console.error('❌ Texto extraído contiene datos binarios del documento, no se guardará');
       setTranscribing(false);
       toast({
         variant: "destructive",
         title: "Error de extracción",
-        description: "No se pudo extraer texto legible del PDF. El documento puede contener solo imágenes."
+        description: "No se pudo extraer texto legible del documento. El archivo puede contener solo imágenes o estar corrupto."
       });
       return;
     }
@@ -698,7 +685,30 @@ const CandidateDetail: React.FC = () => {
     );
   }
 
-  const pdfUrl = candidate.resume_url ? getResumeUrl(candidate.resume_url) : null;
+  const resumeUrl = candidate.resume_url ? getResumeUrl(candidate.resume_url) : null;
+
+  // Determine file type for proper viewing
+  const getFileType = (url?: string) => {
+    if (!url) return 'unknown';
+
+    const extension = url.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return 'pdf';
+      case 'doc':
+      case 'docx':
+        return 'word';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return 'image';
+      default:
+        return 'unknown';
+    }
+  };
+
+  const fileType = getFileType(resumeUrl);
 
   // Check if candidate is in hiring process
   const isInHiringProcess = candidate.applications?.some(app => app.status === 'contratar');
@@ -782,13 +792,16 @@ const CandidateDetail: React.FC = () => {
         </div>
       </div>
       
-      {/* PDF Viewer */}
-      {pdfUrl && (
-        <PDFViewer
-          url={pdfUrl}
+      {/* Document Viewer */}
+      {resumeUrl && (
+        <DocumentViewer
           isOpen={pdfViewerOpen}
-          onOpenChange={setPdfViewerOpen}
-          title={`CV de ${candidate.first_name} ${candidate.last_name}`}
+          onClose={() => setPdfViewerOpen(false)}
+          documentUrl={resumeUrl}
+          documentName={`CV de ${candidate.first_name} ${candidate.last_name}`}
+          documentType={fileType === 'pdf' ? 'pdf' :
+                       fileType === 'word' ? 'document' :
+                       fileType === 'image' ? 'image' : undefined}
           onTextExtracted={handleTextExtracted}
           onAnalyze={() => handleAnalyzeCV(candidate.applications?.[0]?.id)}
         />

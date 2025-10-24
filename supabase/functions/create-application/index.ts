@@ -89,20 +89,7 @@ serve(async (req: Request) => {
     console.log('SQL to run: ALTER TABLE candidates ADD COLUMN IF NOT EXISTS cedula VARCHAR(20); etc.');
 
     // Format phone number correctly for WhatsApp format (without + and with @s.whatsapp.net)
-    let cleanPhone = phone || '';
-
-    // Remove leading + if present
-    if (cleanPhone.startsWith('+')) {
-      cleanPhone = cleanPhone.substring(1);
-    }
-
-    // If the phone number starts with the country code, remove it to avoid duplication
-    if (phoneCountry && cleanPhone.startsWith(phoneCountry)) {
-      cleanPhone = cleanPhone.substring(phoneCountry.length);
-    }
-
-    // Combine country code + clean phone number + WhatsApp suffix
-    const whatsappFormattedPhone = phoneCountry && cleanPhone ? `${phoneCountry}${cleanPhone}@s.whatsapp.net` : null;
+    const whatsappFormattedPhone = phoneCountry && phone ? `${phoneCountry}${phone}@s.whatsapp.net` : null
     console.log('📱 Formatted phone for WhatsApp storage:', whatsappFormattedPhone)
     
     // Explicitly log phone_country parameter to verify it's being passed correctly

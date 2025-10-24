@@ -28,16 +28,74 @@ serve(async (req) => {
       console.error('Error parsing request body:', parseError, 'Raw data:', requestData);
       throw new Error('Error al parsear la solicitud: formato JSON inválido');
     }
-    
-    const { extractedText, jobDetails } = requestBody;
-    
-    if (!extractedText) {
+
+    const { extractedText, jobDetails, documentUrl, isWordDocument } = requestBody;
+
+    let textToAnalyze = extractedText;
+
+    // If it's a Word document, we need to extract text from it first
+    if (isWordDocument && documentUrl) {
+      console.log('Procesando documento Word desde URL:', documentUrl);
+      console.log('Procesando documento Word:', documentUrl);
+
+      try {
+        // Fetch the Word document
+        const docResponse = await fetch(documentUrl);
+        if (!docResponse.ok) {
+          throw new Error(`No se pudo descargar el documento: ${docResponse.status}`);
+        }
+
+        const docBuffer = await docResponse.arrayBuffer();
+
+        // For Word documents, we'll use a simple text extraction approach
+        // Convert the buffer to string and extract readable text
+        const docText = new TextDecoder('utf-8').decode(docBuffer);
+        const docTextLatin1 = new TextDecoder('latin1').decode(docBuffer);
+
+        // Try to extract text from Word document structure
+        // This is a basic approach - Word documents contain readable text mixed with binary data
+        let extractedDocText = '';
+
+        // Look for readable text patterns in the document
+        const textMatches = docText.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ\s\d\.,;:!?()[\]{}@#$%&*+-=<>|\/\\]+/g);
+        if (textMatches) {
+          extractedDocText = textMatches.join(' ').replace(/\s+/g, ' ').trim();
+        }
+
+        // If UTF-8 didn't work well, try Latin1
+        if (!extractedDocText || extractedDocText.length < 50) {
+          const latinMatches = docTextLatin1.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ\s\d\.,;:!?()[\]{}@#$%&*+-=<>|\/\\]+/g);
+          if (latinMatches) {
+            extractedDocText = latinMatches.join(' ').replace(/\s+/g, ' ').trim();
+          }
+        }
+
+        // Clean up the extracted text
+        extractedDocText = extractedDocText
+          .replace(/[^\w\sáéíóúñÁÉÍÓÚÑ\d\.,;:!?()[\]{}@#$%&*+-=<>|\/\\]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (extractedDocText.length < 50) {
+          throw new Error('No se pudo extraer suficiente texto legible del documento Word');
+        }
+
+        textToAnalyze = extractedDocText;
+        console.log('Texto extraído del documento Word:', textToAnalyze.substring(0, 200) + '...');
+
+      } catch (docError) {
+        console.error('Error procesando documento Word:', docError);
+        throw new Error(`Error al procesar documento Word: ${docError.message}`);
+      }
+    }
+
+    if (!textToAnalyze) {
       console.error('No text provided for analysis');
       throw new Error('No se proporcionó texto para análisis');
     }
     
-    console.log('Recibido texto para análisis:', extractedText.substring(0, 100) + '...');
-    console.log('Texto completo longitud:', extractedText.length);
+    console.log('Recibido texto para análisis:', textToAnalyze.substring(0, 100) + '...');
+    console.log('Texto completo longitud:', textToAnalyze.length);
     console.log('Enviando texto extraído para análisis estructurado...');
     
     // OpenAI API key
@@ -135,7 +193,7 @@ serve(async (req) => {
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Aquí está el texto extraído del CV para analizar: ${extractedText}` }
+            { role: 'user', content: `Aquí está el texto extraído del CV para analizar: ${textToAnalyze}` }
           ],
           temperature: 0.5,
           max_tokens: 2000

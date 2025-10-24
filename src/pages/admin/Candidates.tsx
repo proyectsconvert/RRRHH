@@ -693,43 +693,95 @@ const Candidates = () => {
         ? candidate.resume_url
         : `https://kugocdtesaczbfrwblsi.supabase.co/storage/v1/object/public/resumes/${candidate.resume_url}`;
 
-      // Use the existing PDF text extraction logic from pdf-viewer.tsx
-      // Load PDF and extract text
-      const pdfjsLib = await import('pdfjs-dist');
-
-      // Initialize PDF.js worker
-      if (typeof window !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-          'pdfjs-dist/build/pdf.worker.min.mjs',
-          import.meta.url
-        ).toString();
-      }
-
-      // Load the PDF document
-      const loadingTask = pdfjsLib.getDocument(resumeUrl);
-      const pdf = await loadingTask.promise;
-      console.log(`PDF cargado con ${pdf.numPages} páginas para candidato ${candidate.id}`);
+      // Check if the file is a PDF or Word document
+      const isPdfFile = resumeUrl.toLowerCase().includes('.pdf') ||
+                       resumeUrl.includes('application/pdf');
+      const isWordFile = resumeUrl.toLowerCase().includes('.doc') ||
+                        resumeUrl.toLowerCase().includes('.docx') ||
+                        resumeUrl.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+                        resumeUrl.includes('application/msword');
 
       let extractedText = '';
 
-      // Extract text from all pages
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const pageText = content.items
-          .map((item: any) => {
-            const cleanText = item.str
-              .replace(/\s+/g, ' ')
-              .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-              .trim();
-            return cleanText;
-          })
-          .filter((text: string) => text.length > 0)
-          .join(' ');
+      if (isPdfFile) {
+        // Use the existing PDF text extraction logic
+        console.log(`Procesando archivo PDF para candidato ${candidate.id}`);
+        const pdfjsLib = await import('pdfjs-dist');
 
-        if (pageText.trim()) {
-          extractedText += pageText + '\n\n';
+        // Initialize PDF.js worker
+        if (typeof window !== 'undefined') {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+            'pdfjs-dist/build/pdf.worker.min.mjs',
+            import.meta.url
+          ).toString();
         }
+
+        // Load the PDF document
+        const loadingTask = pdfjsLib.getDocument(resumeUrl);
+        const pdf = await loadingTask.promise;
+        console.log(`PDF cargado con ${pdf.numPages} páginas para candidato ${candidate.id}`);
+
+        // Extract text from all pages
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items
+            .map((item: any) => {
+              const cleanText = item.str
+                .replace(/\s+/g, ' ')
+                .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+                .trim();
+              return cleanText;
+            })
+            .filter((text: string) => text.length > 0)
+            .join(' ');
+
+          if (pageText.trim()) {
+            extractedText += pageText + '\n\n';
+          }
+        }
+      } else if (isWordFile) {
+        // Handle Word document text extraction
+        console.log(`Procesando archivo Word para candidato ${candidate.id}`);
+
+        try {
+          // For Word documents, we'll use a different approach
+          // Since we can't directly extract text from Word files in the browser,
+          // we'll use the extract-pdf-text edge function which can handle Word files
+          console.log('Usando función Edge para extraer texto de documento Word...');
+
+          const response = await fetch('https://kugocdtesaczbfrwblsi.supabase.co/functions/v1/extract-pdf-text', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1Z29jZHRlc2FjemJmcndibHNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1NzA0MjUsImV4cCI6MjA2MjE0NjQyNX0.nHNWlTMfxuwAKYaiw145IFTAx3R3sbfWygviPVSH-Zc"
+            },
+            body: JSON.stringify({
+              documentUrl: resumeUrl,
+              isWordDocument: true
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Error al procesar documento Word: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.text) {
+            extractedText = data.text;
+            console.log(`Texto extraído exitosamente de documento Word para candidato ${candidate.id}`);
+          } else {
+            throw new Error(data.error || 'No se pudo extraer texto del documento Word');
+          }
+        } catch (wordError) {
+          console.error('Error procesando documento Word:', wordError);
+          throw new Error('No se pudo procesar el documento Word. Asegúrese de que sea un archivo válido.');
+        }
+      } else {
+        // Unsupported file type
+        console.log(`Tipo de archivo no soportado para candidato ${candidate.id}: ${resumeUrl}`);
+        throw new Error('Tipo de archivo no soportado. Solo se permiten archivos PDF y Word (.doc, .docx).');
       }
 
       // Final cleanup
@@ -801,6 +853,19 @@ const Candidates = () => {
 
     } catch (error) {
       console.error(`Error en transcripción automática para candidato ${candidate.id}:`, error);
+
+      // Check if it's a PDF parsing error (InvalidPDFException)
+      const isPdfError = error instanceof Error && error.message.includes('Invalid PDF structure');
+
+      if (isPdfError) {
+        console.log(`Archivo PDF inválido para candidato ${candidate.id}, probablemente es un documento Word subido como PDF`);
+        toast({
+          title: "Archivo no válido",
+          description: `El CV de ${candidate.first_name} ${candidate.last_name} no es un PDF válido. Parece ser un documento Word.`,
+          variant: "destructive"
+        });
+      }
+
       // Update transcription status to failed
       setTranscriptionStatus(prev => ({ ...prev, [candidate.id]: 'failed' }));
       setAnalysisStatus(prev => ({ ...prev, [candidate.id]: 'failed' }));
