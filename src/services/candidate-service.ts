@@ -169,25 +169,34 @@ export async function saveResumeText(candidateId: string, extractedText: string)
 
 export async function analyzeResume(extractedText: string, jobDetails: any = null) {
   try {
+    console.log('🔍 Iniciando análisis de CV con IA...');
+    console.log('📝 Longitud del texto extraído:', extractedText?.length || 0);
+
     // Asegurarnos de que tenemos texto para analizar
     if (!extractedText || extractedText.trim().length === 0) {
+      console.error('❌ Error: No hay texto para analizar');
       throw new Error('No hay texto para analizar');
     }
 
     // Check if the text looks like raw PDF content (starts with %PDF)
     if (extractedText.trim().startsWith('%PDF-')) {
+      console.error('❌ Error: Texto parece ser contenido binario de PDF');
       throw new Error('El texto extraído parece ser contenido binario de PDF. Por favor, extrae el texto correctamente desde el visor de PDF.');
     }
 
     // Check if the text contains PDF object definitions (common issue)
     if (extractedText.includes('obj <</Type/') || extractedText.includes('/Filter/FlateDecode')) {
+      console.error('❌ Error: Texto contiene datos binarios del PDF');
       throw new Error('El texto extraído contiene datos binarios del PDF. Por favor, abre el visor de PDF y haz clic en "Analizar con IA" para extraer el texto correctamente.');
     }
 
     // Check if text is too short or empty
     if (extractedText.trim().length < 50) {
+      console.error('❌ Error: Texto extraído demasiado corto');
       throw new Error('El texto extraído es demasiado corto. Asegúrate de que el PDF contenga texto legible y no solo imágenes.');
     }
+
+    console.log('✅ Validaciones de texto pasaron, enviando a función Edge...');
 
     // Retry mechanism
     let retryCount = 0;
@@ -196,6 +205,8 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
 
     while (retryCount < maxRetries) {
       try {
+        console.log(`🔄 Intento ${retryCount + 1} de ${maxRetries} para análisis con IA`);
+
         // Direct fetch approach without authorization since verify_jwt is false
         const response = await fetch('https://kugocdtesaczbfrwblsi.supabase.co/functions/v1/extract-pdf-text', {
           method: 'POST',
@@ -209,37 +220,47 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
           })
         });
 
+        console.log(`📡 Respuesta de función Edge - Status: ${response.status}`);
+
         if (!response.ok) {
           const errorText = await response.text();
+          console.error('❌ Error en función Edge:', errorText);
           throw new Error(`Edge function returned error: ${response.status}, ${errorText}`);
         }
 
         const data = await response.json();
+        console.log('📦 Datos recibidos de función Edge:', data);
 
         if (!data?.success) {
+          console.error('❌ Error en respuesta de función Edge:', data?.error);
           throw new Error(
             data?.error ||
             "Error durante el análisis del CV. Verifica los logs para más detalles."
           );
         }
 
+        console.log('✅ Análisis completado exitosamente');
         return data.analysis;
       } catch (error) {
+        console.error(`❌ Error en intento ${retryCount + 1}:`, error);
         lastError = error;
         retryCount++;
 
         if (retryCount < maxRetries) {
           // Exponential backoff
           const delay = Math.pow(2, retryCount) * 1000;
+          console.log(`⏳ Esperando ${delay}ms antes del siguiente intento...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
 
     // If we've exhausted retries
+    console.error('❌ Todos los intentos fallaron');
     throw lastError || new Error('Error al invocar la función Edge después de múltiples intentos');
 
   } catch (error) {
+    console.error('💥 Error general en analyzeResume:', error);
     throw error;
   }
 }

@@ -401,6 +401,19 @@ const CandidateDetail: React.FC = () => {
       });
       return;
     }
+
+    // Check if candidate is already hired - prevent status changes except "retirar"
+    const isHired = candidate.applications?.some(app => app.status === 'contratado');
+    if (isHired && newStatus !== 'retirar') {
+      toast({
+        title: "Estado Final",
+        description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar'.",
+        variant: "destructive"
+      });
+      setStatusModalOpen(false);
+      return;
+    }
+
     setStatusModalOpen(true);
   };
 
@@ -412,6 +425,18 @@ const CandidateDetail: React.FC = () => {
       toast({
         title: "Acceso denegado",
         description: "No tienes permisos para cambiar el estado de este candidato",
+        variant: "destructive"
+      });
+      setStatusModalOpen(false);
+      return;
+    }
+
+    // Check if candidate is already hired - prevent status changes except "retirar"
+    const isHired = candidate.applications?.some(app => app.status === 'contratado');
+    if (isHired && newStatus !== 'retirar') {
+      toast({
+        title: "Estado Final",
+        description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar'.",
         variant: "destructive"
       });
       setStatusModalOpen(false);
@@ -445,8 +470,8 @@ const CandidateDetail: React.FC = () => {
 
       await Promise.all(updates);
 
-      // Send welcome message to candidates whose status changed to "contratar"
-      if (newStatus === 'contratar') {
+      // Send welcome message to candidates whose status changed to "proceso-contratacion"
+      if (newStatus === 'proceso-contratacion') {
         if (candidate.phone) {
           try {
             const candidateName = `${candidate.first_name} ${candidate.last_name}`;
@@ -495,13 +520,20 @@ const CandidateDetail: React.FC = () => {
   };
 
   const handleHire = async () => {
-    if (!hireStartDate || !candidate) return;
+    if (!hireStartDate || !candidate) {
+      console.error('Missing hireStartDate or candidate:', { hireStartDate, candidate });
+      return;
+    }
+
+    console.log('Starting hire process for candidate:', candidate.id, 'with date:', hireStartDate);
 
     try {
       // Update status to "contratado" for all candidate applications
       const updates = [];
       if (candidate.applications) {
+        console.log('Updating applications:', candidate.applications.length);
         for (const app of candidate.applications) {
+          console.log('Updating application:', app.id, 'to status: contratado');
           updates.push(
             supabase
               .from('applications')
@@ -515,7 +547,22 @@ const CandidateDetail: React.FC = () => {
         }
       }
 
-      await Promise.all(updates);
+      console.log('Executing application updates...');
+      const updateResults = await Promise.all(updates);
+      console.log('Application update results:', updateResults);
+
+      // Also update the candidate status to "contratado" in the candidates table
+      console.log('Updating candidate table...');
+      const candidateUpdateResult = await supabase
+        .from('candidates')
+        .update({
+          status: 'contratado',
+          hire_date: hireStartDate.toISOString().split('T')[0], // YYYY-MM-DD format
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', candidate.id);
+
+      console.log('Candidate update result:', candidateUpdateResult);
 
       // Send welcome message via Evolution API
       if (candidate.phone) {
@@ -550,8 +597,10 @@ const CandidateDetail: React.FC = () => {
 
       // Refresh candidate data
       if (id) {
+        console.log('Refreshing candidate data...');
         const candidateData = await fetchCandidateDetails(id);
         setCandidate(candidateData);
+        console.log('Candidate data refreshed');
       }
     } catch (error) {
       console.error('Error hiring candidate:', error);
@@ -710,8 +759,9 @@ const CandidateDetail: React.FC = () => {
 
   const fileType = getFileType(resumeUrl);
 
-  // Check if candidate is in hiring process
-  const isInHiringProcess = candidate.applications?.some(app => app.status === 'contratar');
+  // Check if candidate is in hiring process or already hired
+  const isInHiringProcess = candidate.applications?.some(app => app.status === 'proceso-contratacion');
+  const isHired = candidate.applications?.some(app => app.status === 'contratado');
 
   return (
     <div className="space-y-6">
@@ -771,7 +821,7 @@ const CandidateDetail: React.FC = () => {
           )}
 
           {/* Hire Button - Only show for candidates in hiring process */}
-          {isInHiringProcess && (
+          {isInHiringProcess && !isHired && (
             <Card>
               <CardHeader>
                 <CardTitle>Acciones de Contratación</CardTitle>
@@ -781,11 +831,36 @@ const CandidateDetail: React.FC = () => {
               </CardHeader>
               <CardFooter>
                 <Button
-                  onClick={() => setIsHireDialogOpen(true)}
+                  onClick={() => {
+                    console.log('Contratar button clicked for candidate:', candidate.id);
+                    setIsHireDialogOpen(true);
+                  }}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   Contratar
                 </Button>
+              </CardFooter>
+            </Card>
+          )}
+
+          {/* Hired Status Display - Show for hired candidates */}
+          {isHired && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-green-700">Estado: CONTRATADO</CardTitle>
+                <CardDescription>
+                  Este candidato ha sido contratado exitosamente. Este es un estado final y no se pueden realizar más cambios de estado.
+                </CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <div className="w-full p-4 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-800 font-medium text-center">
+                    ✅ Candidato Contratado
+                  </p>
+                  <p className="text-xs text-green-600 text-center mt-1">
+                    Estado final alcanzado - No se permiten más modificaciones
+                  </p>
+                </div>
               </CardFooter>
             </Card>
           )}
@@ -830,11 +905,12 @@ const CandidateDetail: React.FC = () => {
                   <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
                   <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
                   <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
-                  <SelectItem value="contratar">Proceso de contratación</SelectItem>
+                  <SelectItem value="proceso-contratacion">Proceso de contratación</SelectItem>
                   <SelectItem value="training">En Formación</SelectItem>
                   <SelectItem value="rejected">Rechazado</SelectItem>
                   <SelectItem value="discarded">Descartado</SelectItem>
                   <SelectItem value="blocked">Bloqueado</SelectItem>
+                  <SelectItem value="retirar">Retirar</SelectItem>
                 </SelectContent>
               </Select>
             </div>

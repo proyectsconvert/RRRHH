@@ -58,7 +58,7 @@ const getStatusDisplay = (status: string | null) => {
     'entrevista-et': { label: 'Entrevista Técnica', variant: 'secondary' as const, color: 'bg-purple-100 text-purple-800' },
     'asignar-campana': { label: 'En Campaña', variant: 'secondary' as const, color: 'bg-indigo-100 text-indigo-800' },
     'contratar': { label: 'Proceso de Contratación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
-    'contratado': { label: 'Contratado', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
+    'contratado': { label: 'CONTRATADO', variant: 'default' as const, color: 'bg-green-600 text-white font-bold', canChange: false },
     'training': { label: 'En Formación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'rejected': { label: 'Rechazado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
     'discarded': { label: 'Descartado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
@@ -144,6 +144,14 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
                   </Badge>
                 );
               })()}
+              {/* Show individual application statuses */}
+              <div className="mt-2 space-y-1">
+                {candidate.applications.map((app, index) => (
+                  <div key={app.id} className="text-xs text-muted-foreground">
+                    <span className="font-medium">{app.job_title || 'Vacante'}:</span> {getStatusText(app.status)}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -178,16 +186,31 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
         </CardContent>
         
         <CardFooter className="flex flex-col gap-2">
-          {onChangeStatus && canModifyCandidate && canModifyCandidate(candidate) && (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={onChangeStatus}
-            >
-              <SquareArrowRight className="mr-2 h-4 w-4" />
-              Cambiar Estado
-            </Button>
-          )}
+          {(() => {
+            const primaryStatus = getCandidateStatus(candidate.applications);
+            const statusDisplay = getStatusDisplay(primaryStatus);
+            const canChangeStatus = statusDisplay.canChange !== false;
+
+            return onChangeStatus && canModifyCandidate && canModifyCandidate(candidate) && canChangeStatus ? (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={onChangeStatus}
+              >
+                <SquareArrowRight className="mr-2 h-4 w-4" />
+                Cambiar Estado
+              </Button>
+            ) : primaryStatus === 'contratado' ? (
+              <div className="w-full p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-sm text-green-800 font-medium text-center">
+                  Candidato Contratado
+                </p>
+                <p className="text-xs text-green-600 text-center mt-1">
+                  Estado final - No se pueden realizar más cambios
+                </p>
+              </div>
+            ) : null;
+          })()}
         </CardFooter>
       </Card>
       

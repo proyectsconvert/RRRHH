@@ -71,7 +71,7 @@ const CandidateDocuments: React.FC = () => {
         }
 
         // Check if candidate is in "Proceso de contratación" status
-        const hasHiringProcess = candidateData.applications?.some(app => app.status === 'contratar');
+        const hasHiringProcess = candidateData.applications?.some(app => app.status === 'proceso-contratacion');
 
         if (!hasHiringProcess) {
           throw new Error('No tienes un proceso de contratación activo. El enlace solo es válido para candidatos en proceso de contratación.');
@@ -124,7 +124,7 @@ const CandidateDocuments: React.FC = () => {
   }
 
   // Check if candidate is in "Proceso de contratación" status
-  const hasHiringProcess = candidate.applications?.some(app => app.status === 'contratar');
+  const hasHiringProcess = candidate.applications?.some(app => app.status === 'proceso-contratacion');
 
   if (!hasHiringProcess) {
     return (

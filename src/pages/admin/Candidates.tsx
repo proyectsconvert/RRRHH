@@ -120,8 +120,9 @@ const getStatusDisplay = (status: string | null) => {
     'entrevista-et': { label: 'Entrevista Técnica', variant: 'default' as const, color: 'bg-yellow-100 text-yellow-800 ' },
     'prueba-tecnica': { label: 'Prueba Técnica', variant: 'default' as const, color: 'bg-blue-100 text-blue-800' },
     'asignar-campana': { label: 'En Campaña', variant: 'outline' as const, color: 'text-hrm-teal border-hrm-teal' },
-    'contratar': { label: 'Proceso de Contratación', variant: 'secondary' as const, color: '' },
-    'contratado': { label: 'Contratado', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
+    'proceso-contratacion': { label: 'Proceso de Contratación', variant: 'secondary' as const, color: '' },
+    'contratado': { label: 'CONTRATADO', variant: 'default' as const, color: 'bg-green-600 text-white font-bold', canChange: false },
+    'retirar': { label: 'Retirar', variant: 'destructive' as const, color: 'bg-red-600 text-white font-bold' },
     'training': { label: 'En Formación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'rejected': { label: 'Rechazado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
     'discarded': { label: 'Descartado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
@@ -173,6 +174,10 @@ const Candidates = () => {
 
   // Helper function to check if current user can modify a candidate's status
   const canModifyCandidate = (candidate: Candidate): boolean => {
+    // Check if candidate is already hired - prevent any modifications except "retirar"
+    const isHired = candidate.applications?.some(app => app.status === 'contratado');
+    if (isHired) return false;
+
     // Admins can modify all candidates
     if (currentUserRole === 'admin') return true;
 
@@ -189,6 +194,7 @@ const Candidates = () => {
     );
   };
 
+
   // Helper function to check if selected candidates can be modified
   const canModifySelectedCandidates = (): boolean => {
     return selectedCandidates.every(candidateId => {
@@ -196,6 +202,23 @@ const Candidates = () => {
       return candidate && canModifyCandidate(candidate);
     });
   };
+
+  // Helper function to check if any selected candidate is hired
+  const hasHiredCandidates = (): boolean => {
+    return selectedCandidates.some(candidateId => {
+      const candidate = candidates.find(c => c.id === candidateId);
+      return candidate && candidate.applications?.some(app => app.status === 'contratado');
+    });
+  };
+
+  // Check if any selected candidate is hired and we're not changing to "retirar"
+  const hasHiredCandidatesExcludingRetirar = (): boolean => {
+    return selectedCandidates.some(candidateId => {
+      const candidate = candidates.find(c => c.id === candidateId);
+      return candidate && candidate.applications?.some(app => app.status === 'contratado') && newStatus !== 'retirar';
+    });
+  };
+
 
   const handleJobSelectionChange = (jobId: string, isChecked: boolean) => {
     setSelectedJob(prev => {
@@ -1008,6 +1031,23 @@ const Candidates = () => {
       return;
     }
 
+    // Check if any selected candidate is already hired and we're not changing to "retirar"
+    const hiredCandidates = selectedCandidates.filter(candidateId => {
+      const candidate = candidates.find(c => c.id === candidateId);
+      return candidate && candidate.applications?.some(app => app.status === 'contratado') && newStatus !== 'retirar';
+    });
+
+    if (hiredCandidates.length > 0) {
+      toast({
+        title: "Estado Final",
+        description: "Algunos candidatos seleccionados ya están contratados. Solo se puede cambiar a 'Retirar'.",
+        variant: "destructive"
+      });
+      setStatusModalOpen(false);
+      return;
+    }
+
+
     // Validate campaign selection if status is "asignar-campana"
     if (newStatus === 'asignar-campana' && !selectedCampaign) {
       toast({
@@ -1067,8 +1107,8 @@ const Candidates = () => {
 
       await Promise.all(updates);
 
-      // Send welcome message to candidates whose status changed to "contratar"
-      if (newStatus === 'contratar') {
+      // Send welcome message to candidates whose status changed to "proceso-contratacion"
+      if (newStatus === 'proceso-contratacion') {
         const welcomeMessagePromises = selectedCandidates.map(async (candidateId) => {
           const candidate = candidates.find(c => c.id === candidateId);
           if (candidate?.phone) {
@@ -1093,6 +1133,15 @@ const Candidates = () => {
         // Send messages in parallel but don't wait for them to complete
         Promise.all(welcomeMessagePromises).catch(error => {
           console.error('Error sending welcome messages:', error);
+        });
+      }
+
+      // Handle "retirar" status - show production message
+      if (newStatus === 'retirar') {
+        toast({
+          title: "Estado en Producción",
+          description: "El estado 'Retirar' aún está en producción y no está completamente implementado.",
+          variant: "default"
         });
       }
 
@@ -1680,7 +1729,7 @@ const Candidates = () => {
                       <Button
                         variant="secondary"
                         size="sm"
-                        disabled={!canModifySelectedCandidates()}
+                        disabled={!canModifySelectedCandidates() || hasHiredCandidates()}
                       >
                         <SquareArrowRight className="mr-2 h-4 w-4" />
                         Cambiar Estado
@@ -1710,7 +1759,8 @@ const Candidates = () => {
                               <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
                               <SelectItem value="prueba-tecnica">Prueba Técnica</SelectItem>
                               <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
-                              <SelectItem value="contratar">Proceso de contratación</SelectItem>
+                              <SelectItem value="proceso-contratacion">Proceso de contratación</SelectItem>
+                              <SelectItem value="retirar">Retirar</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -2259,6 +2309,11 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                                 }}>
                                   <SquareArrowRight className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
                                   <span>Cambiar Estado</span>
+                                </DropdownMenuItem>
+                              )}
+                              {candidate.applications?.some(app => app.status === 'contratado') && (
+                                <DropdownMenuItem disabled className="text-green-600">
+                                  <span className="font-bold">CONTRATADO - Estado Final</span>
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
