@@ -764,42 +764,31 @@ const Candidates = () => {
           }
         }
       } else if (isWordFile) {
-        // Handle Word document text extraction
+        // Handle Word document text extraction using mammoth.js
         console.log(`Procesando archivo Word para candidato ${candidate.id}`);
 
         try {
-          // For Word documents, we'll use a different approach
-          // Since we can't directly extract text from Word files in the browser,
-          // we'll use the extract-pdf-text edge function which can handle Word files
-          console.log('Usando función Edge para extraer texto de documento Word...');
-
-          const response = await fetch('https://kugocdtesaczbfrwblsi.supabase.co/functions/v1/extract-pdf-text', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1Z29jZHRlc2FjemJmcndibHNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1NzA0MjUsImV4cCI6MjA2MjE0NjQyNX0.nHNWlTMfxuwAKYaiw145IFTAx3R3sbfWygviPVSH-Zc"
-            },
-            body: JSON.stringify({
-              documentUrl: resumeUrl,
-              isWordDocument: true
-            })
-          });
-
+          // Fetch the Word document as ArrayBuffer
+          const response = await fetch(resumeUrl);
           if (!response.ok) {
-            throw new Error(`Error al procesar documento Word: ${response.status}`);
+            throw new Error(`Error al descargar documento Word: ${response.status}`);
           }
 
-          const data = await response.json();
+          const arrayBuffer = await response.arrayBuffer();
 
-          if (data.success && data.text) {
-            extractedText = data.text;
-            console.log(`Texto extraído exitosamente de documento Word para candidato ${candidate.id}`);
-          } else {
-            throw new Error(data.error || 'No se pudo extraer texto del documento Word');
+          // Use mammoth.js to extract text from the Word document
+          const mammoth = await import('mammoth');
+          const result = await mammoth.extractRawText({ arrayBuffer });
+
+          if (result.messages && result.messages.length > 0) {
+            console.warn('Advertencias durante la extracción de Word:', result.messages);
           }
+
+          extractedText = result.value;
+          console.log(`Texto extraído exitosamente de documento Word para candidato ${candidate.id} (${extractedText.length} caracteres)`);
         } catch (wordError) {
           console.error('Error procesando documento Word:', wordError);
-          throw new Error('No se pudo procesar el documento Word. Asegúrese de que sea un archivo válido.');
+          throw new Error('No se pudo procesar el documento Word. Asegúrese de que sea un archivo .docx válido.');
         }
       } else {
         // Unsupported file type
