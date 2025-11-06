@@ -50,6 +50,7 @@ export interface Application {
   job_description?: string | null;
   recruiter_id?: string;
   recruiter?: { first_name: string; last_name: string };
+  hire_date?: string;
 }
 
 export interface Candidate {
@@ -71,4 +72,6 @@ export interface Candidate {
   linkedin_url?: string;
   portfolio_url?: string;
   updated_at: string;
+  status?: string;
+  hire_date?: string;
 }

@@ -375,7 +375,11 @@ const CandidateDetail: React.FC = () => {
   };
 
   // Helper function to check if current user can modify this candidate
-  const canModifyCandidate = (candidate: Candidate): boolean => {
+  const canModifyCandidate = (candidate: Candidate, newStatus?: string): boolean => {
+    // Check if candidate is already hired - allow modifications only for "finalizar-contrato" or "retirar"
+    const isHired = candidate.applications?.some(app => app.status === 'contratado');
+    if (isHired && newStatus !== 'finalizar-contrato' && newStatus !== 'retirar') return false;
+
     // Admins can modify all candidates
     if (currentUserRole === 'admin') return true;
 
@@ -402,12 +406,12 @@ const CandidateDetail: React.FC = () => {
       return;
     }
 
-    // Check if candidate is already hired - prevent status changes except "retirar"
+    // Check if candidate is already hired - prevent status changes except "retirar" or "finalizar-contrato"
     const isHired = candidate.applications?.some(app => app.status === 'contratado');
-    if (isHired && newStatus !== 'retirar') {
+    if (isHired && newStatus !== 'retirar' && newStatus !== 'finalizar-contrato') {
       toast({
         title: "Estado Final",
-        description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar'.",
+        description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar' o 'Finalizar Contrato'.",
         variant: "destructive"
       });
       setStatusModalOpen(false);
@@ -431,12 +435,12 @@ const CandidateDetail: React.FC = () => {
       return;
     }
 
-    // Check if candidate is already hired - prevent status changes except "retirar"
+    // Check if candidate is already hired - prevent status changes except "retirar" or "finalizar-contrato"
     const isHired = candidate.applications?.some(app => app.status === 'contratado');
-    if (isHired && newStatus !== 'retirar') {
+    if (isHired && newStatus !== 'retirar' && newStatus !== 'finalizar-contrato') {
       toast({
         title: "Estado Final",
-        description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar'.",
+        description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar' o 'Finalizar Contrato'.",
         variant: "destructive"
       });
       setStatusModalOpen(false);
@@ -551,18 +555,32 @@ const CandidateDetail: React.FC = () => {
       const updateResults = await Promise.all(updates);
       console.log('Application update results:', updateResults);
 
+      // Check for errors in application updates
+      for (let i = 0; i < updateResults.length; i++) {
+        if (updateResults[i].error) {
+          console.error(`Error updating application ${candidate.applications?.[i]?.id}:`, updateResults[i].error);
+          throw new Error(`Failed to update application: ${updateResults[i].error.message}`);
+        }
+      }
+
       // Also update the candidate status to "contratado" in the candidates table
       console.log('Updating candidate table...');
-      const candidateUpdateResult = await supabase
+      const { data: candidateUpdateData, error: candidateUpdateError } = await supabase
         .from('candidates')
         .update({
           status: 'contratado',
           hire_date: hireStartDate.toISOString().split('T')[0], // YYYY-MM-DD format
           updated_at: new Date().toISOString()
         })
-        .eq('id', candidate.id);
+        .eq('id', candidate.id)
+        .select('id, status, hire_date');
 
-      console.log('Candidate update result:', candidateUpdateResult);
+      if (candidateUpdateError) {
+        console.error('Error updating candidate table:', candidateUpdateError);
+        throw new Error(`Failed to update candidate status: ${candidateUpdateError.message}`);
+      }
+
+      console.log('Candidate update result:', candidateUpdateData);
 
       // Send welcome message via Evolution API
       if (candidate.phone) {
@@ -598,9 +616,25 @@ const CandidateDetail: React.FC = () => {
       // Refresh candidate data
       if (id) {
         console.log('Refreshing candidate data...');
-        const candidateData = await fetchCandidateDetails(id);
-        setCandidate(candidateData);
-        console.log('Candidate data refreshed');
+        try {
+          const candidateData = await fetchCandidateDetails(id);
+          console.log('Refreshed candidate data:', {
+            id: candidateData.id,
+            status: candidateData.status,
+            hire_date: candidateData.hire_date,
+            applicationsCount: candidateData.applications?.length,
+            applicationStatuses: candidateData.applications?.map(app => ({ id: app.id, status: app.status }))
+          });
+          setCandidate(candidateData);
+          console.log('Candidate data refreshed successfully');
+        } catch (refreshError) {
+          console.error('Error refreshing candidate data:', refreshError);
+          toast({
+            title: "Advertencia",
+            description: "El candidato fue contratado pero hubo un error al refrescar los datos. Recarga la página para ver los cambios.",
+            variant: "destructive"
+          });
+        }
       }
     } catch (error) {
       console.error('Error hiring candidate:', error);
@@ -807,12 +841,13 @@ const CandidateDetail: React.FC = () => {
             isSaving={savingResumeText}
           />
 
-          {/* Document Checklist - Only show for candidates in hiring process */}
-          {isInHiringProcess && (
+          {/* Document Checklist - Show for candidates in hiring process OR already hired */}
+          {(isInHiringProcess || isHired) && (
             <DocumentChecklist
               candidateId={candidate.id}
               candidateName={`${candidate.first_name} ${candidate.last_name}`}
-              isAdmin={true} // Admin view with management buttons
+              isAdmin={!isHired} // Admin view with management buttons only for non-hired candidates
+              isReadOnly={isHired} // Read-only mode for hired candidates
               onDocumentUploaded={() => {
                 // Optional: refresh candidate data if needed
                 console.log('Document uploaded, candidate data refresh if needed');
@@ -850,6 +885,14 @@ const CandidateDetail: React.FC = () => {
                 <CardTitle className="text-green-700">Estado: CONTRATADO</CardTitle>
                 <CardDescription>
                   Este candidato ha sido contratado exitosamente. Este es un estado final y no se pueden realizar más cambios de estado.
+                  {candidate.status && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                      <strong>Estado en tabla candidates:</strong> {candidate.status}
+                      {candidate.hire_date && (
+                        <div><strong>Fecha de contratación:</strong> {candidate.hire_date}</div>
+                      )}
+                    </div>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardFooter>
@@ -910,6 +953,7 @@ const CandidateDetail: React.FC = () => {
                   <SelectItem value="rejected">Rechazado</SelectItem>
                   <SelectItem value="discarded">Descartado</SelectItem>
                   <SelectItem value="blocked">Bloqueado</SelectItem>
+                  <SelectItem value="finalizar-contrato">Finalizar Contrato</SelectItem>
                   <SelectItem value="retirar">Retirar</SelectItem>
                 </SelectContent>
               </Select>

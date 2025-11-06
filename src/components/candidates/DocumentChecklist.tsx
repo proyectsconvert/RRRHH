@@ -35,6 +35,7 @@ interface DocumentChecklistProps {
   candidateName: string;
   onDocumentUploaded?: () => void;
   isAdmin?: boolean; // New prop to differentiate admin vs public view
+  isReadOnly?: boolean; // New prop to indicate read-only mode for hired candidates
 }
 
 const DOCUMENT_CATEGORIES: Record<string, DocumentCategory> = {
@@ -285,7 +286,8 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
   candidateId,
   candidateName,
   onDocumentUploaded,
-  isAdmin = false // Default to public view
+  isAdmin = false, // Default to public view
+  isReadOnly = false // Default to editable
 }) => {
   const { toast } = useToast();
   const [documents, setDocuments] = useState<{[key: string]: DocumentItem}>({});
@@ -679,6 +681,16 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
             <strong>INTELLIGENT CUSTOMER ACQUISITION SAS</strong><br />
             el aporte de esta documentación es requisito de obligatorio cumplimiento dentro del proceso de contratación.
           </p>
+          {isReadOnly && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800 text-center font-medium">
+                📋 Documentos del Candidato Contratado - Vista de Solo Lectura
+              </p>
+              <p className="text-xs text-blue-600 text-center mt-1">
+                Los documentos ya no pueden ser editados o modificados
+              </p>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -769,8 +781,8 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
                         </div>
                       )}
 
-                      {isAdmin ? (
-                        // Admin view: Show all management buttons including upload
+                      {isAdmin && !isReadOnly ? (
+                        // Admin view: Show all management buttons including upload (only if not read-only)
                         <div className="flex items-center gap-2">
                           {/* Upload/Replace button for recruiters */}
                           <div>

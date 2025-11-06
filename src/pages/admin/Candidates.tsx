@@ -83,16 +83,17 @@ const getCandidateStatus = (applications?: Application[]) => {
     'blocked': 1,
     'rejected': 2,
     'discarded': 3,
-    'contratado': 4,
-    'contratar': 5,
-    'training': 6,
-    'prueba-tecnica': 7,
-    'entrevista-et': 8,
-    'entrevista-rc': 9,
-    'asignar-campana': 10,
-    'under_review': 11,
-    'applied': 12,
-    'new': 13
+    'finalizar-contrato': 4,
+    'contratado': 5,
+    'proceso-contratacion': 6,
+    'training': 7,
+    'prueba-tecnica': 8,
+    'entrevista-et': 9,
+    'entrevista-rc': 10,
+    'asignar-campana': 11,
+    'under_review': 12,
+    'applied': 13,
+    'new': 14
   };
 
   // Find the application with highest priority status (lowest number)
@@ -122,6 +123,7 @@ const getStatusDisplay = (status: string | null) => {
     'asignar-campana': { label: 'En Campaña', variant: 'outline' as const, color: 'text-hrm-teal border-hrm-teal' },
     'proceso-contratacion': { label: 'Proceso de Contratación', variant: 'secondary' as const, color: '' },
     'contratado': { label: 'CONTRATADO', variant: 'default' as const, color: 'bg-green-600 text-white font-bold', canChange: false },
+    'finalizar-contrato': { label: 'CONTRATO FINALIZADO', variant: 'destructive' as const, color: 'bg-red-600 text-white font-bold', canChange: false },
     'retirar': { label: 'Retirar', variant: 'destructive' as const, color: 'bg-red-600 text-white font-bold' },
     'training': { label: 'En Formación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'rejected': { label: 'Rechazado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
@@ -173,10 +175,10 @@ const Candidates = () => {
   const [processedCandidates, setProcessedCandidates] = useState<Set<string>>(new Set());
 
   // Helper function to check if current user can modify a candidate's status
-  const canModifyCandidate = (candidate: Candidate): boolean => {
-    // Check if candidate is already hired - prevent any modifications except "retirar"
+  const canModifyCandidate = (candidate: Candidate, newStatus?: string): boolean => {
+    // Check if candidate is already hired - allow modifications only for "finalizar-contrato" or "retirar"
     const isHired = candidate.applications?.some(app => app.status === 'contratado');
-    if (isHired) return false;
+    if (isHired && newStatus !== 'finalizar-contrato' && newStatus !== 'retirar') return false;
 
     // Admins can modify all candidates
     if (currentUserRole === 'admin') return true;
@@ -199,7 +201,7 @@ const Candidates = () => {
   const canModifySelectedCandidates = (): boolean => {
     return selectedCandidates.every(candidateId => {
       const candidate = candidates.find(c => c.id === candidateId);
-      return candidate && canModifyCandidate(candidate);
+      return candidate && canModifyCandidate(candidate, newStatus);
     });
   };
 
@@ -211,11 +213,11 @@ const Candidates = () => {
     });
   };
 
-  // Check if any selected candidate is hired and we're not changing to "retirar"
+  // Check if any selected candidate is hired and we're not changing to "retirar" or "finalizar-contrato"
   const hasHiredCandidatesExcludingRetirar = (): boolean => {
     return selectedCandidates.some(candidateId => {
       const candidate = candidates.find(c => c.id === candidateId);
-      return candidate && candidate.applications?.some(app => app.status === 'contratado') && newStatus !== 'retirar';
+      return candidate && candidate.applications?.some(app => app.status === 'contratado') && newStatus !== 'retirar' && newStatus !== 'finalizar-contrato';
     });
   };
 
@@ -1134,6 +1136,15 @@ const Candidates = () => {
         });
       }
 
+      // Handle "finalizar-contrato" status
+      if (newStatus === 'finalizar-contrato') {
+        toast({
+          title: "Contrato Finalizado",
+          description: "El contrato del candidato ha sido finalizado.",
+          variant: "default"
+        });
+      }
+
       toast({
         title: "Estado actualizado",
         description: `Se actualizaron ${selectedCandidates.length} candidatos`,
@@ -1749,6 +1760,7 @@ const Candidates = () => {
                               <SelectItem value="prueba-tecnica">Prueba Técnica</SelectItem>
                               <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
                               <SelectItem value="proceso-contratacion">Proceso de contratación</SelectItem>
+                              <SelectItem value="finalizar-contrato">Finalizar Contrato</SelectItem>
                               <SelectItem value="retirar">Retirar</SelectItem>
                             </SelectContent>
                           </Select>

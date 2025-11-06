@@ -23,14 +23,15 @@ const getCandidateStatus = (applications?: Application[]) => {
     'blocked': 1,
     'rejected': 2,
     'discarded': 3,
-    'contratar': 4,
-    'training': 5,
-    'entrevista-et': 6,
-    'entrevista-rc': 7,
-    'asignar-campana': 8,
-    'under_review': 9,
-    'applied': 10,
-    'new': 11
+    'contratado': 4,
+    'proceso-contratacion': 5,
+    'training': 6,
+    'entrevista-et': 7,
+    'entrevista-rc': 8,
+    'asignar-campana': 9,
+    'under_review': 10,
+    'applied': 11,
+    'new': 12
   };
 
   // Find the application with highest priority status (lowest number)
@@ -57,8 +58,9 @@ const getStatusDisplay = (status: string | null) => {
     'entrevista-rc': { label: 'Entrevista RC', variant: 'secondary' as const, color: 'bg-purple-100 text-purple-800' },
     'entrevista-et': { label: 'Entrevista Técnica', variant: 'secondary' as const, color: 'bg-purple-100 text-purple-800' },
     'asignar-campana': { label: 'En Campaña', variant: 'secondary' as const, color: 'bg-indigo-100 text-indigo-800' },
-    'contratar': { label: 'Proceso de Contratación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
+    'proceso-contratacion': { label: 'Proceso de Contratación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'contratado': { label: 'CONTRATADO', variant: 'default' as const, color: 'bg-green-600 text-white font-bold', canChange: false },
+    'finalizar-contrato': { label: 'Finalizar Contrato', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
     'training': { label: 'En Formación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'rejected': { label: 'Rechazado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
     'discarded': { label: 'Descartado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
@@ -144,14 +146,6 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
                   </Badge>
                 );
               })()}
-              {/* Show individual application statuses */}
-              <div className="mt-2 space-y-1">
-                {candidate.applications.map((app, index) => (
-                  <div key={app.id} className="text-xs text-muted-foreground">
-                    <span className="font-medium">{app.job_title || 'Vacante'}:</span> {getStatusText(app.status)}
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
@@ -186,32 +180,52 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
         </CardContent>
         
         <CardFooter className="flex flex-col gap-2">
-          {(() => {
-            const primaryStatus = getCandidateStatus(candidate.applications);
-            const statusDisplay = getStatusDisplay(primaryStatus);
-            const canChangeStatus = statusDisplay.canChange !== false;
+           {(() => {
+             const primaryStatus = getCandidateStatus(candidate.applications);
+             const statusDisplay = getStatusDisplay(primaryStatus);
+             const canChangeStatus = statusDisplay.canChange !== false;
 
-            return onChangeStatus && canModifyCandidate && canModifyCandidate(candidate) && canChangeStatus ? (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={onChangeStatus}
-              >
-                <SquareArrowRight className="mr-2 h-4 w-4" />
-                Cambiar Estado
-              </Button>
-            ) : primaryStatus === 'contratado' ? (
-              <div className="w-full p-3 bg-green-50 border border-green-200 rounded-md">
-                <p className="text-sm text-green-800 font-medium text-center">
-                  Candidato Contratado
-                </p>
-                <p className="text-xs text-green-600 text-center mt-1">
-                  Estado final - No se pueden realizar más cambios
-                </p>
-              </div>
-            ) : null;
-          })()}
-        </CardFooter>
+             return onChangeStatus && canModifyCandidate && canModifyCandidate(candidate) ? (
+               primaryStatus === 'contratado' ? (
+                 <Button
+                   variant="destructive"
+                   className="w-full"
+                   onClick={onChangeStatus}
+                 >
+                   <SquareArrowRight className="mr-2 h-4 w-4" />
+                   Finalizar Contrato
+                 </Button>
+               ) : canChangeStatus ? (
+                 <Button
+                   variant="outline"
+                   className="w-full"
+                   onClick={onChangeStatus}
+                 >
+                   <SquareArrowRight className="mr-2 h-4 w-4" />
+                   Cambiar Estado
+                 </Button>
+               ) : (
+                 <div className="w-full p-3 bg-green-50 border border-green-200 rounded-md">
+                   <p className="text-sm text-green-800 font-medium text-center">
+                     Candidato Contratado
+                   </p>
+                   <p className="text-xs text-green-600 text-center mt-1">
+                     Estado final - No se pueden realizar más cambios
+                   </p>
+                 </div>
+               )
+             ) : primaryStatus === 'contratado' ? (
+               <div className="w-full p-3 bg-green-50 border border-green-200 rounded-md">
+                 <p className="text-sm text-green-800 font-medium text-center">
+                   Candidato Contratado
+                 </p>
+                 <p className="text-xs text-green-600 text-center mt-1">
+                   Estado final - No se pueden realizar más cambios
+                 </p>
+               </div>
+             ) : null;
+           })()}
+         </CardFooter>
       </Card>
       
       {candidate.applications && candidate.applications.length > 0 && (
