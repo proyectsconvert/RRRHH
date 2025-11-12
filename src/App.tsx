@@ -25,6 +25,7 @@ import ThankYou from "./pages/public/ThankYou";
 import ApplicationForm from "@/components/candidates/ApplicationForm";
 import TrainingChat from "./pages/public/TrainingChat";
 import CandidateDocuments from "./pages/public/CandidateDocuments";
+import StatusCheck from "./pages/public/StatusCheck";
 
 // Admin Pages
 import Login from "./pages/admin/Login";
@@ -149,6 +150,7 @@ function App() {
                 <Route path="gracias" element={<ThankYou />} />
                 <Route path="entrenamiento" element={<TrainingChat />} />
                 <Route path="candidate-documents/:candidateId" element={<CandidateDocuments />} />
+                <Route path="status-check" element={<StatusCheck />} />
               </Route>
               
               {/* Admin Routes */}

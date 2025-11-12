@@ -68,20 +68,44 @@ const DOCUMENT_CATEGORIES: Record<string, DocumentCategory> = {
         required: true
       },
       {
-        id: "antecedentes",
-        name: "CERTIFICADO DE ANTECEDENTES DISCIPLINARIOS (Policía, Contraloría, Procuraduría)",
+        id: "antecedentes-policia",
+        name: "ANTECEDENTES POLICIA",
         description: "",
         required: true
       },
       {
-        id: "referencias-personales",
-        name: "2 REFERENCIAS PERSONALES (Firmadas, no mayor a 30 días)",
+        id: "antecedentes-contraloria",
+        name: "ANTECEDENTES CONTRALORÍA",
         description: "",
         required: true
       },
       {
-        id: "certificaciones-laborales",
-        name: "2 CERTIFICACIONES LABORALES (Los últimos dos trabajos)",
+        id: "antecedentes-procuraduria",
+        name: "ANTECEDENTES PROCURADURÍA",
+        description: "",
+        required: true
+      },
+      {
+        id: "referencias-personales-1",
+        name: "1. REFERENCIAS PERSONALES (Firmadas, no mayor a 30 días)",
+        description: "",
+        required: true
+      },
+      {
+        id: "referencias-personales-2",
+        name: "2. REFERENCIAS PERSONALES (Firmadas, no mayor a 30 días)",
+        description: "",
+        required: true
+      },
+      {
+        id: "certificaciones-laborales-1",
+        name: "1. CERTIFICACIONES LABORALES (Los últimos tres trabajos)",
+        description: "",
+        required: true
+      },
+      {
+        id: "certificaciones-laborales-2",
+        name: "2. CERTIFICACIONES LABORALES (Los últimos tres trabajos)",
         description: "",
         required: true
       },
@@ -302,7 +326,7 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
 
   useEffect(() => {
     loadDocumentStatus();
-  }, [candidateId]);
+  }, [candidateId, isAdmin]);
 
   const loadDocumentStatus = async () => {
     try {
@@ -325,7 +349,7 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
       // Process each document and generate fresh signed URLs
       for (const category of Object.entries(DOCUMENT_CATEGORIES)) {
         const [categoryKey, categoryData] = category;
-        for (const item of categoryData.items) {
+        for (const item of categoryData.items.filter((item) => isAdmin || item.id !== 'examenes-medicos')) {
           const existingDoc = data?.find(doc => doc.document_type === item.id);
 
           let fileUrl = existingDoc?.file_url;
@@ -735,7 +759,9 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {category.items.map((item) => {
+              {category.items
+                .filter((item) => isAdmin || item.id !== 'examenes-medicos')
+                .map((item) => {
                 const doc = documents[item.id];
                 const isUploading = uploading[item.id];
 

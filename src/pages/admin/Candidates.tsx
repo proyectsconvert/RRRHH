@@ -124,7 +124,6 @@ const getStatusDisplay = (status: string | null) => {
     'proceso-contratacion': { label: 'Proceso de Contratación', variant: 'secondary' as const, color: '' },
     'contratado': { label: 'CONTRATADO', variant: 'default' as const, color: 'bg-green-600 text-white font-bold', canChange: false },
     'finalizar-contrato': { label: 'CONTRATO FINALIZADO', variant: 'destructive' as const, color: 'bg-red-600 text-white font-bold', canChange: false },
-    'retirar': { label: 'Retirar', variant: 'destructive' as const, color: 'bg-red-600 text-white font-bold' },
     'training': { label: 'En Formación', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
     'rejected': { label: 'Rechazado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
     'discarded': { label: 'Descartado', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
@@ -176,9 +175,9 @@ const Candidates = () => {
 
   // Helper function to check if current user can modify a candidate's status
   const canModifyCandidate = (candidate: Candidate, newStatus?: string): boolean => {
-    // Check if candidate is already hired - allow modifications only for "finalizar-contrato" or "retirar"
+    // Check if candidate is already hired - allow modifications only for "finalizar-contrato"
     const isHired = candidate.applications?.some(app => app.status === 'contratado');
-    if (isHired && newStatus !== 'finalizar-contrato' && newStatus !== 'retirar') return false;
+    if (isHired && newStatus !== 'finalizar-contrato') return false;
 
     // Admins can modify all candidates
     if (currentUserRole === 'admin') return true;
@@ -213,11 +212,11 @@ const Candidates = () => {
     });
   };
 
-  // Check if any selected candidate is hired and we're not changing to "retirar" or "finalizar-contrato"
+  // Check if any selected candidate is hired and we're not changing to "finalizar-contrato"
   const hasHiredCandidatesExcludingRetirar = (): boolean => {
     return selectedCandidates.some(candidateId => {
       const candidate = candidates.find(c => c.id === candidateId);
-      return candidate && candidate.applications?.some(app => app.status === 'contratado') && newStatus !== 'retirar' && newStatus !== 'finalizar-contrato';
+      return candidate && candidate.applications?.some(app => app.status === 'contratado') && newStatus !== 'finalizar-contrato';
     });
   };
 
@@ -1022,10 +1021,10 @@ const Candidates = () => {
       return;
     }
 
-    // Check if any selected candidate is already hired and we're not changing to "retirar"
+    // Check if any selected candidate is already hired and we're not changing to "finalizar-contrato"
     const hiredCandidates = selectedCandidates.filter(candidateId => {
       const candidate = candidates.find(c => c.id === candidateId);
-      return candidate && candidate.applications?.some(app => app.status === 'contratado') && newStatus !== 'retirar';
+      return candidate && candidate.applications?.some(app => app.status === 'contratado') && newStatus !== 'finalizar-contrato';
     });
 
     if (hiredCandidates.length > 0) {
@@ -1098,22 +1097,39 @@ const Candidates = () => {
 
       await Promise.all(updates);
 
-      // Send welcome message to candidates whose status changed to "proceso-contratacion"
-      if (newStatus === 'proceso-contratacion') {
-        const welcomeMessagePromises = selectedCandidates.map(async (candidateId) => {
+      // Send messages to candidates based on status change
+      const statusesWithMessages = ['proceso-contratacion', 'prueba-tecnica', 'asignar-campana'];
+
+      if (statusesWithMessages.includes(newStatus)) {
+        const messagePromises = selectedCandidates.map(async (candidateId) => {
           const candidate = candidates.find(c => c.id === candidateId);
           if (candidate?.phone) {
             try {
               const candidateName = `${candidate.first_name} ${candidate.last_name}`;
 
-              // Generate access token for this candidate
-              const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
-              const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
+              let message = '';
+              let messageType = '';
 
-              await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
-              console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
+              if (newStatus === 'proceso-contratacion') {
+                // Generate access token for this candidate
+                const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
+                const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
+
+                message = `¡Felicidades ${candidateName}! Has avanzado al proceso de contratación. Para continuar, por favor revisa y firma estos documentos: -  en el siguiente enlace: ${documentUrl}`;
+                messageType = 'Welcome message';
+              } else if (newStatus === 'prueba-tecnica') {
+                message = `Hola ${candidateName}, has avanzado a la etapa de Prueba Técnica. Nuestro equipo se pondrá en contacto contigo pronto para coordinar los detalles.`;
+                messageType = 'Technical test notification';
+              } else if (newStatus === 'asignar-campana') {
+                message = `Hola ${candidateName}, has sido asignado a una campaña de formación. Nuestro equipo de formación se pondrá en contacto contigo en las próximas horas para iniciar el proceso.`;
+                messageType = 'Campaign assignment notification';
+              }
+
+              const { sendEvolutionMessage } = await import('@/utils/evolution-api');
+              await sendEvolutionMessage(candidate.phone, message, true);
+              console.log(`${messageType} sent to ${candidateName} (${candidate.phone})`);
             } catch (error) {
-              console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
+              console.error(`Failed to send message to ${candidate.first_name} ${candidate.last_name}:`, error);
               // Don't show error toast for individual message failures to avoid spam
             }
           } else {
@@ -1122,19 +1138,11 @@ const Candidates = () => {
         });
 
         // Send messages in parallel but don't wait for them to complete
-        Promise.all(welcomeMessagePromises).catch(error => {
-          console.error('Error sending welcome messages:', error);
+        Promise.all(messagePromises).catch(error => {
+          console.error('Error sending messages:', error);
         });
       }
 
-      // Handle "retirar" status - show production message
-      if (newStatus === 'retirar') {
-        toast({
-          title: "Estado en Producción",
-          description: "El estado 'Retirar' aún está en producción y no está completamente implementado.",
-          variant: "default"
-        });
-      }
 
       // Handle "finalizar-contrato" status
       if (newStatus === 'finalizar-contrato') {
@@ -1761,7 +1769,6 @@ const Candidates = () => {
                               <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
                               <SelectItem value="proceso-contratacion">Proceso de contratación</SelectItem>
                               <SelectItem value="finalizar-contrato">Finalizar Contrato</SelectItem>
-                              <SelectItem value="retirar">Retirar</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

@@ -265,6 +265,75 @@ export async function analyzeResume(extractedText: string, jobDetails: any = nul
   }
 }
 
+export async function getCandidateByCedula(cedula: string): Promise<Candidate | null> {
+  const { data: candidateData, error: candidateError } = await supabase
+    .from('candidates')
+    .select('*, applications(id, status, job_id, created_at, recruiter_id, hire_date)')
+    .eq('cedula', cedula)
+    .single();
+
+  if (candidateError || !candidateData) {
+    return null;
+  }
+
+  // Use cedula field directly from candidates table
+  const documentId = candidateData.cedula || candidateData.document_id;
+
+  let analysisData = null;
+
+  // Parse analysis_data if it exists
+  if (candidateData.analysis_summary) {
+    try {
+      // Try to parse as JSON
+      analysisData = JSON.parse(candidateData.analysis_summary);
+      // Check if it's a JSON string (result of a previous analysis)
+      if (typeof analysisData === 'string') {
+        try {
+          analysisData = JSON.parse(analysisData);
+        } catch (e) {
+          // Analysis already in string format
+        }
+      }
+    } catch (e) {
+      // If it can't be parsed as JSON, assume it's the old format
+      analysisData = {
+        perfilProfesional: candidateData.analysis_summary
+      };
+    }
+  }
+
+  // If there are applications, fetch job details for each
+  let appsWithJobDetails = [];
+  if (candidateData.applications && candidateData.applications.length > 0) {
+    const jobPromises = candidateData.applications.map(async (app: any) => {
+      const { data: jobData } = await supabase
+        .from('jobs')
+        .select('id, title, department, location, type, description, requirements, responsibilities')
+        .eq('id', app.job_id)
+        .single();
+
+      return {
+        ...app,
+        job_title: jobData?.title ?? 'Vacante Desconocida',
+        job_department: jobData?.department ?? 'Departamento Desconocido',
+        job_type: jobData?.type ?? 'tiempo-completo',
+        job_description: jobData?.description,
+        job_requirements: jobData?.requirements,
+        job_responsibilities: jobData?.responsibilities
+      };
+    });
+
+    appsWithJobDetails = await Promise.all(jobPromises);
+  }
+
+  return {
+    ...candidateData,
+    document_id: documentId,
+    analysis_data: analysisData,
+    applications: appsWithJobDetails
+  };
+}
+
 export function getResumeUrl(path: string) {
   if (!path) return null;
   if (path.startsWith('http')) return path;
