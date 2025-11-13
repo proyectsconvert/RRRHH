@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { sendWelcomeMessage } from "@/utils/evolution-api";
 import { generateCandidateAccessToken } from "@/utils/candidate-access";
 import TeamsMeetingDialog, { MeetingData } from "@/components/candidates/TeamsMeetingDialog";
-import { analyzeResume, saveAnalysisData } from "@/services/candidate-service";
+import { analyzeResume, saveAnalysisData, transferCandidate } from "@/services/candidate-service";
 import * as XLSX from 'xlsx';
 
 interface Job {
@@ -155,9 +155,11 @@ const Candidates = () => {
   const [isStatusModalOpen, setStatusModalOpen] = useState(false);
   const [isDiscardModalOpen, setDiscardModalOpen] = useState(false);
   const [isBlockModalOpen, setBlockModalOpen] = useState(false);
+  const [isTransferModalOpen, setTransferModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [selectedRecruiter, setSelectedRecruiter] = useState("");
   const [selectedCampaign, setSelectedCampaign] = useState("");
+  const [transferRecruiter, setTransferRecruiter] = useState("");
   const [searchQuery, setSearchQuery] = useState('');
   const [isTeamsDialogOpen, setIsTeamsDialogOpen] = useState(false);
   const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | null>(null);
@@ -1162,6 +1164,8 @@ const Candidates = () => {
       setNewStatus("");
       setSelectedRecruiter("");
       setSelectedCampaign("");
+      setTransferModalOpen(false);
+      setTransferRecruiter("");
       setSelectedCandidates([]);
       fetchCandidates();
     } catch (error) {
@@ -1252,6 +1256,8 @@ const Candidates = () => {
       setNewStatus("");
       setSelectedRecruiter("");
       setSelectedCampaign("");
+      setTransferModalOpen(false);
+      setTransferRecruiter("");
       setSelectedCandidates([]);
 
       // Refresh data immediately (silently)
@@ -1371,6 +1377,48 @@ const Candidates = () => {
       toast({
         title: "Error",
         description: "No se pudieron bloquear los candidatos",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle transfer candidates
+  const handleTransferCandidates = async () => {
+    if (selectedCandidates.length === 0 || !transferRecruiter || !currentUserId) return;
+
+    // Check permissions before transferring candidates
+    if (!canModifySelectedCandidates()) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para transferir estos candidatos",
+        variant: "destructive"
+      });
+      setTransferModalOpen(false);
+      return;
+    }
+
+    try {
+      // Transfer each selected candidate
+      const transferPromises = selectedCandidates.map(candidateId =>
+        transferCandidate(candidateId, transferRecruiter, currentUserId)
+      );
+
+      await Promise.all(transferPromises);
+
+      toast({
+        title: "Candidatos transferidos",
+        description: `${selectedCandidates.length} candidatos transferidos exitosamente`,
+      });
+
+      setTransferModalOpen(false);
+      setTransferRecruiter("");
+      setSelectedCandidates([]);
+      fetchCandidates();
+    } catch (error: any) {
+      console.error('Error transferring candidates:', error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudieron transferir los candidatos",
         variant: "destructive"
       });
     }
@@ -1731,6 +1779,56 @@ const Candidates = () => {
                     </DialogContent>
                   </Dialog>
 
+                  <Dialog open={isTransferModalOpen} onOpenChange={setTransferModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canModifySelectedCandidates()}
+                      >
+                        <SquareArrowRight className="mr-2 h-4 w-4" />
+                        Transferir
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] p-0 border-none shadow-none">
+                      <DialogHeader className="bg-hrm-dark-primary py-8 px-6 rounded-t-lg">
+                        <DialogTitle className="text-white text-xl">
+                          Transferir Candidatos
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-200">
+                          Selecciona el reclutador al que deseas transferir los candidatos seleccionados.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4 px-6">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="transfer-recruiter" className="text-right">
+                            Reclutador
+                          </Label>
+                          <Select value={transferRecruiter} onValueChange={setTransferRecruiter}>
+                            <SelectTrigger id="transfer-recruiter" className="col-span-3">
+                              <SelectValue placeholder="Selecciona un reclutador" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {recruiters
+                                .filter(recruiter => recruiter.id !== currentUserId) // Exclude current user
+                                .map((recruiter) => (
+                                <SelectItem key={recruiter.id} value={recruiter.id}>
+                                  {recruiter.first_name} {recruiter.last_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t">
+                        <Button variant="ghost" onClick={() => setTransferModalOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleTransferCandidates} disabled={!transferRecruiter}>
+                          Transferir Candidatos
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
                   {/* 👇 AQUÍ EMPIEZA LA IMPLEMENTACIÓN DEL DIALOG 👇 */}
                   <Dialog open={isStatusModalOpen} onOpenChange={setStatusModalOpen}>
                     <DialogTrigger asChild>
@@ -1842,6 +1940,7 @@ const Candidates = () => {
               setDiscardModalOpen={setDiscardModalOpen}
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
+              setTransferModalOpen={setTransferModalOpen}
               activeTab={activeTab}
               canModifyCandidate={canModifyCandidate}
             />
@@ -1857,6 +1956,7 @@ const Candidates = () => {
               setDiscardModalOpen={setDiscardModalOpen}
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
+              setTransferModalOpen={setTransferModalOpen}
               activeTab={activeTab}
               canModifyCandidate={canModifyCandidate}
             />
@@ -1872,6 +1972,7 @@ const Candidates = () => {
               setDiscardModalOpen={setDiscardModalOpen}
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
+              setTransferModalOpen={setTransferModalOpen}
               activeTab={activeTab}
               canModifyCandidate={canModifyCandidate}
             />
@@ -1887,6 +1988,7 @@ const Candidates = () => {
               setDiscardModalOpen={setDiscardModalOpen}
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
+              setTransferModalOpen={setTransferModalOpen}
               activeTab={activeTab}
               canModifyCandidate={canModifyCandidate}
             />
@@ -1927,6 +2029,7 @@ const Candidates = () => {
               setDiscardModalOpen={setDiscardModalOpen}
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
+              setTransferModalOpen={setTransferModalOpen}
               activeTab={activeTab}
               canModifyCandidate={canModifyCandidate}
             />
@@ -1942,6 +2045,7 @@ const Candidates = () => {
               setDiscardModalOpen={setDiscardModalOpen}
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
+              setTransferModalOpen={setTransferModalOpen}
               activeTab={activeTab}
               canModifyCandidate={canModifyCandidate}
             />
@@ -1957,6 +2061,7 @@ const Candidates = () => {
               setDiscardModalOpen={setDiscardModalOpen}
               setBlockModalOpen={setBlockModalOpen}
               setStatusModalOpen={setStatusModalOpen}
+              setTransferModalOpen={setTransferModalOpen}
               activeTab={activeTab}
               canModifyCandidate={canModifyCandidate}
             />
@@ -2007,6 +2112,8 @@ const Candidates = () => {
           setNewStatus("");
           setSelectedRecruiter("");
           setSelectedCampaign("");
+          setTransferModalOpen(false);
+          setTransferRecruiter("");
           setSelectedCandidates([]);
           setTimeout(() => fetchCandidates(false), 500);
         }}
@@ -2026,12 +2133,13 @@ interface CandidatesTableProps {
   setDiscardModalOpen: (isOpen: boolean) => void;
   setBlockModalOpen: (isOpen: boolean) => void;
   setStatusModalOpen: (isOpen: boolean) => void;
+  setTransferModalOpen: (isOpen: boolean) => void;
   activeTab: string;
   canModifyCandidate: (candidate: Candidate) => boolean;
 }
 
 const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, selectedCandidates,
-  setSelectedCandidates,columnVisibility, setDiscardModalOpen, setBlockModalOpen,setStatusModalOpen, activeTab, canModifyCandidate }) => {
+  setSelectedCandidates,columnVisibility, setDiscardModalOpen, setBlockModalOpen,setStatusModalOpen, setTransferModalOpen, activeTab, canModifyCandidate }) => {
     const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedCandidates(candidates.map(c => c.id));
@@ -2311,13 +2419,22 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                               <DropdownMenuSeparator />
                               
                               {canModifyCandidate(candidate) && (
-                                <DropdownMenuItem onClick={() => {
-                                  setSelectedCandidates([candidate.id]);
-                                  setStatusModalOpen(true);
-                                }}>
-                                  <SquareArrowRight className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
-                                  <span>Cambiar Estado</span>
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedCandidates([candidate.id]);
+                                    setStatusModalOpen(true);
+                                  }}>
+                                    <SquareArrowRight className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
+                                    <span>Cambiar Estado</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedCandidates([candidate.id]);
+                                    setTransferModalOpen(true);
+                                  }}>
+                                    <SquareArrowRight className="mr-2 h-4 w-4" />
+                                    <span>Transferir Candidato</span>
+                                  </DropdownMenuItem>
+                                </>
                               )}
                               {candidate.applications?.some(app => app.status === 'contratado') && (
                                 <DropdownMenuItem disabled className="text-green-600">

@@ -345,3 +345,52 @@ export function getResumeUrl(path: string) {
     return null;
   }
 }
+
+export async function transferCandidate(candidateId: string, newRecruiterId: string, currentUserId: string): Promise<void> {
+  try {
+    // First, verify that the current user is a recruiter and owns this candidate
+    const { data: candidateData, error: candidateError } = await supabase
+      .from('candidates')
+      .select(`
+        applications(
+          id,
+          recruiter_id
+        )
+      `)
+      .eq('id', candidateId)
+      .single();
+
+    if (candidateError) {
+      throw new Error(`Error al obtener datos del candidato: ${candidateError.message}`);
+    }
+
+    if (!candidateData?.applications || candidateData.applications.length === 0) {
+      throw new Error('El candidato no tiene aplicaciones asignadas');
+    }
+
+    // Check if current user owns any of the applications
+    const userOwnsApplication = candidateData.applications.some((app: any) =>
+      app.recruiter_id === currentUserId
+    );
+
+    if (!userOwnsApplication) {
+      throw new Error('No tienes permisos para transferir este candidato');
+    }
+
+    // Update all applications for this candidate to the new recruiter
+    const { error: updateError } = await supabase
+      .from('applications')
+      .update({
+        recruiter_id: newRecruiterId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('candidate_id', candidateId);
+
+    if (updateError) {
+      throw new Error(`Error al transferir candidato: ${updateError.message}`);
+    }
+
+  } catch (error: any) {
+    throw error;
+  }
+}
