@@ -67,5 +67,6 @@ export default defineConfig(({ mode }) => ({
   // Optimizaciones para desarrollo
   optimizeDeps: {
     include: ['react', 'react-dom', '@supabase/supabase-js'],
+    exclude: ['pdfjs-dist', 'mammoth', 'xlsx', 'jspdf'],
   },
 }));

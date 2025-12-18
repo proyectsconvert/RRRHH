@@ -257,6 +257,84 @@ serve(async (req: Request) => {
       console.error('Error fetching candidate data:', candidateError);
     }
 
+    // Send WhatsApp message to candidate thanking them and providing status check info
+    try {
+      if (candidate && candidate.phone) {
+        const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL') || Deno.env.get('VITE_EVOLUTION_API_URL') || 'https://evolution-api-desarrollo.testbot.click';
+        const evolutionApiToken = Deno.env.get('EVOLUTION_API_TOKEN') || Deno.env.get('VITE_EVOLUTION_API_TOKEN') || '26BEA03F1C6F-4FD3-B0B0-EADD25589851';
+        const evolutionInstance = Deno.env.get('EVOLUTION_INSTANCE') || Deno.env.get('VITE_EVOLUTION_INSTANCE') || 'TestWPP';
+        const botNumber = Deno.env.get('BOT_NUMBER') || Deno.env.get('VITE_BOT_NUMBER') || '3192463493';
+        const appUrl = Deno.env.get('APP_URL') || 'https://convertia-rh.vercel.app'; // Default to production URL
+
+        const statusCheckUrl = `${appUrl}/status-check`;
+
+        const message = `¡Gracias ${firstName} por postularte a la vacante!\n\n` +
+          `Para consultar el estado de tu postulación, sigue estos pasos:\n\n` +
+          `1. Ve a: ${statusCheckUrl}\n` +
+          `2. Ingresa tu número de cédula\n` +
+          `3. Ingresa el código de verificación que recibirás por WhatsApp\n\n` +
+          `¡Te deseamos suerte en el proceso!`;
+
+        // Format phone number for Evolution API (candidate.phone already has @s.whatsapp.net)
+        const formattedNumber = candidate.phone.includes('@s.whatsapp.net')
+          ? candidate.phone
+          : candidate.phone.startsWith('+')
+          ? candidate.phone.substring(1) + '@s.whatsapp.net'
+          : candidate.phone + '@s.whatsapp.net';
+
+        console.log('📱 Sending WhatsApp message to:', formattedNumber);
+
+        const evolutionResponse = await fetch(`${evolutionApiUrl}/message/sendText/${evolutionInstance}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${evolutionApiToken}`,
+            'apikey': evolutionApiToken,
+          },
+          body: JSON.stringify({
+            number: formattedNumber,
+            text: message.trim(),
+          }),
+        });
+
+        if (!evolutionResponse.ok) {
+          let errorMessage = `HTTP ${evolutionResponse.status}: ${evolutionResponse.statusText}`;
+          try {
+            const errorData = await evolutionResponse.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (parseError) {
+            // Silent error parsing
+          }
+          console.error('❌ Error sending WhatsApp message:', errorMessage);
+        } else {
+          console.log('✅ WhatsApp message sent successfully');
+
+          // Save message to historychat table
+          const cleanPhoneNumber = candidate.phone.replace(/^\+/, '').replace('@s.whatsapp.net', '');
+          const { error: historyError } = await supabaseAdmin
+            .from('historychat')
+            .insert({
+              hicnumerouser: cleanPhoneNumber,
+              hicusername: `${firstName} ${lastName}`,
+              hicsendnumbot: botNumber,
+              hicmessagebot: message.trim(),
+              hicmessageuser: null,
+            });
+
+          if (historyError) {
+            console.error('Error saving message to history:', historyError);
+          } else {
+            console.log('✅ Message saved to history');
+          }
+        }
+      } else {
+        console.log('⚠️ No phone number available for candidate, skipping WhatsApp message');
+      }
+    } catch (messageError) {
+      console.error('Error sending WhatsApp message:', messageError);
+      // Don't fail the application creation if message sending fails
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

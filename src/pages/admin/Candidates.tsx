@@ -4,22 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Filter, Loader2, Mail, Phone, MapPin, RefreshCw, Ellipsis, Columns3, EyeOff, Grid2x2X,Trash2, Ban, SquareArrowRight, Eye, Search, Download } from 'lucide-react';
+import { Plus, Filter, Loader2, Mail, Phone, MapPin, RefreshCw, Ellipsis, Columns3, EyeOff, Grid2x2X, Trash2, Ban, SquareArrowRight, Eye, Search, Download } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import {Dialog, DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle,DialogTrigger,} from "@/components/ui/dialog";
-import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger,} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input";
 import { sendWelcomeMessage } from "@/utils/evolution-api";
 import { generateCandidateAccessToken } from "@/utils/candidate-access";
@@ -117,7 +117,7 @@ const getStatusDisplay = (status: string | null) => {
     'new': { label: 'Nuevo Candidato', variant: 'outline' as const, color: 'text-destructive border-destructive', className: 'font-bold text-sm' },
     'applied': { label: 'Aplicado', variant: 'outline' as const, color: 'text-destructive border-destructive', className: 'font-bold text-sm' },
     'under_review': { label: 'Bajo Revisión', variant: 'outline' as const, color: 'text-destructive border-destructive', className: 'font-bold text-sm' },
-    'entrevista-rc': { label: 'Entrevista Inicial', variant: 'outline' as const, color: 'text-yellow-600 border-yellow-600' , className: 'font-bold text-sm'},
+    'entrevista-rc': { label: 'Entrevista Inicial', variant: 'outline' as const, color: 'text-yellow-600 border-yellow-600', className: 'font-bold text-sm' },
     'entrevista-et': { label: 'Entrevista Técnica', variant: 'default' as const, color: 'bg-yellow-100 text-yellow-800 ' },
     'prueba-tecnica': { label: 'Prueba Técnica', variant: 'default' as const, color: 'bg-blue-100 text-blue-800' },
     'asignar-campana': { label: 'En Campaña', variant: 'outline' as const, color: 'text-hrm-teal border-hrm-teal' },
@@ -146,7 +146,7 @@ const Candidates = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const { toast } = useToast();const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const { toast } = useToast(); const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<string[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -163,17 +163,25 @@ const Candidates = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isTeamsDialogOpen, setIsTeamsDialogOpen] = useState(false);
   const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | null>(null);
-  const [recruiters, setRecruiters] = useState<{id: string, first_name: string, last_name: string}[]>([]);
-  const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{id: string, first_name: string, last_name: string} | null>(null);
+  const [recruiters, setRecruiters] = useState<{ id: string, first_name: string, last_name: string }[]>([]);
+  const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{ id: string, first_name: string, last_name: string } | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentCandidate, setCurrentCandidate] = useState<Candidate | null>(null);
   const [interviewTypeFilter, setInterviewTypeFilter] = useState<'all' | 'entrevista-rc' | 'entrevista-et'>('all');
   const [exporting, setExporting] = useState(false);
   const [transcribingCandidates, setTranscribingCandidates] = useState<Set<string>>(new Set());
-  const [transcriptionStatus, setTranscriptionStatus] = useState<{[key: string]: 'pending' | 'processing' | 'completed' | 'failed'}>({});
-  const [analysisStatus, setAnalysisStatus] = useState<{[key: string]: 'pending' | 'analyzing' | 'completed' | 'failed'}>({});
+  const [transcriptionStatus, setTranscriptionStatus] = useState<{ [key: string]: 'pending' | 'processing' | 'completed' | 'failed' }>({});
+  const [analysisStatus, setAnalysisStatus] = useState<{ [key: string]: 'pending' | 'analyzing' | 'completed' | 'failed' }>({});
   const [processedCandidates, setProcessedCandidates] = useState<Set<string>>(new Set());
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const jobId = searchParams.get('job');
+    if (jobId) {
+      setSelectedJob([jobId]);
+    }
+  }, [searchParams]);
 
   // Helper function to check if current user can modify a candidate's status
   const canModifyCandidate = (candidate: Candidate, newStatus?: string): boolean => {
@@ -228,7 +236,7 @@ const Candidates = () => {
       if (isChecked) {
         return [...prev, jobId];
       } else {
-        return prev.filter(id => id !== jobId); 
+        return prev.filter(id => id !== jobId);
       }
     });
   };
@@ -276,11 +284,11 @@ const Candidates = () => {
       const processedCandidates = (data || []).map(candidate => {
         // Determine completeTranscription variable per candidate
         const completeTranscription = (candidate.resume_text &&
-                                      candidate.resume_text.trim().length > 0 &&
-                                      !candidate.resume_text.trim().startsWith('%PDF-') &&
-                                      !candidate.resume_text.includes('obj <</Type/') &&
-                                      !candidate.resume_text.includes('/Filter/FlateDecode'))
-                                     ? "content" : "empty";
+          candidate.resume_text.trim().length > 0 &&
+          !candidate.resume_text.trim().startsWith('%PDF-') &&
+          !candidate.resume_text.includes('obj <</Type/') &&
+          !candidate.resume_text.includes('/Filter/FlateDecode'))
+          ? "content" : "empty";
 
         let transcription_status: 'pending' | 'processing' | 'completed' | 'failed' = 'pending';
 
@@ -378,7 +386,7 @@ const Candidates = () => {
       setRefreshing(false);
     }
   };
-  
+
   useEffect(() => {
     const fetchJobs = async () => {
       const { data, error } = await supabase.from('jobs').select('id, title');
@@ -688,11 +696,11 @@ const Candidates = () => {
       setCandidates(prev => prev.map(c =>
         c.id === candidate.id
           ? {
-              ...c,
-              analysis_status: 'completed' as const,
-              analysis_summary: JSON.stringify(analysisResult),
-              analysis_data: analysisResult
-            }
+            ...c,
+            analysis_status: 'completed' as const,
+            analysis_summary: JSON.stringify(analysisResult),
+            analysis_data: analysisResult
+          }
           : c
       ));
 
@@ -721,11 +729,11 @@ const Candidates = () => {
 
       // Check if the file is a PDF or Word document
       const isPdfFile = resumeUrl.toLowerCase().includes('.pdf') ||
-                       resumeUrl.includes('application/pdf');
+        resumeUrl.includes('application/pdf');
       const isWordFile = resumeUrl.toLowerCase().includes('.doc') ||
-                        resumeUrl.toLowerCase().includes('.docx') ||
-                        resumeUrl.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
-                        resumeUrl.includes('application/msword');
+        resumeUrl.toLowerCase().includes('.docx') ||
+        resumeUrl.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+        resumeUrl.includes('application/msword');
 
       let extractedText = '';
 
@@ -1465,8 +1473,8 @@ const Candidates = () => {
         const phone = candidate.phone?.toLowerCase() || '';
 
         return fullName.includes(query) ||
-               candidateId.includes(query) ||
-               phone.includes(query);
+          candidateId.includes(query) ||
+          phone.includes(query);
       });
     }
 
@@ -1505,7 +1513,7 @@ const Candidates = () => {
           'en-entrevista': ['entrevista-rc', 'entrevista-et'],
           'prueba-tecnica': ['prueba-tecnica'],
           'en-formacion': ['asignar-campana'],
-          'contratados': ['contratar', 'contratado'],
+          'contratados': ['contratar', 'contratado', 'proceso-contratacion'],
           'discarded': ['rejected', 'discarded', 'blocked']
         };
 
@@ -1552,8 +1560,8 @@ const Candidates = () => {
         const phone = candidate.phone?.toLowerCase() || '';
 
         return fullName.includes(query) ||
-               candidateId.includes(query) ||
-               phone.includes(query);
+          candidateId.includes(query) ||
+          phone.includes(query);
       });
     }
 
@@ -1573,15 +1581,15 @@ const Candidates = () => {
         <h1 className="page-title">Candidatos</h1>
         <div className="flex gap-2">
 
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre, cédula o teléfono..."
-            className="pl-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre, cédula o teléfono..."
+              className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
 
           <Button
             variant="outline"
@@ -1666,41 +1674,41 @@ const Candidates = () => {
                   </div>
                 </PopoverContent>
               </Popover>
-                {/*Ocultar*/}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="ml-2">
-                      <Grid2x2X className="h-4 w-4" />
-                      
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-2" align="end">
-                    <div className="grid gap-2">
-                      <div className="px-2 py-1.5 text-sm font-semibold">
-                        Mostrar/Ocultar Columnas
-                      </div>
-                      {Object.entries(columnVisibility).map(([key, value]) => (
-                        <label
-                          key={key}
-                          className="flex items-center space-x-2 rounded-md p-2 hover:bg-gray-100 cursor-pointer"
-                        >
-                          <Checkbox
-                            checked={value}
-                            onCheckedChange={(checked) => {
-                              setColumnVisibility(prev => ({ ...prev, [key]: !!checked }));
-                            }}
-                          />
-                          <span className="text-sm capitalize">
-                            {key === 'estado_aplicacion' ? 'Estado' :
-                             key === 'campana' ? 'Campaña' :
-                             key === 'reclutador' ? 'Reclutador' :
-                             key.replace('_', ' ')}
-                          </span>
-                        </label>
-                      ))}
+              {/*Ocultar*/}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="ml-2">
+                    <Grid2x2X className="h-4 w-4" />
+
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="end">
+                  <div className="grid gap-2">
+                    <div className="px-2 py-1.5 text-sm font-semibold">
+                      Mostrar/Ocultar Columnas
                     </div>
-                  </PopoverContent>
-                </Popover>
+                    {Object.entries(columnVisibility).map(([key, value]) => (
+                      <label
+                        key={key}
+                        className="flex items-center space-x-2 rounded-md p-2 hover:bg-gray-100 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={value}
+                          onCheckedChange={(checked) => {
+                            setColumnVisibility(prev => ({ ...prev, [key]: !!checked }));
+                          }}
+                        />
+                        <span className="text-sm capitalize">
+                          {key === 'estado_aplicacion' ? 'Estado' :
+                            key === 'campana' ? 'Campaña' :
+                              key === 'reclutador' ? 'Reclutador' :
+                                key.replace('_', ' ')}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="flex gap-2">
@@ -1812,10 +1820,10 @@ const Candidates = () => {
                               {recruiters
                                 .filter(recruiter => recruiter.id !== currentUserId) // Exclude current user
                                 .map((recruiter) => (
-                                <SelectItem key={recruiter.id} value={recruiter.id}>
-                                  {recruiter.first_name} {recruiter.last_name}
-                                </SelectItem>
-                              ))}
+                                  <SelectItem key={recruiter.id} value={recruiter.id}>
+                                    {recruiter.first_name} {recruiter.last_name}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -1850,7 +1858,7 @@ const Candidates = () => {
                       </DialogHeader>
 
                       {/* 2. Añadimos padding solo a esta sección */}
-                      <div className="grid gap-4 py-4 px-6"> 
+                      <div className="grid gap-4 py-4 px-6">
                         {/* --- SELECT DE ESTADO --- */}
                         <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="status" className="text-right">
@@ -1927,8 +1935,8 @@ const Candidates = () => {
                 </>
               )}
             </div>
-   
-        </div>
+
+          </div>
 
           <TabsContent value="all">
             <CandidatesTable
@@ -2139,8 +2147,8 @@ interface CandidatesTableProps {
 }
 
 const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, selectedCandidates,
-  setSelectedCandidates,columnVisibility, setDiscardModalOpen, setBlockModalOpen,setStatusModalOpen, setTransferModalOpen, activeTab, canModifyCandidate }) => {
-    const handleSelectAll = (checked: boolean) => {
+  setSelectedCandidates, columnVisibility, setDiscardModalOpen, setBlockModalOpen, setStatusModalOpen, setTransferModalOpen, activeTab, canModifyCandidate }) => {
+  const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedCandidates(candidates.map(c => c.id));
     } else {
@@ -2154,7 +2162,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
     } else {
       setSelectedCandidates(prev => prev.filter(candidateId => candidateId !== id));
     }
-  }; 
+  };
 
   const visibleColumnCount = Object.values(columnVisibility).filter(Boolean).length + 3;
 
@@ -2170,7 +2178,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
             <Table>
               <TableHeader>
                 <TableRow>
-                <TableHead className="w-12">
+                  <TableHead className="w-12">
                     <Checkbox
                       checked={selectedCandidates.length === candidates.length && candidates.length > 0}
                       onCheckedChange={handleSelectAll}
@@ -2179,11 +2187,11 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                   </TableHead>
                   <TableHead className="w-[20%]" >Candidato</TableHead>
                   {columnVisibility.vacante && <TableHead className="w-[12%]">Vacante</TableHead>}
-                  {columnVisibility.campana  && !['sin-revisar', 'en-entrevista'].includes(activeTab) &&  <TableHead className="w-[10%]">Campaña</TableHead>}
+                  {columnVisibility.campana && !['sin-revisar', 'en-entrevista'].includes(activeTab) && <TableHead className="w-[10%]">Campaña</TableHead>}
                   {columnVisibility.compatibilidad && <TableHead>Compatibilidad</TableHead>}
-                  {columnVisibility.experiencia && <TableHead>Experiencia</TableHead>}
-                  {columnVisibility.habilidades && <TableHead className="w-[12%]">Habilidades</TableHead>}
-                  {columnVisibility.aplicaciones && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
+                  {columnVisibility.experiencia && !['en-formacion', 'contratados'].includes(activeTab) && <TableHead>Experiencia</TableHead>}
+                  {columnVisibility.habilidades && !['en-formacion', 'discarded', 'contratados'].includes(activeTab) && <TableHead className="w-[12%]">Habilidades</TableHead>}
+                  {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
                   {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableHead>Estado</TableHead>}
                   {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.reclutador && <TableHead className="w-[12%]">Reclutador</TableHead>}
                   {columnVisibility.fecha && <TableHead>Fecha</TableHead>}
@@ -2211,7 +2219,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
 
                     return (
                       <TableRow key={candidate.id} data-state={selectedCandidates.includes(candidate.id) && "selected"}>
-                        
+
                         <TableCell>
                           <Checkbox
                             checked={selectedCandidates.includes(candidate.id)}
@@ -2320,13 +2328,12 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           <TableCell>
                             {analysisData?.compatibilidad?.porcentaje !== undefined ? (
                               <div className="flex items-center justify-center">
-                                <Badge variant="outline" className={`font-bold text-sm ${
-                                  analysisData.compatibilidad.porcentaje >= 75
-                                    ? 'text-hrm-teal border-hrm-teal'
-                                    : analysisData.compatibilidad.porcentaje >= 50
+                                <Badge variant="outline" className={`font-bold text-sm ${analysisData.compatibilidad.porcentaje >= 75
+                                  ? 'text-hrm-teal border-hrm-teal'
+                                  : analysisData.compatibilidad.porcentaje >= 50
                                     ? 'text-yellow-600 border-yellow-600'
                                     : 'text-hrm-destructive border-hrm-destructive'
-                                }`}>
+                                  }`}>
                                   {analysisData.compatibilidad.porcentaje}%
                                 </Badge>
                               </div>
@@ -2336,13 +2343,13 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </TableCell>
                         )}
 
-                        {columnVisibility.experiencia && !['en-formacion' , 'contratados'].includes(activeTab) && <TableCell>
+                        {columnVisibility.experiencia && !['en-formacion', 'contratados'].includes(activeTab) && <TableCell>
                           {candidate.experience_years ? `${candidate.experience_years} ${candidate.experience_years === 1 ? 'mes' : 'meses'}` : 'No especificada'}
                         </TableCell>}
 
-                        {columnVisibility.habilidades && !['en-formacion' , 'discarded' , 'contratados'].includes(activeTab) && <TableCell>
+                        {columnVisibility.habilidades && !['en-formacion', 'discarded', 'contratados'].includes(activeTab) && <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {candidate.skills && candidate.skills.length > 0 ? 
+                            {candidate.skills && candidate.skills.length > 0 ?
                               candidate.skills.slice(0, 2).map((skill, i) => (
                                 <Badge key={i} variant="outline" className="text-xs">
                                   {skill}
@@ -2357,10 +2364,10 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </div>
                         </TableCell>}
 
-                        {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) &&<TableCell className='text-center'>
-                          <span 
-                            className={`font-medium ${candidate.applications && candidate.applications.length > 0 
-                              ? 'text-hrm-black/80' 
+                        {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) && <TableCell className='text-center'>
+                          <span
+                            className={`font-medium ${candidate.applications && candidate.applications.length > 0
+                              ? 'text-hrm-black/80'
                               : 'text-gray-500'}`}
                           >
                             {candidate.applications ? candidate.applications.length : 0}
@@ -2396,9 +2403,9 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                         </TableCell>}
 
                         {columnVisibility.fecha && <TableCell>
-                          {formatDistanceToNow(new Date(candidate.created_at), { 
-                            addSuffix: true, 
-                            locale: es 
+                          {formatDistanceToNow(new Date(candidate.created_at), {
+                            addSuffix: true,
+                            locale: es
                           })}
                         </TableCell>}
 
@@ -2409,7 +2416,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                                 <Ellipsis className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">                              
+                            <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
                                 <Link to={`/admin/candidates/${candidate.id}`}>
                                   <Eye className="mr-2 h-4 w-4" /> {/* <-- Icono añadido */}
@@ -2417,7 +2424,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              
+
                               {canModifyCandidate(candidate) && (
                                 <>
                                   <DropdownMenuItem onClick={() => {
@@ -2442,7 +2449,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
-                              
+
                               <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => {
                                 setSelectedCandidates([candidate.id]);
                                 setDiscardModalOpen(true);
@@ -2451,7 +2458,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                                 <span>Descartar</span>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              
+
                               <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => {
                                 setSelectedCandidates([candidate.id]);
                                 setBlockModalOpen(true);
