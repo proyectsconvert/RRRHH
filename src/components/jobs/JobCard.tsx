@@ -1,10 +1,19 @@
-
 import React from 'react';
 import { Calendar, MapPin, Users } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import QRCode from "react-qr-code";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { QrCode } from 'lucide-react';
 
 export interface JobType {
   id: string;
@@ -13,11 +22,11 @@ export interface JobType {
   location: string;
   type: 'full-time' | 'part-time' | 'contract' | 'internship' | 'temporary';
   status: 'open' | 'in_progress' | 'closed' | 'draft';
-  created_at?: string; 
-  createdAt?: Date; 
+  created_at?: string;
+  createdAt?: Date;
   updated_at?: string;
   applicants?: number;
-  applications?: Array<any>; 
+  applications?: Array<any>;
   description?: string;
   requirements?: string | null;
   responsibilities?: string | null;
@@ -28,9 +37,10 @@ export interface JobType {
 interface JobCardProps {
   job: JobType;
   isAdmin?: boolean;
+  isRecruiter?: boolean;
 }
 
-const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false }) => {
+const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = false }) => {
   const jobStatusColors = {
     open: 'bg-hrm-dark-green/20 text-hrm-dark-green',
     closed: 'bg-red-100 text-red-800',
@@ -116,40 +126,111 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false }) => {
       <CardFooter className="pt-2">
         {isAdmin ? (
           <div className="flex space-x-2 w-full">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="border-hrm-steel-blue text-hrm-steel-blue hover:bg-hrm-steel-blue hover:text-white"
               asChild
             >
               <Link to={`/admin/jobs/${job.id}`}>Ver detalles</Link>
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white"
               asChild
             >
               <Link to={`/admin/jobs/${job.id}/edit`}>Editar</Link>
             </Button>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white"
+                >
+                  <QrCode className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Código QR para Postulación</DialogTitle>
+                  <DialogDescription>
+                    Escanea este código para acceder directamente al formulario de postulación para la vacante: {job.title}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex items-center justify-center p-6">
+                  <div className="bg-white p-4 rounded-lg shadow-sm border">
+                    <QRCode
+                      value={`${window.location.origin}/postularse/${job.id}`}
+                      size={200}
+                      level="H"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-center pb-4">
+                  <p className="text-sm text-gray-500 break-all text-center px-4">
+                    {`${window.location.origin}/postularse/${job.id}`}
+                  </p>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         ) : (
           <div className="w-full flex space-x-2">
-            <Button 
+            <Button
               variant="outline"
-              size="sm" 
+              size="sm"
               className="flex-1 border-hrm-steel-blue text-hrm-steel-blue hover:bg-hrm-steel-blue hover:text-white"
               asChild
             >
               <Link to={`/jobs/${job.id}`}>Ver detalles</Link>
             </Button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               className="flex-1 bg-hrm-dark-cyan hover:bg-hrm-steel-blue"
               asChild
             >
               <Link to={`/postularse/${job.id}`}>Postularse</Link>
             </Button>
+
+            {/* QR Code for Recruiters (who are not admins) */}
+            {isRecruiter && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white px-3"
+                  >
+                    <QrCode className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Código QR para Postulación</DialogTitle>
+                    <DialogDescription>
+                      Escanea este código para acceder directamente al formulario de postulación para la vacante: {job.title}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex items-center justify-center p-6">
+                    <div className="bg-white p-4 rounded-lg shadow-sm border">
+                      <QRCode
+                        value={`${window.location.origin}/postularse/${job.id}`}
+                        size={200}
+                        level="H"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-center pb-4">
+                    <p className="text-sm text-gray-500 break-all text-center px-4">
+                      {`${window.location.origin}/postularse/${job.id}`}
+                    </p>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         )}
       </CardFooter>
