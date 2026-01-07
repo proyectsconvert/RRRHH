@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, MapPin, Users } from 'lucide-react';
+import { Calendar, MapPin, Users, Share2 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { QrCode } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export interface JobType {
   id: string;
@@ -41,6 +42,7 @@ interface JobCardProps {
 }
 
 const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = false }) => {
+  const { toast } = useToast();
   const jobStatusColors = {
     open: 'bg-hrm-dark-green/20 text-hrm-dark-green',
     closed: 'bg-red-100 text-red-800',
@@ -76,6 +78,38 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
 
   // Cantidad de postulantes (puede venir de diferentes fuentes)
   const applicantsCount = job.applicants || (job.applications?.length || 0);
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/postularse/${job.id}`;
+    const shareData = {
+      title: `Postúlate a: ${job.title}`,
+      text: `¡Mira esta vacante de ${job.title} en ${job.department}!`,
+      url: url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error('Error al compartir:', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({
+          title: "Enlace copiado",
+          description: "El enlace ha sido copiado al portapapeles.",
+        });
+      } catch (err) {
+        console.error('Error al copiar:', err);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se pudo copiar el enlace.",
+        });
+      }
+    }
+  };
 
   return (
     <Card className="overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -169,10 +203,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
                     />
                   </div>
                 </div>
-                <div className="flex justify-center pb-4">
+                <div className="flex justify-center pb-4 flex-col items-center gap-4">
                   <p className="text-sm text-gray-500 break-all text-center px-4">
                     {`${window.location.origin}/postularse/${job.id}`}
                   </p>
+                  <Button
+                    onClick={handleShare}
+                    className="flex items-center gap-2 bg-hrm-dark-cyan hover:bg-hrm-steel-blue text-white"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Compartir
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -223,10 +264,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
                       />
                     </div>
                   </div>
-                  <div className="flex justify-center pb-4">
+                  <div className="flex justify-center pb-4 flex-col items-center gap-4">
                     <p className="text-sm text-gray-500 break-all text-center px-4">
                       {`${window.location.origin}/postularse/${job.id}`}
                     </p>
+                    <Button
+                      onClick={handleShare}
+                      className="flex items-center gap-2 bg-hrm-dark-cyan hover:bg-hrm-steel-blue text-white"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Compartir
+                    </Button>
                   </div>
                 </DialogContent>
               </Dialog>
