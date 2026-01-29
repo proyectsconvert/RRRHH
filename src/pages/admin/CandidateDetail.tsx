@@ -24,12 +24,12 @@ import { sendWelcomeMessage } from '@/utils/evolution-api';
 import { generateCandidateAccessToken } from '@/utils/candidate-access';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { 
-  fetchCandidateDetails, 
-  saveAnalysisData, 
-  analyzeResume, 
-  getResumeUrl, 
-  saveResumeText 
+import {
+  fetchCandidateDetails,
+  saveAnalysisData,
+  analyzeResume,
+  getResumeUrl,
+  saveResumeText
 } from '@/services/candidate-service';
 import { getStatusText, getJobTypeText } from '@/utils/formatters';
 import { Candidate } from '@/types/candidate';
@@ -50,9 +50,9 @@ const CandidateDetail: React.FC = () => {
   const [newStatus, setNewStatus] = useState("");
   const [isTeamsDialogOpen, setIsTeamsDialogOpen] = useState(false);
   const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | null>(null);
-  const [recruiters, setRecruiters] = useState<{id: string, first_name: string, last_name: string}[]>([]);
+  const [recruiters, setRecruiters] = useState<{ id: string, first_name: string, last_name: string }[]>([]);
   const [selectedRecruiter, setSelectedRecruiter] = useState("");
-  const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{id: string, first_name: string, last_name: string} | null>(null);
+  const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{ id: string, first_name: string, last_name: string } | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isHireDialogOpen, setIsHireDialogOpen] = useState(false);
@@ -183,20 +183,20 @@ const CandidateDetail: React.FC = () => {
   const handleSaveResumeText = async (text: string) => {
     try {
       if (!id) return;
-      
+
       setSavingResumeText(true);
       console.log('Guardando texto extraído para el candidato:', id);
       console.log('Longitud del texto:', text.length);
-      
+
       await saveResumeText(id, text);
-      
+
       setResumeContent(text);
-      
+
       toast({
         title: "Texto guardado",
         description: "El texto extraído del CV ha sido guardado correctamente"
       });
-      
+
     } catch (error: any) {
       console.error('Error al guardar texto del CV:', error);
       toast({
@@ -214,14 +214,14 @@ const CandidateDetail: React.FC = () => {
       if (!id) return;
 
       console.log('Guardando datos de análisis para el candidato:', id);
-      
+
       await saveAnalysisData(id, analysisResult, extractedText);
-      
+
       toast({
         title: "Datos guardados",
         description: "La información del candidato ha sido guardada en la base de datos"
       });
-      
+
     } catch (error: any) {
       console.error('Error al guardar datos del candidato:', error);
       toast({
@@ -252,7 +252,7 @@ const CandidateDetail: React.FC = () => {
 
     try {
       setAnalyzing(true);
-      
+
       // Get job details if application ID is provided
       let jobContext = null;
       if (applicationId) {
@@ -318,7 +318,7 @@ const CandidateDetail: React.FC = () => {
         description: "Evaluación del candidato finalizada correctamente"
       });
       console.log('Analysis process completed successfully');
-      
+
     } catch (error: any) {
       console.error('Error de análisis:', error);
       toast({
@@ -422,104 +422,135 @@ const CandidateDetail: React.FC = () => {
   };
 
   const handleStatusChange = async () => {
-    if (!newStatus || !candidate) return;
+    console.log('handleStatusChange called with newStatus:', newStatus);
+    // DEBUG: Alert to verify execution
+    window.alert(`DEBUG: handleStatusChange called. New Status: '${newStatus}' (Length: ${newStatus.length})`);
 
-    // Check permissions before allowing status change
-    if (!canModifyCandidate(candidate)) {
-      toast({
-        title: "Acceso denegado",
-        description: "No tienes permisos para cambiar el estado de este candidato",
-        variant: "destructive"
-      });
-      setStatusModalOpen(false);
+    if (!newStatus || !candidate) {
+      console.log('Missing newStatus or candidate');
       return;
     }
 
-    // Check if candidate is already hired - prevent status changes except "retirar" or "finalizar-contrato"
-    const isHired = candidate.applications?.some(app => app.status === 'contratado');
-    if (isHired && newStatus !== 'retirar' && newStatus !== 'finalizar-contrato') {
-      toast({
-        title: "Estado Final",
-        description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar' o 'Finalizar Contrato'.",
-        variant: "destructive"
-      });
-      setStatusModalOpen(false);
-      return;
-    }
+    // CRITICAL FIX: Check for interview statuses IMMEDIATELY
+    const targetStatus = newStatus.trim();
+    console.log('Target status:', targetStatus);
 
-    // For interview statuses, show Teams dialog instead of updating immediately
-    if (newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') {
-      setCurrentInterviewType(newStatus);
+    if (targetStatus === 'entrevista-rc' || targetStatus === 'entrevista-et') {
+      console.log('INTERVIEW STATUS DETECTED - Opening dialog and STOPPING update');
+      toast({
+        title: "Programar Entrevista",
+        description: "Abriendo formulario de programación...",
+      });
+      setCurrentInterviewType(targetStatus as 'entrevista-rc' | 'entrevista-et');
       setIsTeamsDialogOpen(true);
       setStatusModalOpen(false);
-      return;
-    }
+      return; // STOP HERE
+    } else {
+      // ONLY proceed with DB update if NOT an interview status
+      console.log('Proceeding with database update for status:', targetStatus);
 
-    try {
-      // Update status for all candidate applications
-      const updates = [];
-      if (candidate.applications) {
-        for (const app of candidate.applications) {
-          updates.push(
-            supabase
-              .from('applications')
-              .update({
-                status: newStatus,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', app.id)
-          );
-        }
+      // Check permissions before allowing status change
+      if (!canModifyCandidate(candidate)) {
+        toast({
+          title: "Acceso denegado",
+          description: "No tienes permisos para cambiar el estado de este candidato",
+          variant: "destructive"
+        });
+        setStatusModalOpen(false);
+        return;
       }
 
-      await Promise.all(updates);
+      // Check if candidate is already hired - prevent status changes except "retirar" or "finalizar-contrato"
+      const isHired = candidate.applications?.some(app => app.status === 'contratado');
+      if (isHired && newStatus !== 'retirar' && newStatus !== 'finalizar-contrato') {
+        toast({
+          title: "Estado Final",
+          description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar' o 'Finalizar Contrato'.",
+          variant: "destructive"
+        });
+        setStatusModalOpen(false);
+        return;
+      }
 
-      // Send welcome message to candidates whose status changed to "proceso-contratacion"
-      if (newStatus === 'proceso-contratacion') {
-        if (candidate.phone) {
-          try {
-            const candidateName = `${candidate.first_name} ${candidate.last_name}`;
+      console.log('Proceeding with database update for status:', targetStatus);
 
-            // Generate access token for this candidate
-            const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
-            const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
+      // SAFETY CHECK: Ensure we never update to interview status here (redundant but necessary)
+      if (targetStatus === 'entrevista-rc' || targetStatus === 'entrevista-et') {
+        console.error('CRITICAL ERROR: Attempted to update to interview status outside of dialog flow');
+        toast({
+          title: "Error Crítico",
+          description: "Error interno: Intento de actualización de estado inválido.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-            await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
-            console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
-          } catch (error) {
-            console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
-            toast({
-              title: "Advertencia",
-              description: "El estado se cambió correctamente pero no se pudo enviar el mensaje de WhatsApp",
-              variant: "destructive"
-            });
+      try {
+        // Update status for all candidate applications
+        const updates = [];
+        if (candidate.applications) {
+          for (const app of candidate.applications) {
+            updates.push(
+              supabase
+                .from('applications')
+                .update({
+                  status: newStatus,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', app.id)
+            );
           }
-        } else {
-          console.warn(`No phone number found for candidate ${candidate.first_name} ${candidate.last_name}`);
         }
+
+        await Promise.all(updates);
+
+        // Send welcome message to candidates whose status changed to "proceso-contratacion"
+        if (newStatus === 'proceso-contratacion') {
+          if (candidate.phone) {
+            try {
+              const candidateName = `${candidate.first_name} ${candidate.last_name}`;
+
+              // Generate access token for this candidate
+              const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
+              const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
+
+              await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
+              console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
+            } catch (error) {
+              console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
+              toast({
+                title: "Advertencia",
+                description: "El estado se cambió correctamente pero no se pudo enviar el mensaje de WhatsApp",
+                variant: "destructive"
+              });
+            }
+          } else {
+            console.warn(`No phone number found for candidate ${candidate.first_name} ${candidate.last_name}`);
+          }
+        }
+
+        toast({
+          title: "Estado actualizado",
+          description: "El estado del candidato ha sido actualizado correctamente",
+        });
+
+        setStatusModalOpen(false);
+        setNewStatus("");
+        setSelectedRecruiter("");
+
+        // Refresh candidate data
+        if (id) {
+          const candidateData = await fetchCandidateDetails(id);
+          setCandidate(candidateData);
+        }
+      } catch (error) {
+        console.error('Error updating status:', error);
+        toast({
+          title: "Error",
+          description: "No se pudo actualizar el estado del candidato",
+          variant: "destructive"
+        });
       }
-
-      toast({
-        title: "Estado actualizado",
-        description: "El estado del candidato ha sido actualizado correctamente",
-      });
-
-      setStatusModalOpen(false);
-      setNewStatus("");
-      setSelectedRecruiter("");
-
-      // Refresh candidate data
-      if (id) {
-        const candidateData = await fetchCandidateDetails(id);
-        setCandidate(candidateData);
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar el estado del candidato",
-        variant: "destructive"
-      });
     }
   };
 
@@ -691,7 +722,11 @@ const CandidateDetail: React.FC = () => {
           const interviewTypeText = currentInterviewType === 'entrevista-rc' ? 'Si entrevista RC' : 'Si entrevista Técnica';
           const dateTimeStr = `${meetingData.date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
 
-          const message = `Felicidades, está en proceso de entrevista ${interviewTypeText}, quedo para el día ${dateTimeStr} con este link: ${meetingData.meetingLink}`;
+          const locationInfo = meetingData.modality === 'presencial'
+            ? `en la dirección: ${meetingData.address}`
+            : `con este link: ${meetingData.meetingLink}`;
+
+          const message = `Felicidades, está en proceso de entrevista ${interviewTypeText}, quedo para el día ${dateTimeStr} ${locationInfo}`;
 
           const { sendEvolutionMessage } = await import('@/utils/evolution-api');
           await sendEvolutionMessage(candidate.phone, message, true);
@@ -909,7 +944,7 @@ const CandidateDetail: React.FC = () => {
           )}
         </div>
       </div>
-      
+
       {/* Document Viewer */}
       {resumeUrl && (
         <DocumentViewer
@@ -918,8 +953,8 @@ const CandidateDetail: React.FC = () => {
           documentUrl={resumeUrl}
           documentName={`CV de ${candidate.first_name} ${candidate.last_name}`}
           documentType={fileType === 'pdf' ? 'pdf' :
-                       fileType === 'word' ? 'document' :
-                       fileType === 'image' ? 'image' : undefined}
+            fileType === 'word' ? 'document' :
+              fileType === 'image' ? 'image' : undefined}
           onTextExtracted={handleTextExtracted}
           onAnalyze={() => handleAnalyzeCV(candidate.applications?.[0]?.id)}
         />

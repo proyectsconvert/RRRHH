@@ -94,6 +94,7 @@ function App() {
     return () => subscription?.unsubscribe();
   }, []);
 
+
   // Componente para proteger rutas de administrador
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const [validatingUser, setValidatingUser] = useState(false);
@@ -152,7 +153,7 @@ function App() {
                 <Route path="candidate-documents/:candidateId" element={<CandidateDocuments />} />
                 <Route path="status-check" element={<StatusCheck />} />
               </Route>
-              
+
               {/* Admin Routes */}
               <Route path="/admin/login" element={<Login />} />
               <Route path="/admin/unauthorized" element={
@@ -287,7 +288,7 @@ function App() {
                   </ModuleProtectedRoute>
                 } />
               </Route>
-              
+
               {/* RRHH Routes */}
               <Route path="/rrhh/login" element={<RRHHAuthProvider><RRHHLogin /></RRHHAuthProvider>} />
               <Route path="/rrhh" element={
@@ -329,7 +330,7 @@ function App() {
                 <Route path="ayuda" element={<Ayuda />} />
                 <Route path="configuracion" element={<Configuracion />} />
               </Route>
-              
+
               {/* Redirects */}
               <Route path="/dashboard" element={<Navigate to="/rrhh" replace />} />
               <Route path="*" element={<NotFound />} />

@@ -7,10 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Clock, Video } from 'lucide-react';
+import { CalendarIcon, Clock, Video, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface TeamsMeetingDialogProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ export interface MeetingData {
   duration: number;
   description: string;
   meetingLink: string;
+  modality: 'virtual' | 'presencial';
+  address?: string;
 }
 
 const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
@@ -44,12 +47,18 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
   const [duration, setDuration] = useState(60);
   const [description, setDescription] = useState(`Entrevista ${interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'Técnica'} con ${candidateName}`);
   const [meetingLink, setMeetingLink] = useState('');
+  const [modality, setModality] = useState<'virtual' | 'presencial'>('virtual');
+  const [address, setAddress] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   const interviewTypeLabel = interviewType === 'entrevista-rc' ? 'Recursos Humanos' : 'Técnica';
 
   const handleCreateMeeting = async () => {
-    if (!date || !time || !meetingLink.trim()) return;
+    // Validate required fields based on modality
+    if (!date || !time) return;
+
+    if (modality === 'virtual' && !meetingLink.trim()) return;
+    if (modality === 'presencial' && !address.trim()) return;
 
     setIsCreating(true);
 
@@ -63,7 +72,9 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
         time,
         duration,
         description,
-        meetingLink: meetingLink.trim()
+        meetingLink: meetingLink.trim(),
+        modality,
+        address: modality === 'presencial' ? address.trim() : undefined
       };
 
       onMeetingCreated(meetingData);
@@ -76,6 +87,8 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
       setDuration(60);
       setDescription(`Entrevista ${interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'Técnica'} con ${candidateName}`);
       setMeetingLink('');
+      setModality('virtual');
+      setAddress('');
     } catch (error) {
       console.error('Error processing meeting:', error);
     } finally {
@@ -105,6 +118,20 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Título de la reunión"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Modalidad</Label>
+            <RadioGroup value={modality} onValueChange={(value) => setModality(value as 'virtual' | 'presencial')} className="flex space-x-4">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="virtual" id="virtual" />
+                <Label htmlFor="virtual" className="cursor-pointer">Virtual</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="presencial" id="presencial" />
+                <Label htmlFor="presencial" className="cursor-pointer">Presencial</Label>
+              </div>
+            </RadioGroup>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -177,19 +204,39 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="meetingLink">Link de la reunión *</Label>
-            <Input
-              id="meetingLink"
-              value={meetingLink}
-              onChange={(e) => setMeetingLink(e.target.value)}
-              placeholder="https://teams.microsoft.com/l/meetup-join/..."
-              required
-            />
-            <p className="text-sm text-muted-foreground">
-              Pega el link de la reunión de Teams, Zoom u otra plataforma
-            </p>
-          </div>
+          {modality === 'virtual' ? (
+            <div className="space-y-2">
+              <Label htmlFor="meetingLink">Link de la reunión *</Label>
+              <Input
+                id="meetingLink"
+                value={meetingLink}
+                onChange={(e) => setMeetingLink(e.target.value)}
+                placeholder="https://teams.microsoft.com/l/meetup-join/..."
+                required
+              />
+              <p className="text-sm text-muted-foreground">
+                Pega el link de la reunión de Teams, Zoom u otra plataforma
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="address">Dirección de la entrevista *</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Dirección completa de la oficina"
+                  className="pl-10"
+                  required
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Ingresa la dirección donde el candidato debe presentarse
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-between space-x-2 pt-4 border-t">
@@ -206,7 +253,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
             </Button>
             <Button
               onClick={handleCreateMeeting}
-              disabled={!date || !time || !meetingLink.trim() || isCreating}
+              disabled={!date || !time || (modality === 'virtual' ? !meetingLink.trim() : !address.trim()) || isCreating}
             >
               {isCreating ? 'Procesando reunión...' : 'Programar Reunión'}
             </Button>

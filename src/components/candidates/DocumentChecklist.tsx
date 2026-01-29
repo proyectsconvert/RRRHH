@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, FileText, Image, CheckCircle, XCircle, AlertCircle, Download, Eye, Trash2, RotateCcw } from 'lucide-react';
+import { Upload, FileText, Image, CheckCircle, XCircle, AlertCircle, Download, Eye, Trash2, RotateCcw, Check, X, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import DocumentViewer from './DocumentViewer';
 
 interface DocumentItem {
@@ -21,6 +24,8 @@ interface DocumentItem {
   fileName?: string;
   needsReupload?: boolean;
   reuploadRequestedAt?: string;
+  status?: 'pending' | 'approved' | 'rejected';
+  feedback?: string;
 }
 
 interface DocumentCategory {
@@ -314,15 +319,20 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
   isReadOnly = false // Default to editable
 }) => {
   const { toast } = useToast();
-  const [documents, setDocuments] = useState<{[key: string]: DocumentItem}>({});
-  const [uploading, setUploading] = useState<{[key: string]: boolean}>({});
+  const [documents, setDocuments] = useState<{ [key: string]: DocumentItem }>({});
+  const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerDocument, setViewerDocument] = useState<{
     url?: string;
     name?: string;
     type?: string;
   }>({});
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [rejectionFeedback, setRejectionFeedback] = useState('');
+  const [processingStatus, setProcessingStatus] = useState(false);
 
   useEffect(() => {
     loadDocumentStatus();
@@ -344,7 +354,7 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
       }
 
       // Initialize documents with all checklist items
-      const allDocuments: {[key: string]: DocumentItem} = {};
+      const allDocuments: { [key: string]: DocumentItem } = {};
 
       // Process each document and generate fresh signed URLs
       for (const category of Object.entries(DOCUMENT_CATEGORIES)) {
@@ -381,7 +391,9 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
             uploadedAt: existingDoc?.uploaded_at,
             fileName: existingDoc?.file_name,
             needsReupload: existingDoc?.needs_reupload || false,
-            reuploadRequestedAt: existingDoc?.reupload_requested_at
+            reuploadRequestedAt: existingDoc?.reupload_requested_at,
+            status: existingDoc?.status || 'pending',
+            feedback: existingDoc?.feedback
           };
         }
       }
@@ -455,7 +467,13 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
           file_url: urlData.signedUrl,
           file_name: file.name,
           file_size: file.size,
-          uploaded_at: new Date().toISOString()
+          uploaded_at: new Date().toISOString(),
+          status: 'pending', // Reset status to pending on new upload
+          needs_reupload: false, // Clear re-upload flag
+          reupload_requested_at: null,
+          feedback: null
+        }, {
+          onConflict: 'candidate_id, document_type'
         });
 
       if (dbError) {
@@ -470,7 +488,11 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
           uploaded: true,
           fileUrl: urlData.signedUrl,
           uploadedAt: new Date().toISOString(),
-          fileName: file.name
+          fileName: file.name,
+          status: 'pending',
+          needsReupload: false,
+          reuploadRequestedAt: undefined,
+          feedback: undefined
         }
       }));
 
@@ -575,7 +597,11 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
           uploaded: false,
           fileUrl: undefined,
           uploadedAt: undefined,
-          fileName: undefined
+          fileName: undefined,
+          status: 'pending', // Reset status when deleted
+          needsReupload: false,
+          reuploadRequestedAt: undefined,
+          feedback: undefined
         }
       }));
 
@@ -609,7 +635,8 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
           uploaded_at: null,
           needs_reupload: true, // Add this field to track re-upload requests
           reupload_requested_at: new Date().toISOString(),
-          reupload_requested_by: 'recruiter' // Track who requested the re-upload
+          reupload_requested_by: 'recruiter', // Track who requested the re-upload
+          status: 'rejected' // Set status to rejected when re-upload is requested
         });
 
       if (error) {
@@ -626,7 +653,8 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
           uploadedAt: undefined,
           fileName: undefined,
           needsReupload: true,
-          reuploadRequestedAt: new Date().toISOString()
+          reuploadRequestedAt: new Date().toISOString(),
+          status: 'rejected'
         }
       }));
 
@@ -643,6 +671,163 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
         description: error.message || "No se pudo solicitar la re-carga del documento",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleUpdateStatus = async (documentId: string, status: 'approved' | 'rejected', feedback?: string) => {
+    try {
+      setProcessingStatus(true);
+
+      const updateData: any = {
+        status: status,
+        updated_at: new Date().toISOString()
+      };
+
+      if (status === 'rejected') {
+        updateData.feedback = feedback;
+        updateData.needs_reupload = true; // Automatically request re-upload if rejected
+        updateData.reupload_requested_at = new Date().toISOString();
+        updateData.reupload_requested_by = 'recruiter';
+      } else if (status === 'approved') {
+        updateData.feedback = null; // Clear feedback if approved
+        updateData.needs_reupload = false;
+        updateData.reupload_requested_at = null;
+        updateData.reupload_requested_by = null;
+      }
+
+      const { error } = await supabase
+        .from('candidate_documents')
+        .update(updateData)
+        .eq('candidate_id', candidateId)
+        .eq('document_type', documentId);
+
+      if (error) throw error;
+
+      // Update local state
+      setDocuments(prev => ({
+        ...prev,
+        [documentId]: {
+          ...prev[documentId],
+          status: status,
+          feedback: status === 'rejected' ? feedback : undefined,
+          needsReupload: status === 'rejected',
+          reuploadRequestedAt: status === 'rejected' ? new Date().toISOString() : undefined
+        }
+      }));
+
+      toast({
+        title: status === 'approved' ? "Documento aprobado" : "Documento rechazado",
+        description: `El estado del documento ha sido actualizado correctamente.`
+      });
+
+      if (status === 'rejected') {
+        setRejectDialogOpen(false);
+        setRejectionFeedback('');
+        setSelectedDocumentId(null);
+      }
+
+    } catch (error: any) {
+      console.error('Error updating document status:', error);
+
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado del documento",
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingStatus(false);
+    }
+  };
+
+  const openRejectDialog = (documentId: string) => {
+    setSelectedDocumentId(documentId);
+    setRejectionFeedback('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleDownloadAll = async () => {
+    try {
+      setIsDownloading(true);
+      toast({
+        title: "Generando PDF unificado",
+        description: "Por favor espere mientras se procesan los documentos...",
+      });
+
+      // Collect all uploaded documents
+      const docsToMerge = [];
+
+      // Iterate categories in order
+      for (const category of Object.values(DOCUMENT_CATEGORIES)) {
+        for (const item of category.items) {
+          const doc = documents[item.id];
+          if (doc && doc.uploaded && doc.fileUrl) {
+            // Determine type
+            let type = 'unknown';
+            if (doc.fileName) {
+              const ext = doc.fileName.split('.').pop()?.toLowerCase();
+              if (ext) type = ext;
+            }
+            // Normalize type for backend
+            if (type === 'jpeg') type = 'jpg';
+
+            docsToMerge.push({
+              url: doc.fileUrl,
+              name: item.name,
+              type: type
+            });
+          }
+        }
+      }
+
+      if (docsToMerge.length === 0) {
+        toast({
+          title: "No hay documentos",
+          description: "No hay documentos subidos para descargar.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('Sending documents to merge:', docsToMerge);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/merge-documents`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ documents: docsToMerge })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Documentos_${candidateName.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Descarga completada",
+        description: "El PDF unificado se ha descargado correctamente.",
+      });
+
+    } catch (error: any) {
+      console.error('Error downloading all documents:', error);
+      toast({
+        title: "Error en la descarga",
+        description: error.message || "No se pudo generar el PDF unificado.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -697,8 +882,24 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
       {/* Header */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl text-center">
+          <CardTitle className="text-xl text-center relative">
             REQUISITOS INGRESO DE PERSONAL
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="absolute right-0 top-0 gap-2"
+                onClick={handleDownloadAll}
+                disabled={isDownloading}
+              >
+                {isDownloading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Descargar Todo PDF
+              </Button>
+            )}
           </CardTitle>
           <p className="text-center text-gray-600">
             A continuación, encontrará el listado de documentos que usted debe aportar para el ingreso a la empresa<br />
@@ -762,170 +963,212 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
               {category.items
                 .filter((item) => isAdmin || item.id !== 'examenes-medicos')
                 .map((item) => {
-                const doc = documents[item.id];
-                const isUploading = uploading[item.id];
+                  const doc = documents[item.id];
+                  const isUploading = uploading[item.id];
 
-                return (
-                  <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3 flex-1">
-                      {doc?.uploaded ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                      ) : item.required ? (
-                        <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                      ) : (
-                        <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                      )}
-
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">
-                          {item.name}
-                          {item.required && <span className="text-red-500 ml-1">*</span>}
-                        </div>
-                        {item.description && (
-                          <div className="text-xs text-gray-500 mt-1">{item.description}</div>
+                  return (
+                    <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3 flex-1">
+                        {doc?.uploaded ? (
+                          <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                        ) : item.required ? (
+                          <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
                         )}
-                        {doc?.uploaded && doc.uploadedAt && (
-                          <div className="text-xs text-green-600 mt-1">
-                            Subido el {new Date(doc.uploadedAt).toLocaleDateString('es-ES')}
+
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">
+                            {item.name}
+                            {item.required && <span className="text-red-500 ml-1">*</span>}
                           </div>
+                          {item.description && (
+                            <div className="text-xs text-gray-500 mt-1">{item.description}</div>
+                          )}
+                          {doc?.uploaded && doc.uploadedAt && (
+                            <div className="text-xs text-green-600 mt-1">
+                              Subido el {new Date(doc.uploadedAt).toLocaleDateString('es-ES')}
+                            </div>
+                          )}
+                          {doc?.feedback && (
+                            <div className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              Feedback: {doc.feedback}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {doc?.uploaded && doc.fileUrl && (
+                          <div className="flex items-center gap-1">
+                            {getFileIcon(doc.fileName || doc.fileUrl)}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDocument(doc)}
+                              title="Ver documento"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {isAdmin && !isReadOnly ? (
+                          // Admin view: Show all management buttons including upload (only if not read-only)
+                          <div className="flex items-center gap-2">
+                            {/* Status Badges for Admin */}
+                            {doc?.uploaded && (
+                              <>
+                                {doc.status === 'approved' && <Badge variant="default" className="bg-green-600 hover:bg-green-700">Aprobado</Badge>}
+                                {doc.status === 'rejected' && <Badge variant="destructive">Rechazado</Badge>}
+                                {doc.status === 'pending' && <Badge variant="outline">Pendiente</Badge>}
+                              </>
+                            )}
+
+                            {/* Upload/Replace button for recruiters */}
+                            <div>
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
+                                onChange={(e) => handleFileSelect(item.id, e)}
+                                className="hidden"
+                                id={`file-${item.id}`}
+                                disabled={isUploading}
+                              />
+                              <label htmlFor={`file-${item.id}`}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                  disabled={isUploading}
+                                >
+                                  <span className="cursor-pointer">
+                                    {isUploading ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600 mr-2"></div>
+                                        Subiendo...
+                                      </>
+                                    ) : doc?.uploaded ? (
+                                      <>
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Reemplazar
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Subir
+                                      </>
+                                    )}
+                                  </span>
+                                </Button>
+                              </label>
+                            </div>
+
+                            {/* Management buttons - only show if document is uploaded */}
+                            {doc?.uploaded && (
+                              <div className="flex items-center gap-1">
+                                {doc.status !== 'approved' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleUpdateStatus(item.id, 'approved')}
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    title="Aprobar documento"
+                                    disabled={processingStatus}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {doc.status !== 'rejected' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openRejectDialog(item.id)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    title="Rechazar documento"
+                                    disabled={processingStatus}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDeleteDocument(item.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="Eliminar documento"
+                                  disabled={processingStatus}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Show re-upload requested indicator */}
+                            {doc?.needsReupload && !doc?.uploaded && (
+                              <Badge variant="outline" className="text-orange-600 border-orange-300">
+                                Re-carga solicitada
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          // Public view: Hide upload button once document is uploaded
+                          !isReadOnly && (
+                            <div className="flex items-center gap-2">
+                              {doc?.uploaded && (
+                                <>
+                                  {doc.status === 'approved' && <Badge variant="default" className="bg-green-600 hover:bg-green-700">Aprobado</Badge>}
+                                  {doc.status === 'rejected' && <Badge variant="destructive">Rechazado</Badge>}
+                                  {doc.status === 'pending' && <Badge variant="outline">Pendiente</Badge>}
+                                </>
+                              )}
+                              {!doc?.uploaded || doc?.needsReupload ? (
+                                <div>
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
+                                    onChange={(e) => handleFileSelect(item.id, e)}
+                                    className="hidden"
+                                    id={`file-${item.id}`}
+                                    disabled={isUploading}
+                                  />
+                                  <label htmlFor={`file-${item.id}`}>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      asChild
+                                      disabled={isUploading}
+                                    >
+                                      <span className="cursor-pointer">
+                                        {isUploading ? (
+                                          <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600 mr-2"></div>
+                                            Subiendo...
+                                          </>
+                                        ) : doc?.needsReupload ? (
+                                          <>
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            Subir corregido
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            Subir
+                                          </>
+                                        )}
+                                      </span>
+                                    </Button>
+                                  </label>
+                                </div>
+                              ) : null}
+                            </div>
+                          )
                         )}
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      {doc?.uploaded && doc.fileUrl && (
-                        <div className="flex items-center gap-1">
-                          {getFileIcon(doc.fileName || doc.fileUrl)}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDocument(doc)}
-                            title="Ver documento"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-
-                      {isAdmin && !isReadOnly ? (
-                        // Admin view: Show all management buttons including upload (only if not read-only)
-                        <div className="flex items-center gap-2">
-                          {/* Upload/Replace button for recruiters */}
-                          <div>
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
-                              onChange={(e) => handleFileSelect(item.id, e)}
-                              className="hidden"
-                              id={`file-${item.id}`}
-                              disabled={isUploading}
-                            />
-                            <label htmlFor={`file-${item.id}`}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                disabled={isUploading}
-                              >
-                                <span className="cursor-pointer">
-                                  {isUploading ? (
-                                    <>
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600 mr-2"></div>
-                                      Subiendo...
-                                    </>
-                                  ) : doc?.uploaded ? (
-                                    <>
-                                      <Upload className="h-4 w-4 mr-2" />
-                                      Reemplazar
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Upload className="h-4 w-4 mr-2" />
-                                      Subir
-                                    </>
-                                  )}
-                                </span>
-                              </Button>
-                            </label>
-                          </div>
-
-                          {/* Management buttons - only show if document is uploaded */}
-                          {doc?.uploaded && (
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDeleteDocument(item.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                title="Eliminar documento"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRequestReupload(item.id)}
-                                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                title="Solicitar re-carga"
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-
-                          {/* Show re-upload requested indicator */}
-                          {doc?.needsReupload && !doc?.uploaded && (
-                            <Badge variant="outline" className="text-orange-600 border-orange-300">
-                              Re-carga solicitada
-                            </Badge>
-                          )}
-                        </div>
-                      ) : (
-                        // Public view: Hide upload button once document is uploaded
-                        !doc?.uploaded && (
-                          <div>
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx"
-                              onChange={(e) => handleFileSelect(item.id, e)}
-                              className="hidden"
-                              id={`file-${item.id}`}
-                              disabled={isUploading}
-                            />
-                            <label htmlFor={`file-${item.id}`}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                disabled={isUploading}
-                              >
-                                <span className="cursor-pointer">
-                                  {isUploading ? (
-                                    <>
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600 mr-2"></div>
-                                      Subiendo...
-                                    </>
-                                  ) : doc?.needsReupload ? (
-                                    <>
-                                      <Upload className="h-4 w-4 mr-2" />
-                                      Subir corregido
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Upload className="h-4 w-4 mr-2" />
-                                      Subir
-                                    </>
-                                  )}
-                                </span>
-                              </Button>
-                            </label>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </CardContent>
         </Card>
@@ -948,6 +1191,39 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
         documentName={viewerDocument.name}
         documentType={viewerDocument.type}
       />
+      {/* Reject Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar Documento</DialogTitle>
+            <DialogDescription>
+              Por favor indica el motivo del rechazo. Este mensaje será visible para el candidato.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="feedback">Motivo del rechazo</Label>
+              <Textarea
+                id="feedback"
+                value={rejectionFeedback}
+                onChange={(e) => setRejectionFeedback(e.target.value)}
+                placeholder="Ej: El documento no es legible, falta la firma, etc."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              onClick={() => selectedDocumentId && handleUpdateStatus(selectedDocumentId, 'rejected', rejectionFeedback)}
+              disabled={!rejectionFeedback.trim() || processingStatus}
+            >
+              {processingStatus ? 'Procesando...' : 'Rechazar Documento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
