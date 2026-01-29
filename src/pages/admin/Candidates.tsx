@@ -1227,10 +1227,14 @@ const Candidates = () => {
           const hour12 = hour24 % 12 || 12;
           const timeFormatted = `${hour12}:${minutes} ${ampm}`;
 
-          const interviewTypeText = currentInterviewType === 'entrevista-rc' ? 'RC/Tecnica' : 'Tecnica';
           const dateTimeStr = `${meetingData.date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
 
-          const message = `Felicidades, está en proceso de entrevista ${interviewTypeText}, quedo para el día ${dateTimeStr} con este link: ${meetingData.meetingLink}`;
+          const interviewTypeName = currentInterviewType === 'entrevista-rc' ? 'Entrevista con Recursos Humanos' : 'Entrevista Técnica';
+          const locationInfo = meetingData.modality === 'presencial'
+            ? `Te esperamos en la siguiente dirección: ${meetingData.address}`
+            : `Te puedes conectar mediante el siguiente enlace: ${meetingData.meetingLink}`;
+
+          const message = `Felicidades, has avanzado a la fase de *${interviewTypeName}*. La cita quedó programada para el día ${dateTimeStr}. ${locationInfo}`;
 
           const { sendEvolutionMessage } = await import('@/utils/evolution-api');
           await sendEvolutionMessage(currentCandidate.phone, message, true);
