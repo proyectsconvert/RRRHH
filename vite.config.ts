@@ -5,8 +5,13 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
+    host: true,
     port: 8080,
+  },
+  preview: {
+    host: true,
+    port: 4173,
+    strictPort: true,
   },
   plugins: [
     react(),
@@ -18,7 +23,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     // Optimizaciones para producción
-    minify: 'terser',
+    // minify: 'terser', // Desactivado temporalmente para debug
     terserOptions: {
       compress: {
         drop_console: true, // Elimina console.log en producción
@@ -29,30 +34,16 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Separate Supabase client into its own chunk
-          if (id.includes('supabase/client')) {
-            return 'supabase-client';
-          }
-          // Separate PDF.js into its own chunk
-          if (id.includes('pdfjs-dist')) {
-            return 'pdfjs';
-          }
-          // Separate evolution-api utils
-          if (id.includes('evolution-api')) {
-            return 'evolution-api';
-          }
-          // Vendor chunk for React and core libraries
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'vendor';
+            // Solo separamos las librerías más pesadas
+            if (id.includes('pdfjs-dist')) {
+              return 'vendor-pdf';
             }
-            if (id.includes('@radix-ui')) {
-              return 'ui';
+            if (id.includes('mammoth') || id.includes('xlsx') || id.includes('jspdf')) {
+              return 'vendor-utils';
             }
-            if (id.includes('@supabase')) {
-              return 'supabase';
-            }
-            return 'vendor-other';
+            // El resto que se maneje por defecto o en un solo chunk de vendor
+            return 'vendor';
           }
         },
       },
