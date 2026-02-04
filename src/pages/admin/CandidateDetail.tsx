@@ -12,6 +12,7 @@ import ResumeContent from '@/components/candidates/ResumeContent';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
@@ -33,6 +34,13 @@ import {
 } from '@/services/candidate-service';
 import { getStatusText, getJobTypeText } from '@/utils/formatters';
 import { Candidate } from '@/types/candidate';
+
+interface Campaign {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+}
 
 const CandidateDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -58,6 +66,17 @@ const CandidateDetail: React.FC = () => {
   const [isHireDialogOpen, setIsHireDialogOpen] = useState(false);
   const [hireStartDate, setHireStartDate] = useState<Date | undefined>(undefined);
   const [textExtracted, setTextExtracted] = useState(false);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [selectedCampaign, setSelectedCampaign] = useState("");
+
+  // Training Session State
+  const [trainingTitle, setTrainingTitle] = useState("");
+  const [trainingDate, setTrainingDate] = useState<Date | undefined>(undefined);
+  const [trainingTime, setTrainingTime] = useState("09:00");
+  const [trainingDescription, setTrainingDescription] = useState("");
+  const [trainingModality, setTrainingModality] = useState<'virtual' | 'presencial'>('virtual');
+  const [trainingAddress, setTrainingAddress] = useState("");
+  const [trainingLink, setTrainingLink] = useState("");
 
   // Debug: Log when component mounts and receives props
   useEffect(() => {
@@ -177,6 +196,23 @@ const CandidateDetail: React.FC = () => {
 
     if (id) loadCandidate();
     fetchRecruiters();
+
+    const fetchActiveCampaigns = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('campaigns')
+          .select('*')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setCampaigns(data || []);
+      } catch (error) {
+        console.error('Error fetching campaigns:', error);
+      }
+    };
+
+    fetchActiveCampaigns();
   }, [id, toast, dataLoaded, candidate?.id, recruiters.length]);
 
 
@@ -423,8 +459,7 @@ const CandidateDetail: React.FC = () => {
 
   const handleStatusChange = async () => {
     console.log('handleStatusChange called with newStatus:', newStatus);
-    // DEBUG: Alert to verify execution
-    window.alert(`DEBUG: handleStatusChange called. New Status: '${newStatus}' (Length: ${newStatus.length})`);
+
 
     if (!newStatus || !candidate) {
       console.log('Missing newStatus or candidate');
@@ -445,112 +480,175 @@ const CandidateDetail: React.FC = () => {
       setIsTeamsDialogOpen(true);
       setStatusModalOpen(false);
       return; // STOP HERE
-    } else {
-      // ONLY proceed with DB update if NOT an interview status
-      console.log('Proceeding with database update for status:', targetStatus);
+    }
 
-      // Check permissions before allowing status change
-      if (!canModifyCandidate(candidate)) {
+    // For asignar-campana, we now handle it inline in the dialog, so we proceed to execution
+    // but first we validate if fields are filled if status is asignar-campana
+    if (targetStatus === 'asignar-campana') {
+      if (!trainingDate || !trainingTime) {
         toast({
-          title: "Acceso denegado",
-          description: "No tienes permisos para cambiar el estado de este candidato",
-          variant: "destructive"
-        });
-        setStatusModalOpen(false);
-        return;
-      }
-
-      // Check if candidate is already hired - prevent status changes except "retirar" or "finalizar-contrato"
-      const isHired = candidate.applications?.some(app => app.status === 'contratado');
-      if (isHired && newStatus !== 'retirar' && newStatus !== 'finalizar-contrato') {
-        toast({
-          title: "Estado Final",
-          description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar' o 'Finalizar Contrato'.",
-          variant: "destructive"
-        });
-        setStatusModalOpen(false);
-        return;
-      }
-
-      console.log('Proceeding with database update for status:', targetStatus);
-
-      // SAFETY CHECK: Ensure we never update to interview status here (redundant but necessary)
-      if (targetStatus === 'entrevista-rc' || targetStatus === 'entrevista-et') {
-        console.error('CRITICAL ERROR: Attempted to update to interview status outside of dialog flow');
-        toast({
-          title: "Error Crítico",
-          description: "Error interno: Intento de actualización de estado inválido.",
+          title: "Campos requeridos",
+          description: "Por favor selecciona fecha y hora para el inicio de formación",
           variant: "destructive"
         });
         return;
       }
+      if (trainingModality === 'virtual' && !trainingLink) {
+        toast({
+          title: "Campos requeridos",
+          description: "Por favor ingresa el link de la reunión",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (trainingModality === 'presencial' && !trainingAddress) {
+        toast({
+          title: "Campos requeridos",
+          description: "Por favor ingresa la dirección",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
 
-      try {
-        // Update status for all candidate applications
-        const updates = [];
-        if (candidate.applications) {
-          for (const app of candidate.applications) {
-            updates.push(
-              supabase
-                .from('applications')
-                .update({
-                  status: newStatus,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', app.id)
-            );
+    // ONLY proceed with DB update if NOT an interview status
+    console.log('Proceeding with database update for status:', targetStatus);
+
+    // Check permissions before allowing status change
+    if (!canModifyCandidate(candidate)) {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para cambiar el estado de este candidato",
+        variant: "destructive"
+      });
+      setStatusModalOpen(false);
+      return;
+    }
+
+    // Check if candidate is already hired - prevent status changes except "retirar" or "finalizar-contrato"
+    const isHired = candidate.applications?.some(app => app.status === 'contratado');
+    if (isHired && newStatus !== 'retirar' && newStatus !== 'finalizar-contrato') {
+      toast({
+        title: "Estado Final",
+        description: "Este candidato ya está contratado. Solo se puede cambiar a 'Retirar' o 'Finalizar Contrato'.",
+        variant: "destructive"
+      });
+      setStatusModalOpen(false);
+      return;
+    }
+
+    console.log('Proceeding with database update for status:', targetStatus);
+
+    // SAFETY CHECK: Ensure we never update to interview status here (redundant but necessary)
+    if (targetStatus === 'entrevista-rc' || targetStatus === 'entrevista-et') {
+      console.error('CRITICAL ERROR: Attempted to update to interview status outside of dialog flow');
+      toast({
+        title: "Error Crítico",
+        description: "Error interno: Intento de actualización de estado inválido.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Update status for all candidate applications
+      const updates = [];
+      if (candidate.applications) {
+        for (const app of candidate.applications) {
+          updates.push(
+            supabase
+              .from('applications')
+              .update({
+                status: newStatus,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', app.id)
+          );
+        }
+      }
+
+      await Promise.all(updates);
+
+      // If status is asignar-campana (Inicio de formación), send WhatsApp message
+      if (targetStatus === 'asignar-campana' && candidate.phone && trainingDate) {
+        try {
+          // Format time
+          const [hours, minutes] = trainingTime.split(':');
+          const hour24 = parseInt(hours);
+          const ampm = hour24 >= 12 ? 'PM' : 'AM';
+          const hour12 = hour24 % 12 || 12;
+          const timeFormatted = `${hour12}:${minutes} ${ampm}`;
+          const dateTimeStr = `${trainingDate.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
+
+          const campaignName = campaigns.find(c => c.id === selectedCampaign)?.name || 'la campaña';
+
+          const locationInfo = trainingModality === 'presencial'
+            ? `Te esperamos en la siguiente dirección: ${trainingAddress}`
+            : `Te puedes conectar mediante el siguiente enlace: ${trainingLink}`;
+
+          const message = `Felicidades, te informamos que avanzaste a *Inicio de Formación* en la campaña ${campaignName}.. La cita quedó programada para el día ${dateTimeStr}. ${locationInfo}\n\nDetalles adicionales: ${trainingDescription || 'Ninguno'}`;
+
+          const { sendEvolutionMessage } = await import('@/utils/evolution-api');
+          await sendEvolutionMessage(candidate.phone, message, true);
+          console.log('Training session message sent');
+        } catch (msgError) {
+          console.error('Error sending training message:', msgError);
+          toast({
+            title: "Advertencia",
+            description: "Estado actualizado pero falló el envío del mensaje de WhatsApp",
+            variant: "destructive"
+          });
+        }
+      }
+
+      await Promise.all(updates);
+
+      // Send welcome message to candidates whose status changed to "proceso-contratacion"
+      if (newStatus === 'proceso-contratacion') {
+        if (candidate.phone) {
+          try {
+            const candidateName = `${candidate.first_name} ${candidate.last_name}`;
+
+            // Generate access token for this candidate
+            const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
+            const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
+
+            await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
+            console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
+          } catch (error) {
+            console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
+            toast({
+              title: "Advertencia",
+              description: "El estado se cambió correctamente pero no se pudo enviar el mensaje de WhatsApp",
+              variant: "destructive"
+            });
           }
+        } else {
+          console.warn(`No phone number found for candidate ${candidate.first_name} ${candidate.last_name}`);
         }
-
-        await Promise.all(updates);
-
-        // Send welcome message to candidates whose status changed to "proceso-contratacion"
-        if (newStatus === 'proceso-contratacion') {
-          if (candidate.phone) {
-            try {
-              const candidateName = `${candidate.first_name} ${candidate.last_name}`;
-
-              // Generate access token for this candidate
-              const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
-              const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
-
-              await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
-              console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
-            } catch (error) {
-              console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
-              toast({
-                title: "Advertencia",
-                description: "El estado se cambió correctamente pero no se pudo enviar el mensaje de WhatsApp",
-                variant: "destructive"
-              });
-            }
-          } else {
-            console.warn(`No phone number found for candidate ${candidate.first_name} ${candidate.last_name}`);
-          }
-        }
-
-        toast({
-          title: "Estado actualizado",
-          description: "El estado del candidato ha sido actualizado correctamente",
-        });
-
-        setStatusModalOpen(false);
-        setNewStatus("");
-        setSelectedRecruiter("");
-
-        // Refresh candidate data
-        if (id) {
-          const candidateData = await fetchCandidateDetails(id);
-          setCandidate(candidateData);
-        }
-      } catch (error) {
-        console.error('Error updating status:', error);
-        toast({
-          title: "Error",
-          description: "No se pudo actualizar el estado del candidato",
-          variant: "destructive"
-        });
       }
+
+      toast({
+        title: "Estado actualizado",
+        description: "El estado del candidato ha sido actualizado correctamente",
+      });
+
+      setStatusModalOpen(false);
+      setNewStatus("");
+      setSelectedRecruiter("");
+
+      // Refresh candidate data
+      if (id) {
+        const candidateData = await fetchCandidateDetails(id);
+        setCandidate(candidateData);
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado del candidato",
+        variant: "destructive"
+      });
     }
   };
 
@@ -721,12 +819,32 @@ const CandidateDetail: React.FC = () => {
 
           const dateTimeStr = `${meetingData.date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
 
-          const interviewTypeName = currentInterviewType === 'entrevista-rc' ? 'Entrevista con Recursos Humanos' : 'Entrevista Técnica';
+          let interviewTypeName = '';
+          let messageIntro = '';
+
+          switch (currentInterviewType) {
+            case 'entrevista-rc':
+              interviewTypeName = 'Entrevista con Recursos Humanos';
+              messageIntro = 'Felicidades, has avanzado a la fase de';
+              break;
+            case 'entrevista-et':
+              interviewTypeName = 'Entrevista Técnica';
+              messageIntro = 'Felicidades, has avanzado a la fase de';
+              break;
+            default:
+              interviewTypeName = 'Entrevista';
+              messageIntro = 'Felicidades, has avanzado a la fase de';
+          }
+
           const locationInfo = meetingData.modality === 'presencial'
             ? `Te esperamos en la siguiente dirección: ${meetingData.address}`
             : `Te puedes conectar mediante el siguiente enlace: ${meetingData.meetingLink}`;
 
-          const message = `Felicidades, has avanzado a la fase de *${interviewTypeName}*. La cita quedó programada para el día ${dateTimeStr}. ${locationInfo}`;
+          let message = `${messageIntro} *${interviewTypeName}*. La cita quedó programada para el día ${dateTimeStr}. ${locationInfo}`;
+
+          if (currentInterviewType === 'entrevista-rc' && meetingData.description) {
+            message += `\n\nDetalles adicionales: ${meetingData.description}`;
+          }
 
           const { sendEvolutionMessage } = await import('@/utils/evolution-api');
           await sendEvolutionMessage(candidate.phone, message, true);
@@ -962,7 +1080,7 @@ const CandidateDetail: React.FC = () => {
 
       {/* Status Change Dialog */}
       <Dialog open={isStatusModalOpen} onOpenChange={setStatusModalOpen}>
-        <DialogContent className="sm:max-w-[425px] p-0 border-none shadow-none">
+        <DialogContent className={cn("p-0 border-none shadow-none transition-all duration-300", newStatus === 'asignar-campana' ? "sm:max-w-[800px]" : "sm:max-w-[425px]")}>
           <DialogHeader className="bg-hrm-dark-primary py-9 px-6 rounded-t-lg border-none shadow-none">
             <DialogTitle className="text-white text-xl">Cambiar Estado del Candidato</DialogTitle>
             <DialogDescription className="text-gray-200">
@@ -982,7 +1100,7 @@ const CandidateDetail: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
                   <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
-                  <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
+                  <SelectItem value="asignar-campana">Inicio de formación</SelectItem>
                   <SelectItem value="proceso-contratacion">Proceso de contratación</SelectItem>
                   <SelectItem value="training">En Formación</SelectItem>
 
@@ -1012,6 +1130,149 @@ const CandidateDetail: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* --- SELECT DE CAMPAÑA Y CAMPOS DE FORMACIÓN --- */}
+            {newStatus === 'asignar-campana' && (
+              <>
+                {/* Campaña Selector - Existing */}
+                {campaigns.length > 0 && (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="campaign" className="text-right">
+                      Campaña
+                    </Label>
+                    <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+                      <SelectTrigger id="campaign" className="col-span-3">
+                        <SelectValue placeholder="Selecciona una campaña activa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {campaigns.map((campaign) => (
+                          <SelectItem key={campaign.id} value={campaign.id}>
+                            {campaign.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Training Session Fields - 2 Column Layout */}
+                <div className="col-span-4 space-y-4 border-t pt-4 mt-2">
+                  <h4 className="font-medium text-sm text-gray-900 mb-2">Detalles de la sesión de formación</h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left Column */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="trainingTitle">Título de la sesión</Label>
+                        <Input
+                          id="trainingTitle"
+                          value={trainingTitle}
+                          onChange={(e) => setTrainingTitle(e.target.value)}
+                          placeholder="Ej. Sesión de Bienvenida"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Modalidad</Label>
+                        <div className="flex gap-4 p-2 border rounded-md bg-gray-50/50">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              id="virtual"
+                              name="modality"
+                              checked={trainingModality === 'virtual'}
+                              onChange={() => setTrainingModality('virtual')}
+                              className="cursor-pointer"
+                            />
+                            <Label htmlFor="virtual" className="cursor-pointer font-normal">Virtual</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              id="presencial"
+                              name="modality"
+                              checked={trainingModality === 'presencial'}
+                              onChange={() => setTrainingModality('presencial')}
+                              className="cursor-pointer"
+                            />
+                            <Label htmlFor="presencial" className="cursor-pointer font-normal">Presencial</Label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={trainingModality === 'virtual' ? "trainingLink" : "trainingAddress"}>
+                          {trainingModality === 'virtual' ? "Link de la reunión" : "Dirección"}
+                        </Label>
+                        {trainingModality === 'virtual' ? (
+                          <Input
+                            id="trainingLink"
+                            value={trainingLink}
+                            onChange={(e) => setTrainingLink(e.target.value)}
+                            placeholder="https://..."
+                          />
+                        ) : (
+                          <Input
+                            id="trainingAddress"
+                            value={trainingAddress}
+                            onChange={(e) => setTrainingAddress(e.target.value)}
+                            placeholder="Dirección completa"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Fecha y Hora</Label>
+                        <div className="flex gap-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !trainingDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {trainingDate ? format(trainingDate, "PPP", { locale: es }) : "Fecha"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={trainingDate}
+                                onSelect={setTrainingDate}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Input
+                            type="time"
+                            value={trainingTime}
+                            onChange={(e) => setTrainingTime(e.target.value)}
+                            className="w-[120px]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="trainingDescription">Descripción / Notas</Label>
+                        <textarea
+                          id="trainingDescription"
+                          value={trainingDescription}
+                          onChange={(e) => setTrainingDescription(e.target.value)}
+                          placeholder="Detalles adicionales para el candidato..."
+                          className="flex min-h-[105px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200">

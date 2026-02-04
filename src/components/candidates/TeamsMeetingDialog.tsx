@@ -19,7 +19,7 @@ interface TeamsMeetingDialogProps {
   onMeetingCreated: (meetingData: MeetingData) => void;
   onSkipMeeting?: () => void;
   candidateName: string;
-  interviewType: 'entrevista-rc' | 'entrevista-et';
+  interviewType: 'entrevista-rc' | 'entrevista-et' | 'asignar-campana';
 }
 
 export interface MeetingData {
@@ -41,17 +41,49 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
   candidateName,
   interviewType
 }) => {
-  const [title, setTitle] = useState(`Entrevista ${interviewType === 'entrevista-rc' ? 'Recursos Humanos' : 'Técnica'} - ${candidateName}`);
+  const getInitialTitle = () => {
+    switch (interviewType) {
+      case 'entrevista-rc': return `Entrevista Recursos Humanos - ${candidateName}`;
+      case 'entrevista-et': return `Entrevista Técnica - ${candidateName}`;
+      case 'asignar-campana': return `Sesión de Formación - ${candidateName}`;
+      default: return `Reunión - ${candidateName}`;
+    }
+  };
+
+  const getInitialDescription = () => {
+    switch (interviewType) {
+      case 'entrevista-rc': return `Entrevista de Recursos Humanos con ${candidateName}`;
+      case 'entrevista-et': return `Entrevista Técnica con ${candidateName}`;
+      case 'asignar-campana': return `Sesión de inicio de formación para ${candidateName}`;
+      default: return `Reunión con ${candidateName}`;
+    }
+  };
+
+  const [title, setTitle] = useState(getInitialTitle());
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState('09:00');
   const [duration, setDuration] = useState(60);
-  const [description, setDescription] = useState(`Entrevista ${interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'Técnica'} con ${candidateName}`);
+  const [description, setDescription] = useState(getInitialDescription());
   const [meetingLink, setMeetingLink] = useState('');
   const [modality, setModality] = useState<'virtual' | 'presencial'>('virtual');
   const [address, setAddress] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const interviewTypeLabel = interviewType === 'entrevista-rc' ? 'Recursos Humanos' : 'Técnica';
+  // Update effect to reset fields when type or name changes would be ideal, 
+  // but state initialization only happens once. relying on key or manual reset in parent if needed.
+  // Or better, use a useEffect here to update if props change significantly when reopening.
+  // For now simple init is okay assuming component remounts or key changes.
+
+  const getTypeLabel = () => {
+    switch (interviewType) {
+      case 'entrevista-rc': return 'Recursos Humanos';
+      case 'entrevista-et': return 'Técnica';
+      case 'asignar-campana': return 'Inicio de Formación';
+      default: return '';
+    }
+  };
+
+  const interviewTypeLabel = getTypeLabel();
 
   const handleCreateMeeting = async () => {
     // Validate required fields based on modality
@@ -80,12 +112,12 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
       onMeetingCreated(meetingData);
       onClose();
 
-      // Reset form
-      setTitle(`Entrevista ${interviewTypeLabel} - ${candidateName}`);
+      // Reset form (optional, state will be mostly reset by unmount usually)
+      setTitle(getInitialTitle());
       setDate(undefined);
       setTime('09:00');
       setDuration(60);
-      setDescription(`Entrevista ${interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'Técnica'} con ${candidateName}`);
+      setDescription(getInitialDescription());
       setMeetingLink('');
       setModality('virtual');
       setAddress('');
@@ -102,10 +134,13 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Video className="h-5 w-5 text-blue-600" />
-            Programar Entrevista {interviewTypeLabel}
+            {interviewType === 'asignar-campana' ? 'Programar Inicio de Formación' : `Programar Entrevista ${interviewTypeLabel}`}
           </DialogTitle>
           <DialogDescription>
-            Programa la entrevista {interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'técnica'} para {candidateName}
+            {interviewType === 'asignar-campana'
+              ? `Programa la sesión de inicio de formación para ${candidateName}`
+              : `Programa la entrevista ${interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'técnica'} para ${candidateName}`
+            }
           </DialogDescription>
         </DialogHeader>
 

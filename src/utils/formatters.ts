@@ -2,14 +2,14 @@
 // Translation helpers for application status and job types
 
 export function getStatusText(status: string) {
-  const statusMap: {[key: string]: string} = {
+  const statusMap: { [key: string]: string } = {
     'new': 'Nuevo Candidato',
     'applied': 'Aplicado',
     'under_review': 'Bajo Revisión',
     'entrevista-rc': 'Entrevista Inicial',
     'entrevista-et': 'Entrevista Técnica',
     'prueba-tecnica': 'Prueba Técnica',
-    'asignar-campana': 'En Campaña',
+    'asignar-campana': 'Inicio de formación',
     'proceso-contratacion': 'Proceso de Contratación',
     'contratar': 'Proceso de Contratación',
     'contratado': 'Contratado',
@@ -29,7 +29,7 @@ export function getStatusText(status: string) {
 }
 
 export function getJobTypeText(type: string) {
-  const typeMap: {[key: string]: string} = {
+  const typeMap: { [key: string]: string } = {
     'full-time': 'Tiempo Completo',
     'part-time': 'Medio Tiempo',
     'contract': 'Contrato',

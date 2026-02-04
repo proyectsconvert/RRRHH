@@ -59,6 +59,7 @@ export interface Candidate {
   last_name: string;
   email: string;
   phone?: string;
+  cedula?: string;
   document_id?: string;
   location?: string;
   experience_years?: number;
