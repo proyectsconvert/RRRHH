@@ -26,6 +26,9 @@ import { generateCandidateAccessToken } from "@/utils/candidate-access";
 import TeamsMeetingDialog, { MeetingData } from "@/components/candidates/TeamsMeetingDialog";
 import { analyzeResume, saveAnalysisData, transferCandidate } from "@/services/candidate-service";
 import * as XLSX from 'xlsx';
+import { DOCUMENT_CATEGORIES } from "@/components/candidates/DocumentChecklist";
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 interface Job {
   id?: string;
@@ -174,6 +177,7 @@ const Candidates = () => {
   const [transcriptionStatus, setTranscriptionStatus] = useState<{ [key: string]: 'pending' | 'processing' | 'completed' | 'failed' }>({});
   const [analysisStatus, setAnalysisStatus] = useState<{ [key: string]: 'pending' | 'analyzing' | 'completed' | 'failed' }>({});
   const [processedCandidates, setProcessedCandidates] = useState<Set<string>>(new Set());
+  const [downloadingDocs, setDownloadingDocs] = useState(false);
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -1442,6 +1446,145 @@ const Candidates = () => {
     return 'text-green-500';
   };
 
+  const handleDownloadSelectedDocuments = async () => {
+    if (selectedCandidates.length === 0) return;
+
+    try {
+      setDownloadingDocs(true);
+      toast({
+        title: "Preparando descarga",
+        description: "Obteniendo documentos de los candidatos seleccionados...",
+      });
+
+      // Fetch all documents for selected candidates
+      const { data: allDocs, error } = await supabase
+        .from('candidate_documents')
+        .select('*')
+        .in('candidate_id', selectedCandidates);
+
+      if (error) throw error;
+
+      if (!allDocs || allDocs.length === 0) {
+        toast({
+          title: "Sin documentos",
+          description: "Ninguno de los candidatos seleccionados tiene documentos subidos.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const zip = new JSZip();
+      const { data: { session } } = await supabase.auth.getSession();
+      let successCount = 0;
+
+      // Group documents by candidate
+      for (const candidateId of selectedCandidates) {
+        const candidate = candidates.find(c => c.id === candidateId);
+        if (!candidate) continue;
+
+        const candidateDocs = allDocs.filter(doc => doc.candidate_id === candidateId);
+        if (candidateDocs.length === 0) continue;
+
+        // Process this candidate's documents
+        const docsToMerge: any[] = [];
+
+        // Sort documents by category order defined in DOCUMENT_CATEGORIES
+        const sortedCandidateDocs = [];
+        for (const category of Object.values(DOCUMENT_CATEGORIES)) {
+          for (const item of category.items) {
+            const doc = candidateDocs.find(d => d.document_type === item.id);
+            if (doc) {
+              sortedCandidateDocs.push(doc);
+            }
+          }
+        }
+
+        // Generate signed URLs for each document
+        for (const doc of sortedCandidateDocs) {
+          try {
+            const urlParts = doc.file_url.split('/');
+            const fileName = urlParts[urlParts.length - 1].split('?')[0];
+            const filePath = `${candidateId}/${fileName}`;
+
+            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+              .from('candidate-documents')
+              .createSignedUrl(filePath, 3600);
+
+            if (!signedUrlError && signedUrlData?.signedUrl) {
+              let type = doc.file_name.split('.').pop()?.toLowerCase() || 'unknown';
+              if (type === 'jpeg') type = 'jpg';
+
+              docsToMerge.push({
+                url: signedUrlData.signedUrl,
+                name: `${candidate.first_name} ${candidate.last_name} - ${doc.document_type}`,
+                type: type
+              });
+            }
+          } catch (err) {
+            console.warn(`Error generating signed URL for doc ${doc.id}:`, err);
+          }
+        }
+
+        if (docsToMerge.length > 0) {
+          // Generate PDF for this single candidate
+          try {
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/merge-documents`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session?.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ documents: docsToMerge })
+            });
+
+            if (response.ok) {
+              const blob = await response.blob();
+              const fileName = `${candidate.first_name}_${candidate.last_name}_${candidate.cedula || 'documentos'}.pdf`.replace(/\s+/g, '_');
+              zip.file(fileName, blob);
+              successCount++;
+            } else {
+              console.error(`Failed to merge docs for ${candidate.first_name}`);
+            }
+          } catch (e) {
+            console.error(`Error processing candidate ${candidate.id}`, e);
+          }
+        }
+      }
+
+      if (successCount === 0) {
+        toast({
+          title: "Error",
+          description: "No se pudieron generar los documentos PDF.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Generando ZIP",
+        description: `Comprimiendo ${successCount} archivos PDF...`,
+      });
+
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `candidatos_documentos_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.zip`);
+
+      toast({
+        title: "Descarga completada",
+        description: "El archivo ZIP ha sido descargado exitosamente.",
+      });
+
+    } catch (err: any) {
+      console.error('Error downloading documents:', err);
+      toast({
+        title: "Error en la descarga",
+        description: err.message || "No se pudieron descargar los documentos.",
+        variant: "destructive"
+      });
+    } finally {
+      setDownloadingDocs(false);
+    }
+  };
+
 
   const getInterviewFilteredCandidates = (interviewFilter: 'all' | 'entrevista-rc' | 'entrevista-et') => {
     let filtered = candidates;
@@ -1614,6 +1757,18 @@ const Candidates = () => {
             <Download className={`h-4 w-4 ${exporting ? 'animate-spin' : ''}`} />
             {exporting ? 'Exportando...' : 'Exportar Candidatos'}
           </Button>
+
+          {activeTab === 'contratados' && (
+            <Button
+              variant="outline"
+              onClick={handleDownloadSelectedDocuments}
+              disabled={downloadingDocs || selectedCandidates.length === 0}
+              className="border-hrm-teal text-hrm-teal hover:bg-hrm-teal/10 flex items-center gap-1"
+            >
+              <Download className={`h-4 w-4 ${downloadingDocs ? 'animate-spin' : ''}`} />
+              {downloadingDocs ? 'Descargando...' : 'Descargar Documentos'}
+            </Button>
+          )}
 
           {/*
           <Button className="bg-hrm-dark-cyan hover:bg-hrm-steel-blue" asChild>

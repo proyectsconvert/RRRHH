@@ -985,11 +985,11 @@ const CandidateDetail: React.FC = () => {
                   <SelectItem value="asignar-campana">Asignar Campaña</SelectItem>
                   <SelectItem value="proceso-contratacion">Proceso de contratación</SelectItem>
                   <SelectItem value="training">En Formación</SelectItem>
-                  <SelectItem value="rejected">Rechazado</SelectItem>
+
                   <SelectItem value="discarded">Descartado</SelectItem>
-                  <SelectItem value="blocked">Bloqueado</SelectItem>
+
                   <SelectItem value="finalizar-contrato">Finalizar Contrato</SelectItem>
-                  <SelectItem value="retirar">Retirar</SelectItem>
+
                 </SelectContent>
               </Select>
             </div>

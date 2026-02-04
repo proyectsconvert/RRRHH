@@ -43,7 +43,7 @@ interface DocumentChecklistProps {
   isReadOnly?: boolean; // New prop to indicate read-only mode for hired candidates
 }
 
-const DOCUMENT_CATEGORIES: Record<string, DocumentCategory> = {
+export const DOCUMENT_CATEGORIES: Record<string, DocumentCategory> = {
   basic: {
     title: "DOCUMENTACIÓN BÁSICA",
     subtitle: "SI NO N/A",
