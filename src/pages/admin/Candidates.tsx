@@ -167,7 +167,7 @@ const Candidates = () => {
   const [transferRecruiter, setTransferRecruiter] = useState("");
   const [searchQuery, setSearchQuery] = useState('');
   const [isTeamsDialogOpen, setIsTeamsDialogOpen] = useState(false);
-  const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | null>(null);
+  const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | 'prueba-tecnica' | null>(null);
   const [recruiters, setRecruiters] = useState<{ id: string, first_name: string, last_name: string }[]>([]);
   const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{ id: string, first_name: string, last_name: string } | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
@@ -1084,6 +1084,10 @@ const Candidates = () => {
                 interviewTypeName = 'Entrevista Técnica';
                 messageIntro = 'Felicidades, has avanzado a la fase de';
                 break;
+              case 'prueba-tecnica':
+                interviewTypeName = 'Prueba Técnica';
+                messageIntro = 'Felicidades, has avanzado a la fase de';
+                break;
               default:
                 interviewTypeName = 'Entrevista';
                 messageIntro = 'Felicidades, has avanzado a la fase de';
@@ -1170,8 +1174,8 @@ const Candidates = () => {
       return;
     }
 
-    // For interview statuses, update status immediately and then show Teams dialog for scheduling
-    if (newStatus === 'entrevista-rc' || newStatus === 'entrevista-et') {
+    // For interview statuses and technical tests, update status immediately and then show Teams dialog for scheduling
+    if (newStatus === 'entrevista-rc' || newStatus === 'entrevista-et' || newStatus === 'prueba-tecnica') {
       const candidate = candidates.find(c => c.id === selectedCandidates[0]);
       if (candidate) {
         setCurrentCandidate(candidate);

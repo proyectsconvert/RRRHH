@@ -57,7 +57,7 @@ const CandidateDetail: React.FC = () => {
   const [isStatusModalOpen, setStatusModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [isTeamsDialogOpen, setIsTeamsDialogOpen] = useState(false);
-  const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | null>(null);
+  const [currentInterviewType, setCurrentInterviewType] = useState<'entrevista-rc' | 'entrevista-et' | 'prueba-tecnica' | null>(null);
   const [recruiters, setRecruiters] = useState<{ id: string, first_name: string, last_name: string }[]>([]);
   const [selectedRecruiter, setSelectedRecruiter] = useState("");
   const [currentUserRecruiter, setCurrentUserRecruiter] = useState<{ id: string, first_name: string, last_name: string } | null>(null);
@@ -470,13 +470,13 @@ const CandidateDetail: React.FC = () => {
     const targetStatus = newStatus.trim();
     console.log('Target status:', targetStatus);
 
-    if (targetStatus === 'entrevista-rc' || targetStatus === 'entrevista-et') {
+    if (targetStatus === 'entrevista-rc' || targetStatus === 'entrevista-et' || targetStatus === 'prueba-tecnica') {
       console.log('INTERVIEW STATUS DETECTED - Opening dialog and STOPPING update');
       toast({
-        title: "Programar Entrevista",
+        title: "Programar Entrevista / Prueba",
         description: "Abriendo formulario de programación...",
       });
-      setCurrentInterviewType(targetStatus as 'entrevista-rc' | 'entrevista-et');
+      setCurrentInterviewType(targetStatus as 'entrevista-rc' | 'entrevista-et' | 'prueba-tecnica');
       setIsTeamsDialogOpen(true);
       setStatusModalOpen(false);
       return; // STOP HERE
@@ -831,6 +831,10 @@ const CandidateDetail: React.FC = () => {
               interviewTypeName = 'Entrevista Técnica';
               messageIntro = 'Felicidades, has avanzado a la fase de';
               break;
+            case 'prueba-tecnica':
+              interviewTypeName = 'Prueba Técnica';
+              messageIntro = 'Felicidades, has avanzado a la fase de';
+              break;
             default:
               interviewTypeName = 'Entrevista';
               messageIntro = 'Felicidades, has avanzado a la fase de';
@@ -1100,6 +1104,7 @@ const CandidateDetail: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
                   <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
+                  <SelectItem value="prueba-tecnica">Asignar Prueba Técnica</SelectItem>
                   <SelectItem value="asignar-campana">Inicio de formación</SelectItem>
                   <SelectItem value="proceso-contratacion">Proceso de contratación</SelectItem>
                   <SelectItem value="training">En Formación</SelectItem>

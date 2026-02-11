@@ -19,8 +19,9 @@ interface TeamsMeetingDialogProps {
   onMeetingCreated: (meetingData: MeetingData) => void;
   onSkipMeeting?: () => void;
   candidateName: string;
-  interviewType: 'entrevista-rc' | 'entrevista-et' | 'asignar-campana';
+  interviewType: 'entrevista-rc' | 'entrevista-et' | 'asignar-campana' | 'prueba-tecnica';
 }
+
 
 export interface MeetingData {
   title: string;
@@ -45,6 +46,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
     switch (interviewType) {
       case 'entrevista-rc': return `Entrevista Recursos Humanos - ${candidateName}`;
       case 'entrevista-et': return `Entrevista Técnica - ${candidateName}`;
+      case 'prueba-tecnica': return `Prueba Técnica - ${candidateName}`;
       case 'asignar-campana': return `Sesión de Formación - ${candidateName}`;
       default: return `Reunión - ${candidateName}`;
     }
@@ -54,10 +56,24 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
     switch (interviewType) {
       case 'entrevista-rc': return `Entrevista de Recursos Humanos con ${candidateName}`;
       case 'entrevista-et': return `Entrevista Técnica con ${candidateName}`;
+      case 'prueba-tecnica': return `Prueba Técnica para ${candidateName}`;
       case 'asignar-campana': return `Sesión de inicio de formación para ${candidateName}`;
       default: return `Reunión con ${candidateName}`;
     }
   };
+
+  // ...
+
+  const getTypeLabel = () => {
+    switch (interviewType) {
+      case 'entrevista-rc': return 'Recursos Humanos';
+      case 'entrevista-et': return 'Técnica';
+      case 'prueba-tecnica': return 'Prueba Técnica';
+      case 'asignar-campana': return 'Inicio de Formación';
+      default: return '';
+    }
+  };
+
 
   const [title, setTitle] = useState(getInitialTitle());
   const [date, setDate] = useState<Date>();
@@ -74,14 +90,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
   // Or better, use a useEffect here to update if props change significantly when reopening.
   // For now simple init is okay assuming component remounts or key changes.
 
-  const getTypeLabel = () => {
-    switch (interviewType) {
-      case 'entrevista-rc': return 'Recursos Humanos';
-      case 'entrevista-et': return 'Técnica';
-      case 'asignar-campana': return 'Inicio de Formación';
-      default: return '';
-    }
-  };
+
 
   const interviewTypeLabel = getTypeLabel();
 
