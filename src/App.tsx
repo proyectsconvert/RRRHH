@@ -71,6 +71,7 @@ import Buscar from "./pages/rrhh/Buscar";
 import Perfil from "./pages/rrhh/Perfil";
 import Ayuda from "./pages/rrhh/Ayuda";
 import Configuracion from "./pages/rrhh/Configuracion";
+import Reuniones from "./pages/rrhh/Reuniones";
 
 const queryClient = new QueryClient();
 
@@ -235,6 +236,11 @@ function App() {
                 <Route path="candidates/:id" element={
                   <ModuleProtectedRoute requiredModule="candidates">
                     <CandidateDetail />
+                  </ModuleProtectedRoute>
+                } />
+                <Route path="reuniones" element={
+                  <ModuleProtectedRoute requiredModule="candidates">
+                    <Reuniones />
                   </ModuleProtectedRoute>
                 } />
 

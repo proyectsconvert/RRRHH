@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { Calendar, Database, File, Home, LogOut, MessageCircle, MessageSquare, Search, Settings, Users, Code, History, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader,SidebarMenuItem,SidebarMenu,SidebarMenuButton, } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuItem, SidebarMenu, SidebarMenuButton, } from '@/components/ui/sidebar';
 import ConvertIALogo from '@/assets/convert-ia-logo';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +28,11 @@ const mainNavItems = [{
   label: 'Vacantes',
   href: '/admin/jobs',
   module: 'jobs'
+}, {
+  icon: Calendar,
+  label: 'Reuniones',
+  href: '/admin/reuniones',
+  module: 'candidates'
 }, {
   icon: Calendar,
   label: 'Campañas',
@@ -89,8 +94,8 @@ const AdminSidebar = () => {
   return (
     <Sidebar collapsible="icon" className="border-r border-hrm-dark-cyan bg-hrm-dark-primary">
       <SidebarHeader className="h-14 border-b border-hrm-dark-cyan/40 bg-hrm-background2">
-      <div className="flex items-center h-full px-4 justify-center group-data-[state=collapsed]:px-2 group-data-[state=collapsed]:justify-center">
-          <ConvertIALogo className="h-10" />
+        <div className="flex items-center h-full px-4 group-data-[state=collapsed]:px-0 justify-center">
+          <ConvertIALogo className="h-10 group-data-[state=collapsed]:w-8 group-data-[state=collapsed]:overflow-hidden" />
         </div>
       </SidebarHeader>
       <SidebarContent className="bg-hrm-background2">
@@ -111,12 +116,13 @@ const AdminSidebar = () => {
                         tooltip={item.label}
                         className={cn(
                           isActive
-                            ? "!bg-hrm-teal !text-white active:!bg-hrm-teal active:!text-white" 
-                            : "text-gray-100 hover:bg-opacity-10 hover:bg-white hover:text-white"
+                            ? "!bg-hrm-teal !text-white active:!bg-hrm-teal active:!text-white"
+                            : "text-gray-100 hover:bg-opacity-10 hover:bg-white hover:text-white",
+                          "group-data-[state=collapsed]:!w-full group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:!p-0"
                         )}
                       >
                         <item.icon className="h-5 w-5" aria-hidden="true" />
-                        <span>{item.label}</span>
+                        <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
                       </SidebarMenuButton>
                     )}
                   </NavLink>
@@ -124,14 +130,14 @@ const AdminSidebar = () => {
               ))
           )}
           {mainNavItems.filter(item => hasRole('admin') || hasModuleAccess(item.module)).length === 0 && !loading && (
-             <div className="px-4 py-2 text-sm text-red-400">No tienes permisos...</div>
+            <div className="px-4 py-2 text-sm text-red-400">No tienes permisos...</div>
           )}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="border-t border-hrm-dark-cyan/40 p-4 bg-hrm-background2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-hrm-dark-cyan">
+      <SidebarFooter className="border-t border-hrm-dark-cyan/40 p-4 bg-hrm-background2 group-data-[state=collapsed]:p-2">
+        <div className="flex items-center justify-between group-data-[state=collapsed]:justify-center">
+          <div className="flex items-center group-data-[state=collapsed]:justify-center">
+            <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-hrm-dark-cyan shrink-0">
               <span className="text-sm font-medium">
                 {userProfile?.first_name && userProfile?.last_name
                   ? `${userProfile.first_name.charAt(0)}${userProfile.last_name.charAt(0)}`
@@ -141,8 +147,8 @@ const AdminSidebar = () => {
                 }
               </span>
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-white">
+            <div className="ml-3 group-data-[state=collapsed]:hidden">
+              <p className="text-sm font-medium text-white truncate max-w-[120px]">
                 {userProfile?.first_name && userProfile?.last_name
                   ? `${userProfile.first_name} ${userProfile.last_name}`
                   : userProfile?.first_name || userProfile?.last_name
@@ -150,12 +156,12 @@ const AdminSidebar = () => {
                     : 'Usuario'
                 }
               </p>
-              <p className="text-xs text-gray-200">
+              <p className="text-xs text-gray-200 truncate max-w-[120px]">
                 {userProfile?.email || 'Sin email'}
               </p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center text-white hover:text-red-300 transition-colors" title="Cerrar sesión">
+          <button onClick={handleLogout} className="flex items-center text-white hover:text-red-300 transition-colors group-data-[state=collapsed]:hidden" title="Cerrar sesión">
             <LogOut className="h-5 w-5" />
           </button>
         </div>

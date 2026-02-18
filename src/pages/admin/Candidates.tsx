@@ -198,6 +198,32 @@ const Candidates = () => {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+
+        // Get profile info
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profile) {
+          setCurrentUserRole(profile.role);
+          setCurrentUserRecruiter({
+            id: profile.id,
+            first_name: profile.first_name,
+            last_name: profile.last_name
+          });
+        }
+      }
+    };
+    getCurrentUser();
+  }, []);
+
   // Helper function to check if current user can modify a candidate's status
   const canModifyCandidate = (candidate: Candidate, newStatus?: string): boolean => {
     // Check if candidate is already hired - allow modifications only for "finalizar-contrato"
@@ -1049,7 +1075,15 @@ const Candidates = () => {
                 .update({
                   status: currentInterviewType,
                   recruiter_id: currentUserId, // Assign current user as recruiter
-                  updated_at: new Date().toISOString()
+                  updated_at: new Date().toISOString(),
+                  // Meeting details
+                  meeting_date: meetingData.date.toISOString().split('T')[0],
+                  meeting_time: meetingData.time,
+                  meeting_link: meetingData.meetingLink,
+                  meeting_title: meetingData.title,
+                  meeting_modality: meetingData.modality,
+                  meeting_address: meetingData.address,
+                  meeting_status: 'scheduled'
                 })
                 .eq('id', app.id)
             );

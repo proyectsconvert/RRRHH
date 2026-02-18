@@ -101,3 +101,29 @@ export const sendWelcomeMessage = async (candidatePhone: string, candidateName: 
 
   await sendEvolutionMessage(candidatePhone, welcomeMessage, true);
 };
+
+export const sendRescheduleMessage = async (
+  candidatePhone: string,
+  candidateName: string,
+  date: Date,
+  time: string,
+  modality: 'virtual' | 'presencial',
+  addressOrLink: string
+): Promise<void> => {
+  // Format time with AM/PM
+  const [hours, minutes] = time.split(':');
+  const hour24 = parseInt(hours);
+  const ampm = hour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = hour24 % 12 || 12;
+  const timeFormatted = `${hour12}:${minutes} ${ampm}`;
+
+  const dateTimeStr = `${date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
+
+  const locationInfo = modality === 'presencial'
+    ? `Te esperamos en la siguiente dirección: ${addressOrLink}`
+    : `Te puedes conectar mediante el siguiente enlace: ${addressOrLink}`;
+
+  const message = `Hola ${candidateName}, te informamos que tu entrevista con Convertia ha sido *reagendada*. La nueva cita quedó programada para el día ${dateTimeStr}. ${locationInfo}. ¡Te esperamos!`;
+
+  await sendEvolutionMessage(candidatePhone, message, true);
+};

@@ -37,6 +37,7 @@ const AdminHeader = () => {
     <header className="h-14 border-b border-hrm-light-gray bg-white flex items-center justify-between px-4">
       {/* Contenedor para elementos a la izquierda */}
       <div className="flex items-center gap-4">
+        <SidebarTrigger />
         {/*
 
         <div className="relative w-64">
