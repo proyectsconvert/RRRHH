@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
 
 interface Module {
   id: string;
@@ -25,118 +26,102 @@ interface UserProfile {
   is_active: boolean;
 }
 
+interface PermissionData {
+  userRoles: any[];
+  userModules: UserModulePermission[];
+  availableModules: Module[];
+  userProfile: UserProfile | null;
+  currentUser: any;
+}
+
+/**
+ * Hook centralizado para gestionar permisos y perfiles de usuario.
+ * Utiliza React Query para cachear los datos y evitar múltiples cargas
+ * que causen parpadeos en la interfaz (spinners).
+ */
 export const usePermissions = () => {
-  const [userRoles, setUserRoles] = useState<any[]>([]);
-  const [userModules, setUserModules] = useState<UserModulePermission[]>([]);
-  const [availableModules, setAvailableModules] = useState<Module[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const fetchPermissions = async (): Promise<PermissionData> => {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  const loadUserPermissions = async () => {
-    try {
-      setLoading(true);
+    if (authError || !user) {
+      return {
+        userRoles: [],
+        userModules: [],
+        availableModules: [],
+        userProfile: null,
+        currentUser: null,
+      };
+    }
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        setCurrentUser(null);
-        setUserRoles([]);
-        setUserModules([]);
-        return;
-      }
+    // Carga de perfil
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
 
-      if (!user) {
-        setCurrentUser(null);
-        setUserRoles([]);
-        setUserModules([]);
-        setUserProfile(null);
-        return;
-      }
+    // Carga de módulos disponibles
+    const { data: modulesData } = await supabase
+      .from('modules')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_name');
 
-      setCurrentUser(user);
+    // Carga de roles del usuario
+    const { data: rolesData } = await supabase
+      .from('user_roles')
+      .select('role_id')
+      .eq('user_id', user.id)
+      .eq('is_active', true);
 
-      // Load user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+    let userRoles: any[] = [];
+    const roleIds = rolesData?.map(item => item.role_id) || [];
 
-      if (profileError) {
-        console.warn('Error loading user profile:', profileError);
-        setUserProfile(null);
-      } else {
-        setUserProfile(profileData);
-      }
-
-      // Load available modules
-      const { data: modulesData, error: modulesError } = await supabase
-        .from('modules')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_name');
-
-      if (modulesError) {
-        // If table doesn't exist yet, continue without error
-        setAvailableModules([]);
-      } else {
-        setAvailableModules(modulesData || []);
-      }
-
-      // Load user roles (for backward compatibility and admin check)
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('role_id')
-        .eq('user_id', user.id)
+    if (roleIds.length > 0) {
+      const { data: rolesDetails } = await supabase
+        .from('roles')
+        .select('id, name, display_name, description')
+        .in('id', roleIds)
         .eq('is_active', true);
 
-      if (rolesError) {
-        // If roles table doesn't exist yet, continue without error
-        setUserRoles([]);
-      } else {
-        const roleIds = rolesData?.map(item => item.role_id) || [];
-        if (roleIds.length > 0) {
-          const { data: rolesDetails, error: rolesDetailsError } = await supabase
-            .from('roles')
-            .select('id, name, display_name, description')
-            .in('id', roleIds)
-            .eq('is_active', true);
-
-          if (rolesDetailsError) {
-            setUserRoles([]);
-          } else {
-            setUserRoles(rolesDetails || []);
-          }
-        } else {
-          setUserRoles([]);
-        }
-      }
-
-      // Load user module permissions
-      const { data: modulePermsData, error: modulePermsError } = await supabase
-        .from('user_module_permissions')
-        .select('module_name, has_access')
-        .eq('user_id', user.id.toString());
-
-      if (modulePermsError) {
-        // If table doesn't exist yet, set empty permissions
-        setUserModules([]);
-      } else {
-        setUserModules(modulePermsData || []);
-      }
-
-    } catch (error) {
-      setUserRoles([]);
-      setUserModules([]);
-      setAvailableModules([]);
-      setUserProfile(null);
-    } finally {
-      setLoading(false);
+      userRoles = rolesDetails || [];
     }
+
+    // Carga de permisos de módulos específicos
+    const { data: modulePermsData } = await supabase
+      .from('user_module_permissions')
+      .select('module_name, has_access')
+      .eq('user_id', user.id.toString());
+
+    return {
+      userRoles,
+      userModules: modulePermsData || [],
+      availableModules: modulesData || [],
+      userProfile: profileData as UserProfile,
+      currentUser: user,
+    };
   };
 
+  // Usamos React Query para cachear globalmente estos datos.
+  // staleTime: Infinity asegura que no se re-intenten cargar automáticamente al cambiar de pestaña.
+  // refetchOnWindowFocus: false (configurado en App.tsx) refuerza esto.
+  const { data, isLoading: loading, refetch: refreshPermissions } = useQuery({
+    queryKey: ['user-permissions'],
+    queryFn: fetchPermissions,
+    staleTime: 1000 * 60 * 60, // 1 hora de validez
+  });
+
+  const permissionData = data || {
+    userRoles: [],
+    userModules: [],
+    availableModules: [],
+    userProfile: null,
+    currentUser: null,
+  };
+
+  const { userRoles, userModules, availableModules, userProfile, currentUser } = permissionData;
+
   const hasPermission = (permissionName: string): boolean => {
-    // For backward compatibility, map old permission names to module names
     const moduleMapping: { [key: string]: string } = {
       'dashboard.view': 'dashboard',
       'users.view': 'users',
@@ -157,22 +142,15 @@ export const usePermissions = () => {
   };
 
   const hasModuleAccess = (moduleName: string): boolean => {
-    // If user is admin, always has access
-    if (hasRole('admin')) {
-      return true;
-    }
-
-    // Check specific module permission
+    if (hasRole('admin')) return true;
     const modulePerm = userModules.find(m => m.module_name === moduleName);
     return modulePerm?.has_access || false;
   };
 
   const hasRole = (roleName: string): boolean => {
-    // TEMPORAL: Si es el usuario admin@empresa.com, forzar rol admin
     if (currentUser?.email === 'admin@empresa.com') {
       return roleName === 'admin';
     }
-
     return userRoles.some(role => role.name === roleName);
   };
 
@@ -189,24 +167,18 @@ export const usePermissions = () => {
   };
 
   const canPerformAction = (moduleName: string, action: string): boolean => {
-    // For now, if user has access to module, they can perform all actions
     return hasModuleAccess(moduleName);
   };
 
   const updateUserModulePermissions = async (userId: string, modulePermissions: { [key: string]: boolean }) => {
     try {
-      // Delete existing permissions for this user
       const { error: deleteError } = await supabase
         .from('user_module_permissions')
         .delete()
         .eq('user_id', userId.toString());
 
-      if (deleteError) {
-        console.error('Error deleting existing permissions:', deleteError);
-        throw deleteError;
-      }
+      if (deleteError) throw deleteError;
 
-      // Insert new permissions
       const permissionsToInsert = Object.entries(modulePermissions).map(([moduleName, hasAccess]) => ({
         user_id: userId.toString(),
         module_name: moduleName,
@@ -218,17 +190,11 @@ export const usePermissions = () => {
           .from('user_module_permissions')
           .insert(permissionsToInsert);
 
-        if (insertError) {
-          console.error('Error inserting new permissions:', insertError);
-          throw insertError;
-        }
+        if (insertError) throw insertError;
       }
 
-      // Reload permissions if updating current user
-      if (currentUser?.id === userId) {
-        await loadUserPermissions();
-      }
-
+      // Invalidamos la query para que se recarguen los datos
+      await refreshPermissions();
       return { success: true };
     } catch (error) {
       console.error('Error updating module permissions:', error);
@@ -236,18 +202,16 @@ export const usePermissions = () => {
     }
   };
 
+  // Escuchar cambios de autenticación para invalidar el cache
   useEffect(() => {
-    loadUserPermissions();
-
-    // Listen for auth changes but only when user actually changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-        loadUserPermissions();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        refreshPermissions();
       }
     });
 
     return () => subscription?.unsubscribe();
-  }, []);
+  }, [refreshPermissions]);
 
   return {
     userRoles,
@@ -263,6 +227,6 @@ export const usePermissions = () => {
     canAccessModule,
     canPerformAction,
     updateUserModulePermissions,
-    refreshPermissions: loadUserPermissions
+    refreshPermissions
   };
 };

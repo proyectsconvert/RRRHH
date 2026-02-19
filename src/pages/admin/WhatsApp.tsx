@@ -11,35 +11,35 @@ import { Separator } from '@/components/ui/separator';
 
 // Define types for historychat table
 interface HistoryChatMessage {
-  hicnumerouser: string;
-  hicusername: string;
-  hicsendnumbot: string | null;
-  hicmessagebot: string | null;
-  hicmessageuser: string | null;
-  created_at?: string;
+  hicnumerouser: string;
+  hicusername: string;
+  hicsendnumbot: string | null;
+  hicmessagebot: string | null;
+  hicmessageuser: string | null;
+  created_at?: string;
 }
 
 interface UserChat {
- hicnumerouser: string;
- hicusername: string;
- lastMessage?: string;
- lastMessageTime?: string;
- botDisabled?: boolean;
- }
+  hicnumerouser: string;
+  hicusername: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  botDisabled?: boolean;
+}
 
 const WhatsApp = () => {
-  const [users, setUsers] = useState<UserChat[]>([]);
-  const [selectedUser, setSelectedUser] = useState<UserChat | null>(null);
-  const [messages, setMessages] = useState<HistoryChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
-  const [botEnabled, setBotEnabled] = useState(false);
-  const [webhookEnabled, setWebhookEnabled] = useState(false);
-  const [botLoading, setBotLoading] = useState(false);
-  const [webhookLoading, setWebhookLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(''); 
-  const { toast } = useToast();
+  const [users, setUsers] = useState<UserChat[]>([]);
+  const [selectedUser, setSelectedUser] = useState<UserChat | null>(null);
+  const [messages, setMessages] = useState<HistoryChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  const [botEnabled, setBotEnabled] = useState(false);
+  const [webhookEnabled, setWebhookEnabled] = useState(false);
+  const [botLoading, setBotLoading] = useState(false);
+  const [webhookLoading, setWebhookLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -50,687 +50,658 @@ const WhatsApp = () => {
     scrollToBottom();
   }, [messages]);
 
-// Load users
-const loadUsers = async () => {
-try {
-const { data, error } = await (supabase as any)
-.from('historychat')
-.select('hicnumerouser, hicusername')
-.order('created_at', { ascending: false });
-
-if (error) throw error;
-
-// Group by user and get unique users
-const uniqueUsers = data?.reduce((acc: UserChat[], curr: any) => {
-const existing = acc.find(u => u.hicnumerouser === curr.hicnumerouser);
-if (!existing) {
-acc.push({
-hicnumerouser: curr.hicnumerouser,
-hicusername: curr.hicusername,
-});
-}
-return acc;
-}, []) || [];
-
-// Check bot status for each user by looking up their phone in candidates table
-const usersWithBotStatus = await Promise.all(
-uniqueUsers.map(async (user) => {
-try {
-const { data: candidateData, error: candidateError } = await supabase
-.from('candidates')
-.select('activeWP')
-.eq('phone', user.hicnumerouser)
-.single();
-
-if (!candidateError && candidateData) {
-return {
-...user,
-botDisabled: candidateData.activeWP === true
-};
-}
-} catch (error) {
-// Silent error - user might not be in candidates table
-}
-
-return {
-...user,
-botDisabled: false
-};
-})
-);
-
-setUsers(usersWithBotStatus);
-} catch (error) {
-toast({
-title: "Error",
-description: "No se pudieron cargar los usuarios",
-variant: "destructive"
-});
-}
-};
-
-// Load messages for selected user
-const loadMessages = async (userId: string) => {
-try {
-const { data, error } = await (supabase as any)
-.from('historychat')
-.select('*')
-.eq('hicnumerouser', userId)
-.order('created_at', { ascending: true });
-
-if (error) throw error;
-setMessages(data || []);
-} catch (error) {
-console.error('Error loading messages:', error);
-toast({
-title: "Error",
-description: "No se pudieron cargar los mensajes",
-variant: "destructive"
-});
-}
-};
-
-// Update messages in real-time without full reload
-const updateMessagesRealtime = (newMessage: HistoryChatMessage) => {
-setMessages(prevMessages => {
-// Check if message already exists to avoid duplicates
-// Use a more robust check based on content and timestamp
-const messageExists = prevMessages.some(msg => {
-const sameUser = msg.hicnumerouser === newMessage.hicnumerouser;
-const sameBotMessage = msg.hicmessagebot === newMessage.hicmessagebot && newMessage.hicmessagebot;
-const sameUserMessage = msg.hicmessageuser === newMessage.hicmessageuser && newMessage.hicmessageuser;
-const sameTimestamp = msg.created_at === newMessage.created_at;
-
-return sameUser && (sameBotMessage || sameUserMessage) && sameTimestamp;
-});
-
-if (messageExists) {
-console.log('Message already exists, skipping duplicate');
-return prevMessages;
-}
-
-// Add new message and sort by created_at
-const updatedMessages = [...prevMessages, newMessage].sort((a, b) =>
-new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime()
-);
-
-console.log('Added new message to chat:', newMessage);
-return updatedMessages;
-});
-};
-
-// Send message
-const sendMessage = async () => {
-if (!selectedUser || !newMessage.trim()) return;
-
-const messageToSend = newMessage.trim();
-setLoading(true);
-
-try {
-// Get bot number from environment or use a default
-const botNumber = import.meta.env.VITE_BOT_NUMBER || '3192463493';
-const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
-const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
-const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
-
-if (!apiUrl || !apiToken) {
-throw new Error('Evolution-API configuration missing. Please check VITE_EVOLUTION_API_URL and VITE_EVOLUTION_API_TOKEN environment variables.');
-}
-
-// Optimistically add message to UI immediately for better UX
-const optimisticMessage: HistoryChatMessage = {
-hicnumerouser: selectedUser.hicnumerouser,
-hicusername: selectedUser.hicusername,
-hicsendnumbot: botNumber,
-hicmessagebot: messageToSend,
-hicmessageuser: null,
-created_at: new Date().toISOString()
-};
-
-console.log('Adding optimistic message to UI:', optimisticMessage);
-updateMessagesRealtime(optimisticMessage);
-
-// Clear message input immediately
-setNewMessage('');
-
-// Send to Evolution-API using bot number as sender and user number as recipient
-const requestBody = {
-number: selectedUser.hicnumerouser, // Recipient (user number)
-text: messageToSend, // Evolution-API typically uses 'text' instead of 'message'
-};
-
-const evolutionResponse = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
-method: 'POST',
-headers: {
-'Content-Type': 'application/json',
-'Authorization': `Bearer ${apiToken}`,
-'apikey': apiToken, // Some Evolution-API versions require apikey header
-},
-body: JSON.stringify(requestBody),
-});
-
-if (!evolutionResponse.ok) {
-let errorMessage = `HTTP ${evolutionResponse.status}: ${evolutionResponse.statusText}`;
-try {
-const errorData = await evolutionResponse.json();
-errorMessage = errorData.message || errorData.error || errorMessage;
-} catch (parseError) {
-// Silent error parsing
-}
-throw new Error(`Error sending message to Evolution-API: ${errorMessage}`);
-}
-
-const responseData = await evolutionResponse.json();
-
-// Save to Supabase - this will trigger real-time updates and replace optimistic message
-const { error } = await (supabase as any)
-.from('historychat')
-.insert({
-hicnumerouser: selectedUser.hicnumerouser,
-hicusername: selectedUser.hicusername,
-hicsendnumbot: botNumber, // Bot number that sent the message
-hicmessagebot: messageToSend,
-hicmessageuser: null,
-});
-
-if (error) {
-throw new Error(`Error saving message to database: ${error.message}`);
-}
-
-console.log('Message sent successfully via Evolution API and saved to database');
-} catch (error) {
-console.error('Error sending message:', error);
-const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-
-// Remove optimistic message on error
-setMessages(prevMessages =>
-prevMessages.filter(msg =>
-!(msg.hicmessagebot === messageToSend &&
-msg.hicnumerouser === selectedUser.hicnumerouser &&
-!msg.created_at) // Remove messages without proper timestamp
-)
-);
-
-// Restore message input on error
-setNewMessage(messageToSend);
-
-toast({
-title: "Error",
-description: errorMessage,
-variant: "destructive"
-});
-} finally {
-setLoading(false);
-}
-};
-
-// Handle user selection
-const handleUserSelect = (user: UserChat) => {
-setSelectedUser(user);
-loadMessages(user.hicnumerouser);
-};
-
-// Toggle bot for specific user
-const toggleUserBot = async (user: UserChat) => {
-try {
-const newBotDisabled = !user.botDisabled;
-
-// Update the activeWP field in candidates table
-const { error } = await supabase
-.from('candidates')
-.update({ activeWP: newBotDisabled })
-.eq('phone', user.hicnumerouser);
-
-if (error) {
-throw new Error(`Error updating candidate: ${error.message}`);
-}
-
-// Update local state
-setUsers(prev => prev.map(u =>
-u.hicnumerouser === user.hicnumerouser
-? { ...u, botDisabled: newBotDisabled }
-: u
-));
-
-// Update selected user if it's the current one
-if (selectedUser?.hicnumerouser === user.hicnumerouser) {
-setSelectedUser(prev => prev ? { ...prev, botDisabled: newBotDisabled } : null);
-}
-
-toast({
-title: newBotDisabled ? "Bot deshabilitado" : "Bot habilitado",
-description: `El bot ha sido ${newBotDisabled ? 'deshabilitado' : 'habilitado'} para este usuario`,
-});
-} catch (error) {
-console.error('Error toggling user bot:', error);
-toast({
-title: "Error",
-description: error instanceof Error ? error.message : 'Error desconocido',
-variant: "destructive"
-});
-}
-};
-
-  // Test N8N Workflow using Supabase proxy
-  const testN8NWorkflow = async () => {
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase configuration missing');
-      }
-
-      const proxyUrl = `${supabaseUrl}/functions/v1/n8n-proxy`;
-
-      const response = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          action: 'test',
-          data: {
-            message: 'Test message from WhatsApp interface'
-          }
-        }),
-      });
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch (parseError) {
-          // Silent error parsing
-        }
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-
-      toast({
-        title: "Test exitoso",
-        description: "El workflow de n8n respondió correctamente al test",
-      });
-    } catch (error) {
-      console.error('Error testing N8N workflow:', error);
-      toast({
-        title: "Error en test",
-        description: `No se pudo probar el workflow: ${error instanceof Error ? error.message : 'Error desconocido'}`,
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Test Evolution-API connection
-  const testEvolutionAPI = async () => {
-    try {
-      const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
-      const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
-      const botNumber = import.meta.env.VITE_BOT_NUMBER;
-      const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
-
-      if (!apiUrl || !apiToken) {
-        toast({
-          title: "Configuración faltante",
-          description: "Variables de entorno VITE_EVOLUTION_API_URL y VITE_EVOLUTION_API_TOKEN no están configuradas",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Try different endpoints and auth methods for Evolution-API
-      let response;
-      let success = false;
-
-      // Try different endpoints
-      const endpoints = [
-        `${apiUrl}/instance/connectionState/${instanceName}`,
-        `${apiUrl}/instance/info/${instanceName}`,
-        `${apiUrl}/instance/fetchInstances`,
-        `${apiUrl}/instance/me`
-      ];
-
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying endpoint: ${endpoint}`);
-
-          // Try with Bearer token
-          response = await fetch(endpoint, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${apiToken}`,
-              'apikey': apiToken,
-            },
-          });
-
-          if (response.ok) {
-            success = true;
-            break;
-          }
-
-          // Try with just apikey header
-          response = await fetch(endpoint, {
-            method: 'GET',
-            headers: {
-              'apikey': apiToken,
-            },
-          });
-
-          if (response.ok) {
-            success = true;
-            break;
-          }
-
-          // Try with apikey as query parameter
-          const urlWithKey = `${endpoint}${endpoint.includes('?') ? '&' : '?'}apikey=${apiToken}`;
-          response = await fetch(urlWithKey, {
-            method: 'GET',
-          });
-
-          if (response.ok) {
-            success = true;
-            break;
-          }
-
-        } catch (endpointError) {
-          continue;
-        }
-      }
-
-      if (success && response) {
-        const data = await response.json().catch(() => ({}));
-        toast({
-          title: "Conexión exitosa",
-          description: `Evolution-API conectado. Instancia: ${instanceName}`,
-        });
-      } else {
-        throw new Error('No se pudo conectar a Evolution-API. Verifica el token y la URL.');
-      }
-    } catch (error) {
-      toast({
-        title: "Error de conexión",
-        description: error instanceof Error ? error.message : 'Error desconocido',
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Toggle N8N Bot using Supabase proxy to avoid CORS
-  const toggleN8NBot = async () => {
-    setBotLoading(true);
-    try {
-      // Use Supabase function as proxy to avoid CORS issues
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase configuration missing');
-      }
-
-      const proxyUrl = `${supabaseUrl}/functions/v1/n8n-proxy`;
-
-      const response = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          action: botEnabled ? 'deactivate' : 'activate',
-          data: {
-            user: 'admin',
-            service: 'whatsapp-bot'
-          }
-        }),
-      });
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch (parseError) {
-          // Silent error parsing
-        }
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-      setBotEnabled(!botEnabled);
-
-      toast({
-        title: botEnabled ? "Bot detenido" : "Bot activado",
-        description: `El workflow de n8n ha sido ${botEnabled ? 'detenido' : 'activado'} correctamente`,
-      });
-
-      // Workflow toggled successfully
-    } catch (error) {
-      console.error('Error toggling N8N workflow:', error);
-      toast({
-        title: "Error",
-        description: `No se pudo ${botEnabled ? 'detener' : 'activar'} el workflow: ${error instanceof Error ? error.message : 'Error desconocido'}`,
-        variant: "destructive"
-      });
-    } finally {
-      setBotLoading(false);
-    }
-  };
-
-  // Toggle Webhook
-  const toggleWebhook = async () => {
-    setWebhookLoading(true);
-    try {
-      const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
-      const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
-      const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
-
-      if (!apiUrl || !apiToken) {
-        throw new Error('Evolution-API configuration missing');
-      }
-
-      const webhookUrl = webhookEnabled
-        ? null // Disable webhook
-        : 'https://kugocdtesaczbfrwblsi.supabase.co/functions/v1/whatsapp-webhook'; // Enable webhook
-
-      const response = await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`,
-          'apikey': apiToken,
-        },
-        body: JSON.stringify({
-          enabled: !webhookEnabled,
-          url: webhookUrl,
-          events: webhookUrl ? ['messages', 'message_create'] : [],
-        }),
-      });
-
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (parseError) {
-          // Silent error parsing
-        }
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-      setWebhookEnabled(!webhookEnabled);
-
-      toast({
-        title: webhookEnabled ? "Webhook detenido" : "Webhook activado",
-        description: `El webhook ha sido ${webhookEnabled ? 'detenido' : 'activado'} correctamente`,
-      });
-
-      console.log('Webhook toggle result:', result);
-    } catch (error) {
-      console.error('Error toggling webhook:', error);
-      toast({
-        title: "Error",
-        description: `No se pudo ${webhookEnabled ? 'detener' : 'activar'} el webhook: ${error instanceof Error ? error.message : 'Error desconocido'}`,
-        variant: "destructive"
-      });
-    } finally {
-      setWebhookLoading(false);
-    }
-  };
-
-  // Check initial status of bot and webhook
-  const checkInitialStatus = async () => {
-    try {
-      // Check webhook status from Evolution API
-      const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
-      const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
-      const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
-
-      if (apiUrl && apiToken) {
-        try {
-          const response = await fetch(`${apiUrl}/webhook/find/${instanceName}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${apiToken}`,
-              'apikey': apiToken,
-            },
-          });
-
-          if (response.ok) {
-            const webhookData = await response.json();
-            setWebhookEnabled(webhookData?.enabled || false);
-          }
-        } catch (error) {
-          // Silent webhook status check
-        }
-      }
-
-      // Check N8N workflow status using proxy
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-        if (supabaseUrl && supabaseKey) {
-          const proxyUrl = `${supabaseUrl}/functions/v1/n8n-proxy`;
-
-          const response = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseKey}`,
-            },
-            body: JSON.stringify({
-              action: 'status',
-              data: {}
-            }),
-          });
-
-          if (response.ok) {
-            const workflowData = await response.json();
-            setBotEnabled(workflowData?.active || false);
-          }
-        }
-      } catch (error) {
-        // Silent workflow status check
-      }
-    } catch (error) {
-      // Silent initial status check
-    }
-  };
-
-// Setup real-time subscription
-useEffect(() => {
-loadUsers();
-checkInitialStatus();
-
-const channel = supabase
-.channel('historychat-changes')
-.on('postgres_changes',
-{ event: 'INSERT', schema: 'public', table: 'historychat' },
-(payload: any) => {
-console.log('Real-time INSERT message received:', payload);
-
-// Handle INSERT events (new messages) - this covers both bot messages (hicmessagebot) and user messages (hicmessageuser)
-if (payload.new) {
-  const newMessage = payload.new as HistoryChatMessage;
-
-  // If we have a selected user and the message is for them, add to messages without full reload
-  if (selectedUser && newMessage.hicnumerouser === selectedUser.hicnumerouser) {
-    console.log('Adding new message to current chat in real-time:', {
-      user: newMessage.hicnumerouser,
-      botMessage: !!newMessage.hicmessagebot,
-      userMessage: !!newMessage.hicmessageuser,
-      timestamp: newMessage.created_at
+  // Load users
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('historychat')
+        .select('hicnumerouser, hicusername')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Group by user and get unique users
+      const uniqueUsers = data?.reduce((acc: UserChat[], curr: any) => {
+        const existing = acc.find(u => u.hicnumerouser === curr.hicnumerouser);
+        if (!existing) {
+          acc.push({
+            hicnumerouser: curr.hicnumerouser,
+            hicusername: curr.hicusername,
+          });
+        }
+        return acc;
+      }, []) || [];
+
+      // Check bot status for each user by looking up their phone in candidates table
+      const usersWithBotStatus = await Promise.all(
+        uniqueUsers.map(async (user) => {
+          try {
+            const { data: candidateData, error: candidateError } = await supabase
+              .from('candidates')
+              .select('activeWP')
+              .eq('phone', user.hicnumerouser)
+              .single();
+
+            if (!candidateError && candidateData) {
+              return {
+                ...user,
+                botDisabled: candidateData.activeWP === true
+              };
+            }
+          } catch (error) {
+            // Silent error - user might not be in candidates table
+          }
+
+          return {
+            ...user,
+            botDisabled: false
+          };
+        })
+      );
+
+      setUsers(usersWithBotStatus);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los usuarios",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Load messages for selected user
+  const loadMessages = async (userId: string) => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('historychat')
+        .select('*')
+        .eq('hicnumerouser', userId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los mensajes",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Update messages in real-time without full reload
+  const updateMessagesRealtime = (newMessage: HistoryChatMessage) => {
+    setMessages(prevMessages => {
+      // Check if message already exists to avoid duplicates
+      // Use a more robust check based on content and timestamp
+      const messageExists = prevMessages.some(msg => {
+        const sameUser = msg.hicnumerouser === newMessage.hicnumerouser;
+        const sameBotMessage = msg.hicmessagebot === newMessage.hicmessagebot && newMessage.hicmessagebot;
+        const sameUserMessage = msg.hicmessageuser === newMessage.hicmessageuser && newMessage.hicmessageuser;
+        const sameTimestamp = msg.created_at === newMessage.created_at;
+
+        return sameUser && (sameBotMessage || sameUserMessage) && sameTimestamp;
+      });
+
+      if (messageExists) {
+        console.log('Message already exists, skipping duplicate');
+        return prevMessages;
+      }
+
+      // Add new message and sort by created_at
+      const updatedMessages = [...prevMessages, newMessage].sort((a, b) =>
+        new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime()
+      );
+
+      console.log('Added new message to chat:', newMessage);
+      return updatedMessages;
     });
-    updateMessagesRealtime(newMessage);
-  }
+  };
 
-  // Always refresh user list in case of new users or message updates
-  loadUsers();
-}
-}
-)
-.on('postgres_changes',
-{ event: 'UPDATE', schema: 'public', table: 'historychat' },
-(payload: any) => {
-console.log('Real-time UPDATE message received:', payload);
+  // Send message
+  const sendMessage = async () => {
+    if (!selectedUser || !newMessage.trim()) return;
 
-// Handle UPDATE events (message edits/updates)
-if (payload.new) {
-  const updatedMessage = payload.new as HistoryChatMessage;
+    const messageToSend = newMessage.trim();
+    setLoading(true);
 
-  // Update existing message if it's in current chat
-  if (selectedUser && updatedMessage.hicnumerouser === selectedUser.hicnumerouser) {
-    setMessages(prevMessages =>
-      prevMessages.map(msg =>
-        msg.created_at === updatedMessage.created_at &&
-        msg.hicnumerouser === updatedMessage.hicnumerouser
-          ? updatedMessage
-          : msg
+    try {
+      // Get bot number from environment or use a default
+      const botNumber = import.meta.env.VITE_BOT_NUMBER || '3192463493';
+      const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
+      const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
+      const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
+
+      if (!apiUrl || !apiToken) {
+        throw new Error('Evolution-API configuration missing. Please check VITE_EVOLUTION_API_URL and VITE_EVOLUTION_API_TOKEN environment variables.');
+      }
+
+      // Optimistically add message to UI immediately for better UX
+      const optimisticMessage: HistoryChatMessage = {
+        hicnumerouser: selectedUser.hicnumerouser,
+        hicusername: selectedUser.hicusername,
+        hicsendnumbot: botNumber,
+        hicmessagebot: messageToSend,
+        hicmessageuser: null,
+        created_at: new Date().toISOString()
+      };
+
+      console.log('Adding optimistic message to UI:', optimisticMessage);
+      updateMessagesRealtime(optimisticMessage);
+
+      // Clear message input immediately
+      setNewMessage('');
+
+      // Send to Evolution-API using bot number as sender and user number as recipient
+      const requestBody = {
+        number: selectedUser.hicnumerouser, // Recipient (user number)
+        text: messageToSend, // Evolution-API typically uses 'text' instead of 'message'
+      };
+
+      const evolutionResponse = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiToken}`,
+          'apikey': apiToken, // Some Evolution-API versions require apikey header
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!evolutionResponse.ok) {
+        let errorMessage = `HTTP ${evolutionResponse.status}: ${evolutionResponse.statusText}`;
+        try {
+          const errorData = await evolutionResponse.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (parseError) {
+          // Silent error parsing
+        }
+        throw new Error(`Error sending message to Evolution-API: ${errorMessage}`);
+      }
+
+      const responseData = await evolutionResponse.json();
+
+      // Save to Supabase - this will trigger real-time updates and replace optimistic message
+      const { error } = await (supabase as any)
+        .from('historychat')
+        .insert({
+          hicnumerouser: selectedUser.hicnumerouser,
+          hicusername: selectedUser.hicusername,
+          hicsendnumbot: botNumber, // Bot number that sent the message
+          hicmessagebot: messageToSend,
+          hicmessageuser: null,
+        });
+
+      if (error) {
+        throw new Error(`Error saving message to database: ${error.message}`);
+      }
+
+      console.log('Message sent successfully via Evolution API and saved to database');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+      // Remove optimistic message on error
+      setMessages(prevMessages =>
+        prevMessages.filter(msg =>
+          !(msg.hicmessagebot === messageToSend &&
+            msg.hicnumerouser === selectedUser.hicnumerouser &&
+            !msg.created_at) // Remove messages without proper timestamp
+        )
+      );
+
+      // Restore message input on error
+      setNewMessage(messageToSend);
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle user selection
+  const handleUserSelect = (user: UserChat) => {
+    setSelectedUser(user);
+    loadMessages(user.hicnumerouser);
+  };
+
+  // Toggle bot for specific user
+  const toggleUserBot = async (user: UserChat) => {
+    try {
+      const newBotDisabled = !user.botDisabled;
+
+      // Update the activeWP field in candidates table
+      const { error } = await supabase
+        .from('candidates')
+        .update({ activeWP: newBotDisabled })
+        .eq('phone', user.hicnumerouser);
+
+      if (error) {
+        throw new Error(`Error updating candidate: ${error.message}`);
+      }
+
+      // Update local state
+      setUsers(prev => prev.map(u =>
+        u.hicnumerouser === user.hicnumerouser
+          ? { ...u, botDisabled: newBotDisabled }
+          : u
+      ));
+
+      // Update selected user if it's the current one
+      if (selectedUser?.hicnumerouser === user.hicnumerouser) {
+        setSelectedUser(prev => prev ? { ...prev, botDisabled: newBotDisabled } : null);
+      }
+
+      toast({
+        title: newBotDisabled ? "Bot deshabilitado" : "Bot habilitado",
+        description: `El bot ha sido ${newBotDisabled ? 'deshabilitado' : 'habilitado'} para este usuario`,
+      });
+    } catch (error) {
+      console.error('Error toggling user bot:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Error desconocido',
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Test N8N Workflow using Supabase proxy
+  const testN8NWorkflow = async () => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase configuration missing');
+      }
+
+      const proxyUrl = `${supabaseUrl}/functions/v1/n8n-proxy`;
+
+      const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          action: 'test',
+          data: {
+            message: 'Test message from WhatsApp interface'
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          // Silent error parsing
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: "Test exitoso",
+        description: "El workflow de n8n respondió correctamente al test",
+      });
+    } catch (error) {
+      console.error('Error testing N8N workflow:', error);
+      toast({
+        title: "Error en test",
+        description: `No se pudo probar el workflow: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Test Evolution-API connection
+  const testEvolutionAPI = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
+      const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
+      const botNumber = import.meta.env.VITE_BOT_NUMBER;
+      const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
+
+      if (!apiUrl || !apiToken) {
+        toast({
+          title: "Configuración faltante",
+          description: "Variables de entorno VITE_EVOLUTION_API_URL y VITE_EVOLUTION_API_TOKEN no están configuradas",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Try different endpoints and auth methods for Evolution-API
+      let response;
+      let success = false;
+
+      // Try different endpoints
+      const endpoints = [
+        `${apiUrl}/instance/connectionState/${instanceName}`,
+        `${apiUrl}/instance/info/${instanceName}`,
+        `${apiUrl}/instance/fetchInstances`,
+        `${apiUrl}/instance/me`
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying endpoint: ${endpoint}`);
+
+          // Try with Bearer token
+          response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${apiToken}`,
+              'apikey': apiToken,
+            },
+          });
+
+          if (response.ok) {
+            success = true;
+            break;
+          }
+
+          // Try with just apikey header
+          response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'apikey': apiToken,
+            },
+          });
+
+          if (response.ok) {
+            success = true;
+            break;
+          }
+
+          // Try with apikey as query parameter
+          const urlWithKey = `${endpoint}${endpoint.includes('?') ? '&' : '?'}apikey=${apiToken}`;
+          response = await fetch(urlWithKey, {
+            method: 'GET',
+          });
+
+          if (response.ok) {
+            success = true;
+            break;
+          }
+
+        } catch (endpointError) {
+          continue;
+        }
+      }
+
+      if (success && response) {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: "Conexión exitosa",
+          description: `Evolution-API conectado. Instancia: ${instanceName}`,
+        });
+      } else {
+        throw new Error('No se pudo conectar a Evolution-API. Verifica el token y la URL.');
+      }
+    } catch (error) {
+      toast({
+        title: "Error de conexión",
+        description: error instanceof Error ? error.message : 'Error desconocido',
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Toggle N8N Bot using Supabase proxy to avoid CORS
+  const toggleN8NBot = async () => {
+    setBotLoading(true);
+    try {
+      // Use Supabase function as proxy to avoid CORS issues
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase configuration missing');
+      }
+
+      const proxyUrl = `${supabaseUrl}/functions/v1/n8n-proxy`;
+
+      const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          action: botEnabled ? 'deactivate' : 'activate',
+          data: {
+            user: 'admin',
+            service: 'whatsapp-bot'
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          // Silent error parsing
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      setBotEnabled(!botEnabled);
+
+      toast({
+        title: botEnabled ? "Bot detenido" : "Bot activado",
+        description: `El workflow de n8n ha sido ${botEnabled ? 'detenido' : 'activado'} correctamente`,
+      });
+
+      // Workflow toggled successfully
+    } catch (error) {
+      console.error('Error toggling N8N workflow:', error);
+      toast({
+        title: "Error",
+        description: `No se pudo ${botEnabled ? 'detener' : 'activar'} el workflow: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        variant: "destructive"
+      });
+    } finally {
+      setBotLoading(false);
+    }
+  };
+
+  // Toggle Webhook
+  const toggleWebhook = async () => {
+    setWebhookLoading(true);
+    try {
+      const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
+      const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
+      const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
+
+      if (!apiUrl || !apiToken) {
+        throw new Error('Evolution-API configuration missing');
+      }
+
+      const webhookUrl = webhookEnabled
+        ? null // Disable webhook
+        : 'https://kugocdtesaczbfrwblsi.supabase.co/functions/v1/whatsapp-webhook'; // Enable webhook
+
+      const response = await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiToken}`,
+          'apikey': apiToken,
+        },
+        body: JSON.stringify({
+          enabled: !webhookEnabled,
+          url: webhookUrl,
+          events: webhookUrl ? ['messages', 'message_create'] : [],
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (parseError) {
+          // Silent error parsing
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      setWebhookEnabled(!webhookEnabled);
+
+      toast({
+        title: webhookEnabled ? "Webhook detenido" : "Webhook activado",
+        description: `El webhook ha sido ${webhookEnabled ? 'detenido' : 'activado'} correctamente`,
+      });
+
+      console.log('Webhook toggle result:', result);
+    } catch (error) {
+      console.error('Error toggling webhook:', error);
+      toast({
+        title: "Error",
+        description: `No se pudo ${webhookEnabled ? 'detener' : 'activar'} el webhook: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        variant: "destructive"
+      });
+    } finally {
+      setWebhookLoading(false);
+    }
+  };
+
+  // Check initial status of bot and webhook
+  const checkInitialStatus = async () => {
+    try {
+      // Check webhook status from Evolution API
+      const apiUrl = import.meta.env.VITE_EVOLUTION_API_URL;
+      const apiToken = import.meta.env.VITE_EVOLUTION_API_TOKEN;
+      const instanceName = import.meta.env.VITE_EVOLUTION_INSTANCE || 'TestWPP';
+
+      if (apiUrl && apiToken) {
+        try {
+          const response = await fetch(`${apiUrl}/webhook/find/${instanceName}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${apiToken}`,
+              'apikey': apiToken,
+            },
+          });
+
+          if (response.ok) {
+            const webhookData = await response.json();
+            setWebhookEnabled(webhookData?.enabled || false);
+          }
+        } catch (error) {
+          // Silent webhook status check
+        }
+      }
+
+      // Check N8N workflow status using proxy
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        if (supabaseUrl && supabaseKey) {
+          const proxyUrl = `${supabaseUrl}/functions/v1/n8n-proxy`;
+
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              action: 'status',
+              data: {}
+            }),
+          });
+
+          if (response.ok) {
+            const workflowData = await response.json();
+            setBotEnabled(workflowData?.active || false);
+          }
+        }
+      } catch (error) {
+        // Silent workflow status check
+      }
+    } catch (error) {
+      // Silent initial status check
+    }
+  };
+
+  // Setup real-time subscription
+  useEffect(() => {
+    loadUsers();
+    checkInitialStatus();
+
+    const channel = supabase
+      .channel('historychat-changes')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'historychat' },
+        (payload: any) => {
+          console.log('Real-time INSERT message received:', payload);
+
+          // Handle INSERT events (new messages) - this covers both bot messages (hicmessagebot) and user messages (hicmessageuser)
+          if (payload.new) {
+            const newMessage = payload.new as HistoryChatMessage;
+
+            // If we have a selected user and the message is for them, add to messages without full reload
+            if (selectedUser && newMessage.hicnumerouser === selectedUser.hicnumerouser) {
+              console.log('Adding new message to current chat in real-time:', {
+                user: newMessage.hicnumerouser,
+                botMessage: !!newMessage.hicmessagebot,
+                userMessage: !!newMessage.hicmessageuser,
+                timestamp: newMessage.created_at
+              });
+              updateMessagesRealtime(newMessage);
+            }
+
+            // Always refresh user list in case of new users or message updates
+            loadUsers();
+          }
+        }
       )
-    );
-  }
-}
-}
-)
-.subscribe();
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'historychat' },
+        (payload: any) => {
+          console.log('Real-time UPDATE message received:', payload);
 
-// Prevent automatic page refreshes
-const preventRefresh = (e: KeyboardEvent) => {
-if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-e.preventDefault();
-}
-if (e.key === 'F5') {
-e.preventDefault();
-}
-};
+          // Handle UPDATE events (message edits/updates)
+          if (payload.new) {
+            const updatedMessage = payload.new as HistoryChatMessage;
 
-const preventContextMenu = (e: MouseEvent) => {
-e.preventDefault();
-};
+            // Update existing message if it's in current chat
+            if (selectedUser && updatedMessage.hicnumerouser === selectedUser.hicnumerouser) {
+              setMessages(prevMessages =>
+                prevMessages.map(msg =>
+                  msg.created_at === updatedMessage.created_at &&
+                    msg.hicnumerouser === updatedMessage.hicnumerouser
+                    ? updatedMessage
+                    : msg
+                )
+              );
+            }
+          }
+        }
+      )
+      .subscribe();
 
-window.addEventListener('keydown', preventRefresh);
-window.addEventListener('contextmenu', preventContextMenu);
-
-// Prevent browser back/forward navigation that might cause refreshes
-const preventNavigation = (e: PopStateEvent) => {
-e.preventDefault();
-window.history.pushState(null, '', window.location.href);
-};
-
-window.addEventListener('popstate', preventNavigation);
-window.history.pushState(null, '', window.location.href);
-
-return () => {
-supabase.removeChannel(channel);
-window.removeEventListener('keydown', preventRefresh);
-window.removeEventListener('contextmenu', preventContextMenu);
-window.removeEventListener('popstate', preventNavigation);
-};
-}, [selectedUser]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedUser]);
 
   // 3. Crear la lista filtrada de usuarios (MECANISMO 3)
   const filteredUsers = users.filter(user =>
@@ -738,54 +709,54 @@ window.removeEventListener('popstate', preventNavigation);
     user.hicnumerouser.includes(searchQuery)
   );
 
-  return (
-    <div className="h-full w-full flex ">
-      {/* Debug Panel */}
-      {showDebug && (
-        <Card className="w-1/4">
-          <CardHeader>
-            <CardTitle className="text-sm">Debug Evolution-API</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="text-xs space-y-1">
-              <p><strong>URL:</strong> {import.meta.env.VITE_EVOLUTION_API_URL || 'NOT SET'}</p>
-              <p><strong>Token:</strong> {import.meta.env.VITE_EVOLUTION_API_TOKEN ? '***' + import.meta.env.VITE_EVOLUTION_API_TOKEN.slice(-4) : 'NOT SET'}</p>
-              <p><strong>Instance:</strong> {import.meta.env.VITE_EVOLUTION_INSTANCE || 'NOT SET'}</p>
-              <p><strong>Bot Number:</strong> {import.meta.env.VITE_BOT_NUMBER || 'NOT SET'}</p>
-              <div className="border-t pt-2 mt-2">
-                <p><strong>Workflow N8N (qpBj0IpMs21Q7zha):</strong>
-                  <span className={`ml-2 px-2 py-1 rounded text-xs ${botEnabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {botEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
-                  </span>
-                </p>
-                <p><strong>Webhook Evolution API:</strong>
-                  <span className={`ml-2 px-2 py-1 rounded text-xs ${webhookEnabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {webhookEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
-                  </span>
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  URL Workflow: https://n8n.testbot.click/webhook/qpBj0IpMs21Q7zha
-                </p>
-                <p className="text-xs text-gray-500">
-                  Nombre: Workflow RRHH Reclutamiento - Santiago
-                </p>
-              </div>
-            </div>
-            <Button onClick={testEvolutionAPI} size="sm" className="w-full">
-            	Test Evolution API
-          	</Button>
-          	<Button onClick={testN8NWorkflow} size="sm" className="w-full">
-          	  Test N8N Workflow
-          	</Button>
-          	<Button onClick={() => setShowDebug(false)} size="sm" variant="outline" className="w-full">
-          	  Hide Debug
-          	</Button>
-        	</CardContent>
-      	</Card>
-    	)}
+  return (
+    <div className="h-full w-full flex ">
+      {/* Debug Panel */}
+      {showDebug && (
+        <Card className="w-1/4">
+          <CardHeader>
+            <CardTitle className="text-sm">Debug Evolution-API</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="text-xs space-y-1">
+              <p><strong>URL:</strong> {import.meta.env.VITE_EVOLUTION_API_URL || 'NOT SET'}</p>
+              <p><strong>Token:</strong> {import.meta.env.VITE_EVOLUTION_API_TOKEN ? '***' + import.meta.env.VITE_EVOLUTION_API_TOKEN.slice(-4) : 'NOT SET'}</p>
+              <p><strong>Instance:</strong> {import.meta.env.VITE_EVOLUTION_INSTANCE || 'NOT SET'}</p>
+              <p><strong>Bot Number:</strong> {import.meta.env.VITE_BOT_NUMBER || 'NOT SET'}</p>
+              <div className="border-t pt-2 mt-2">
+                <p><strong>Workflow N8N (qpBj0IpMs21Q7zha):</strong>
+                  <span className={`ml-2 px-2 py-1 rounded text-xs ${botEnabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {botEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
+                  </span>
+                </p>
+                <p><strong>Webhook Evolution API:</strong>
+                  <span className={`ml-2 px-2 py-1 rounded text-xs ${webhookEnabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {webhookEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
+                  </span>
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  URL Workflow: https://n8n.testbot.click/webhook/qpBj0IpMs21Q7zha
+                </p>
+                <p className="text-xs text-gray-500">
+                  Nombre: Workflow RRHH Reclutamiento - Santiago
+                </p>
+              </div>
+            </div>
+            <Button onClick={testEvolutionAPI} size="sm" className="w-full">
+              Test Evolution API
+            </Button>
+            <Button onClick={testN8NWorkflow} size="sm" className="w-full">
+              Test N8N Workflow
+            </Button>
+            <Button onClick={() => setShowDebug(false)} size="sm" variant="outline" className="w-full">
+              Hide Debug
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-    	{/* Users List */}
-    	<Card className={`${showDebug ? "w-1/4" : "w-1/3"} flex flex-col`}>
+      {/* Users List */}
+      <Card className={`${showDebug ? "w-1/4" : "w-1/3"} flex flex-col`}>
 
         {/* El encabezado ahora contiene TODOS los controles */}
         <CardHeader className="p-4 space-y-4">
@@ -809,7 +780,7 @@ window.removeEventListener('popstate', preventNavigation);
           </div>
         </CardHeader>
 
-      
+
         {/* El contenido ahora solo se encarga de la lista */}
         <CardContent className="flex-1 p-4 pt-0">
           <ScrollArea className="h-full">
@@ -819,11 +790,10 @@ window.removeEventListener('popstate', preventNavigation);
                   <div
                     key={user.hicnumerouser}
                     onClick={() => handleUserSelect(user)}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                      selectedUser?.hicnumerouser === user.hicnumerouser
+                    className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedUser?.hicnumerouser === user.hicnumerouser
                         ? 'bg-blue-100 border-blue-300'
                         : 'hover:bg-gray-100'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <Avatar>
@@ -845,112 +815,112 @@ window.removeEventListener('popstate', preventNavigation);
                   No se encontraron chats.
                 </p>
               )}
-              
+
             </div>
           </ScrollArea>
         </CardContent>
       </Card>
 
 
-    	{/* Chat Area */}
-    	<Card className={showDebug ? "flex-1" : "flex-1"}>
-<CardHeader className="items-start flex flex-row gap-2 p-4 !mt-0">
+      {/* Chat Area */}
+      <Card className={showDebug ? "flex-1" : "flex-1"}>
+        <CardHeader className="items-start flex flex-row gap-2 p-4 !mt-0">
 
-       {selectedUser && (
-             <Avatar>
-               <AvatarFallback>
-                 {selectedUser.hicusername.charAt(0).toUpperCase()}
-               </AvatarFallback>
-             </Avatar>
-           )}
+          {selectedUser && (
+            <Avatar>
+              <AvatarFallback>
+                {selectedUser.hicusername.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          )}
 
-         <div className="items-center !mt-0 flex-1">
-   <CardTitle className="text-xl font-semibold !mt-0">
-               {selectedUser ? (
-                 <>
-                   <span>
-                     {selectedUser.hicusername}
-                   </span>
+          <div className="items-center !mt-0 flex-1">
+            <CardTitle className="text-xl font-semibold !mt-0">
+              {selectedUser ? (
+                <>
+                  <span>
+                    {selectedUser.hicusername}
+                  </span>
 
-                   <span className="text-sm text-gray-500 font-normal ml-2">
-                     ({selectedUser.hicnumerouser})
-                   </span>
-                 </>
-               ) : (
-                 <span className="text-xl font-semibold text-gray-400 flex items-center gap-3">
-                   <SquareMousePointer className="h-6 w-6" />
-                   <span>Selecciona un chat</span>
-                 </span>
-               )}
-             </CardTitle>
-         </div>
+                  <span className="text-sm text-gray-500 font-normal ml-2">
+                    ({selectedUser.hicnumerouser})
+                  </span>
+                </>
+              ) : (
+                <span className="text-xl font-semibold text-gray-400 flex items-center gap-3">
+                  <SquareMousePointer className="h-6 w-6" />
+                  <span>Selecciona un chat</span>
+                </span>
+              )}
+            </CardTitle>
+          </div>
 
-         {selectedUser && (
-           <Button
-             onClick={() => toggleUserBot(selectedUser)}
-             size="sm"
-             variant={selectedUser.botDisabled ? "destructive" : "outline"}
-             className="flex items-center gap-1"
-           >
-             <Ban className="h-4 w-4" />
-             {selectedUser.botDisabled ? 'Habilitar Bot' : 'Deshabilitar Bot'}
-           </Button>
-         )}
-</CardHeader>
+          {selectedUser && (
+            <Button
+              onClick={() => toggleUserBot(selectedUser)}
+              size="sm"
+              variant={selectedUser.botDisabled ? "destructive" : "outline"}
+              className="flex items-center gap-1"
+            >
+              <Ban className="h-4 w-4" />
+              {selectedUser.botDisabled ? 'Habilitar Bot' : 'Deshabilitar Bot'}
+            </Button>
+          )}
+        </CardHeader>
 
         <Separator />
 
-    	  <CardContent className="flex flex-col h-[600px]">
-    	    {/* Messages */}
-    	    <ScrollArea className="flex-1 mb-2 mt-0">
-    	      <div className="space-y-2 ">
-    	        {messages.map((message, index) => (
-    	          <div key={index} className="flex">
-    	            {message.hicmessagebot && (
-    	              <div className="flex justify-end w-full">
+        <CardContent className="flex flex-col h-[600px]">
+          {/* Messages */}
+          <ScrollArea className="flex-1 mb-2 mt-0">
+            <div className="space-y-2 ">
+              {messages.map((message, index) => (
+                <div key={index} className="flex">
+                  {message.hicmessagebot && (
+                    <div className="flex justify-end w-full">
                       <div className="bg-hrm-teal text-white p-3 rounded-lg max-w-xs">
                         <p>{message.hicmessagebot}</p>
                       </div>
                     </div>
                   )}
-    	            {message.hicmessageuser && (
-    	              <div className="flex justify-start w-full">
+                  {message.hicmessageuser && (
+                    <div className="flex justify-start w-full">
                       <div className="bg-gray-200 text-gray-800 p-3 rounded-lg max-w-xs">
                         <p>{message.hicmessageuser}</p>
                       </div>
                     </div>
                   )}
-    	          </div>
-    	        ))}
+                </div>
+              ))}
               <div ref={messagesEndRef} />
-    	      </div>
-    	    </ScrollArea>
+            </div>
+          </ScrollArea>
 
           <Separator />
-          
-    	    {/* Send Message Form */}
-    	    {selectedUser && (
-    	      <div className="flex gap-2">
-    	        <Input
-    	          value={newMessage}
-    	          onChange={(e) => setNewMessage(e.target.value)}
-    	          placeholder="Escribe un mensaje..."
-    	          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-    	          disabled={loading}
-    	        />
-    	        <Button
-    	          onClick={sendMessage}
-    	          disabled={loading || !newMessage.trim()}
-    	          className="px-4"
-    	        >
-    	          <Send className="h-4 w-4" />
-    	        </Button>
-    	      </div>
-    	    )}
-    	  </CardContent>
-    	</Card>
-    </div>
-  );
+
+          {/* Send Message Form */}
+          {selectedUser && (
+            <div className="flex gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Escribe un mensaje..."
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                disabled={loading}
+              />
+              <Button
+                onClick={sendMessage}
+                disabled={loading || !newMessage.trim()}
+                className="px-4"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 };
 
 export default WhatsApp;

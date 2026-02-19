@@ -73,20 +73,98 @@ import Ayuda from "./pages/rrhh/Ayuda";
 import Configuracion from "./pages/rrhh/Configuracion";
 import Reuniones from "./pages/rrhh/Reuniones";
 
-const queryClient = new QueryClient();
+// ─────────────────────────────────────────────────────────────
+// ProtectedRoute debe estar FUERA de App para que React no lo
+// recree en cada render, evitando así el desmontaje/remontaje de
+// todos los hijos (efecto "reload" al navegar entre módulos admin).
+// ─────────────────────────────────────────────────────────────
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  session: any;
+  loading: boolean;
+}
+
+const ProtectedRoute = ({ children, session, loading }: ProtectedRouteProps) => {
+  const [validatingUser, setValidatingUser] = useState(false);
+  const userId = session?.user?.id;
+
+  useEffect(() => {
+    const validateUser = async () => {
+      if (userId) {
+        // Solo mostramos spinner si es la primera carga o no hay sesión previa.
+        // Si ya hay sesión, validamos en el fondo para evitar el parpadeo al cambiar de pestaña.
+        setValidatingUser(false);
+
+        try {
+          await ensureUserIsActive(userId);
+        } catch (error) {
+          console.warn('Usuario inactivo detectado, cerrando sesión:', error);
+          await supabase.auth.signOut();
+          window.location.href = '/admin/login';
+        }
+      }
+    };
+
+    validateUser();
+  }, [userId]);
+
+  // Solo bloquear la UI con spinner si:
+  // 1. App está en carga inicial (loading)
+  // 2. No hay sesión aún (puede ser redirección inminente)
+  // Pero NO bloqueamos si ya tenemos sesión y solo estamos re-validando en el fondo.
+  if (loading && !session) {
+    return <div className="h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-hrm-dark-cyan"></div>
+    </div>;
+  }
+
+  if (!session) {
+    const path = window.location.pathname;
+    if (!path.startsWith("/admin/login")) {
+      return <Navigate to="/admin/login" replace />;
+    }
+  }
+  return <>{children}</>;
+};
+
+// ─────────────────────────────────────────────────────────────
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Deshabilitar recarga automática al volver a la pestaña.
+      // Por defecto React Query recarga todos los datos cuando la ventana
+      // recupera el foco, lo que causa que el contenido se regenere visualmente.
+      refetchOnWindowFocus: false,
+      // Tampoco recargar al reconectar la red (opcional, evita re-renders inesperados)
+      refetchOnReconnect: false,
+    },
+  },
+});
 
 function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Setup auth listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      setSession(currentSession);
+    // Almacenamos el ID anterior para detectar cambios reales de usuario
+    let lastUserId: string | null = null;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      const currentUserId = currentSession?.user?.id || null;
+
+      // Solo actualizamos el estado si:
+      // 1. El ID del usuario ha cambiado (login/logout)
+      // 2. Es el evento de sesión inicial
+      if (currentUserId !== lastUserId || event === 'INITIAL_SESSION') {
+        lastUserId = currentUserId;
+        setSession(currentSession);
+      }
+
       setLoading(false);
     });
 
-    // THEN check for existing session
+    // Verificar sesión existente al iniciar
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -94,46 +172,6 @@ function App() {
 
     return () => subscription?.unsubscribe();
   }, []);
-
-
-  // Componente para proteger rutas de administrador
-  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    const [validatingUser, setValidatingUser] = useState(false);
-
-    useEffect(() => {
-      const validateUser = async () => {
-        if (session?.user) {
-          setValidatingUser(true);
-          try {
-            await ensureUserIsActive(session.user.id);
-          } catch (error) {
-            console.warn('Usuario inactivo detectado, cerrando sesión:', error);
-            await supabase.auth.signOut();
-            // Redirigir al login después de cerrar sesión
-            window.location.href = '/admin/login';
-          } finally {
-            setValidatingUser(false);
-          }
-        }
-      };
-
-      validateUser();
-    }, [session]);
-
-    if (loading || validatingUser) {
-      return <div className="h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-hrm-dark-cyan"></div>
-      </div>;
-    }
-
-    if (!session) {
-      const path = window.location.pathname;
-      if (!path.startsWith("/admin/login")) {
-        return <Navigate to="/admin/login" replace />;
-      }
-    }
-    return <>{children}</>;
-  };
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -158,12 +196,12 @@ function App() {
               {/* Admin Routes */}
               <Route path="/admin/login" element={<Login />} />
               <Route path="/admin/unauthorized" element={
-                <ProtectedRoute>
+                <ProtectedRoute session={session} loading={loading}>
                   <Unauthorized />
                 </ProtectedRoute>
               } />
               <Route path="/admin" element={
-                <ProtectedRoute>
+                <ProtectedRoute session={session} loading={loading}>
                   <AdminLayout />
                 </ProtectedRoute>
               }>

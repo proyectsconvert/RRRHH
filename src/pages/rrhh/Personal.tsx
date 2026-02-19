@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Users, 
-  Search, 
-  Plus, 
+import {
+  Users,
+  Search,
+  Plus,
   Filter,
   User,
   Mail,
@@ -26,7 +26,7 @@ import { EmployeeEditForm } from "@/components/rrhh/EmployeeEditForm";
 import type { Employee } from "@/types/rrhh";
 
 export default function Personal() {
-  const { employees, isLoading, error } = useRRHHData();
+  const { employees, isLoading, error, refetch } = useRRHHData();
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -36,12 +36,12 @@ export default function Personal() {
   const filteredEmployees = employees.filter((employee: Employee) => {
     const employeeName = employee.name || `${employee.first_name} ${employee.last_name}`;
     const matchesSearch = employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.position?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.position?.toLowerCase().includes(searchTerm.toLowerCase());
+
     const employeeDepartment = typeof employee.department === 'string' ? employee.department : employee.department?.name || '';
     const matchesDepartment = departmentFilter === "all" || employeeDepartment === departmentFilter;
-    
+
     return matchesSearch && matchesDepartment;
   });
 
@@ -77,7 +77,7 @@ export default function Personal() {
     return (
       <div className="text-center py-8">
         <div className="text-red-600 mb-4">Error al cargar los datos del personal</div>
-        <Button onClick={() => window.location.reload()}>Reintentar</Button>
+        <Button onClick={() => refetch()}>Reintentar</Button>
       </div>
     );
   }
@@ -104,11 +104,11 @@ export default function Personal() {
                 Completa la información del nuevo empleado
               </DialogDescription>
             </DialogHeader>
-            <EmployeeEditForm 
+            <EmployeeEditForm
               employee={null}
               isOpen={true}
-              onClose={() => {}}
-              onSave={() => {}}
+              onClose={() => { }}
+              onSave={() => { }}
             />
           </DialogContent>
         </Dialog>
@@ -212,7 +212,7 @@ export default function Personal() {
         {filteredEmployees.map((employee: Employee) => {
           const employeeName = employee.name || `${employee.first_name} ${employee.last_name}`;
           const employeeDepartment = typeof employee.department === 'string' ? employee.department : employee.department?.name || 'Sin departamento';
-          
+
           return (
             <Card key={String(employee.id)} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
@@ -299,7 +299,7 @@ export default function Personal() {
                 <TabsTrigger value="performance">Rendimiento</TabsTrigger>
                 <TabsTrigger value="documents">Documentos</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="personal" className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -320,7 +320,7 @@ export default function Personal() {
                   </div>
                 </div>
               </TabsContent>
-              
+
               <TabsContent value="work" className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -341,14 +341,14 @@ export default function Personal() {
                   </div>
                 </div>
               </TabsContent>
-              
+
               <TabsContent value="performance" className="space-y-4">
                 <div className="text-center py-8">
                   <Award className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600">Datos de rendimiento disponibles próximamente</p>
                 </div>
               </TabsContent>
-              
+
               <TabsContent value="documents" className="space-y-4">
                 <div className="text-center py-8">
                   <GraduationCap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -370,7 +370,7 @@ export default function Personal() {
             </DialogDescription>
           </DialogHeader>
           {selectedEmployee && (
-            <EmployeeEditForm 
+            <EmployeeEditForm
               employee={selectedEmployee}
               isOpen={isEditDialogOpen}
               onClose={() => setIsEditDialogOpen(false)}
@@ -386,7 +386,7 @@ export default function Personal() {
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron empleados</h3>
             <p className="text-gray-600">
-              {searchTerm || departmentFilter !== "all" 
+              {searchTerm || departmentFilter !== "all"
                 ? "Intenta ajustar los filtros de búsqueda"
                 : "Comienza agregando tu primer empleado"
               }

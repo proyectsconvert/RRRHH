@@ -2,15 +2,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { employeeService } from '@/services/rrhh-employee-service';
-import type { 
-  Employee, 
+import type {
+  Employee,
   PartialEmployee,
-  AbsenceRequest, 
+  AbsenceRequest,
   AbsenceRequestResponse,
-  AttendanceRecord, 
+  AttendanceRecord,
   AttendanceRecordResponse,
-  Message, 
-  PayrollRecord 
+  Message,
+  PayrollRecord
 } from '@/types/rrhh';
 
 // Helper function to get employee display name
@@ -55,7 +55,7 @@ export const useEmployees = () => {
     queryFn: async () => {
       console.log('Fetching employees...');
       const employees = await employeeService.getAllEmployees();
-      
+
       // Enrich employees with computed properties
       return employees.map((emp: any) => ({
         ...emp,
@@ -79,7 +79,7 @@ export const useAttendance = () => {
           .select('*')
           .order('date', { ascending: false })
           .limit(100);
-        
+
         if (error) {
           console.error('Error fetching attendance:', error);
           throw error;
@@ -101,7 +101,7 @@ export const useAttendance = () => {
             } : undefined
           };
         }) || [];
-        
+
         console.log(`Loaded ${enrichedAttendance.length} attendance records`);
         return enrichedAttendance;
       } catch (error) {
@@ -124,7 +124,7 @@ export const useMessages = () => {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(50);
-        
+
         if (error) {
           console.error('Error fetching messages:', error);
           throw error;
@@ -146,7 +146,7 @@ export const useMessages = () => {
             } : undefined
           };
         }) || [];
-        
+
         console.log(`Loaded ${enrichedMessages.length} messages`);
         return enrichedMessages;
       } catch (error) {
@@ -169,7 +169,7 @@ export const useAbsenceRequests = () => {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(100);
-        
+
         if (error) {
           console.error('Error fetching absence requests:', error);
           throw error;
@@ -178,7 +178,7 @@ export const useAbsenceRequests = () => {
         const { data: employees } = await supabase
           .from('rrhh_employees_master')
           .select('id, first_name, last_name, position');
-        
+
         const enrichedRequests = data?.map(request => {
           const employee = employees?.find(emp => emp.id === request.employee_id);
           return {
@@ -186,7 +186,7 @@ export const useAbsenceRequests = () => {
             employee_name: employee ? getEmployeeName(employee) : 'Empleado no encontrado'
           };
         }) || [];
-        
+
         console.log(`Loaded ${enrichedRequests.length} absence requests`);
         return enrichedRequests;
       } catch (error) {
@@ -210,12 +210,12 @@ export const usePayroll = () => {
           .order('period_year', { ascending: false })
           .order('period_month', { ascending: false })
           .limit(100);
-        
+
         if (error) {
           console.error('Error fetching payroll:', error);
           throw error;
         }
-        
+
         console.log(`Loaded ${data?.length || 0} payroll records`);
         return data || [];
       } catch (error) {
@@ -243,13 +243,14 @@ export const useRRHHData = () => {
     payroll: payrollQuery.data || [],
     isLoading: employeesQuery.isLoading || attendanceQuery.isLoading || messagesQuery.isLoading || absenceRequestsQuery.isLoading || payrollQuery.isLoading,
     error: employeesQuery.error || attendanceQuery.error || messagesQuery.error || absenceRequestsQuery.error || payrollQuery.error,
+    refetch: employeesQuery.refetch,
   };
 };
 
 // Mutations
 export const useRegisterAttendance = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ employeeId, checkInTime, checkOutTime }: {
       employeeId: string;
@@ -257,18 +258,18 @@ export const useRegisterAttendance = () => {
       checkOutTime?: string;
     }) => {
       console.log('Registering attendance...', { employeeId, checkInTime, checkOutTime });
-      
+
       const { data, error } = await supabase.rpc('register_attendance', {
         p_employee_id: employeeId,
         p_check_in_time: checkInTime || new Date().toISOString(),
         p_check_out_time: checkOutTime || null,
       });
-      
+
       if (error) {
         console.error('Error registering attendance:', error);
         throw error;
       }
-      
+
       console.log('Attendance registered successfully');
       return data;
     },
@@ -280,7 +281,7 @@ export const useRegisterAttendance = () => {
 
 export const useCreateMessage = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ senderId, recipientId, subject, content, messageType = 'general' }: {
       senderId: string;
@@ -290,7 +291,7 @@ export const useCreateMessage = () => {
       messageType?: string;
     }) => {
       console.log('Creating message...', { senderId, recipientId, subject });
-      
+
       const { data, error } = await supabase.rpc('create_rrhh_message', {
         p_sender_id: senderId,
         p_recipient_id: recipientId,
@@ -298,12 +299,12 @@ export const useCreateMessage = () => {
         p_content: content,
         p_message_type: messageType,
       });
-      
+
       if (error) {
         console.error('Error creating message:', error);
         throw error;
       }
-      
+
       console.log('Message created successfully');
       return data;
     },
@@ -315,7 +316,7 @@ export const useCreateMessage = () => {
 
 export const useCreateAbsenceRequest = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ employeeId, absenceType, startDate, endDate, reason }: {
       employeeId: string;
@@ -325,7 +326,7 @@ export const useCreateAbsenceRequest = () => {
       reason: string;
     }) => {
       console.log('Creating absence request...', { employeeId, absenceType, startDate, endDate });
-      
+
       const { data, error } = await supabase.rpc('create_absence_request', {
         p_employee_id: employeeId,
         p_absence_type: absenceType,
@@ -333,12 +334,12 @@ export const useCreateAbsenceRequest = () => {
         p_end_date: endDate,
         p_reason: reason,
       });
-      
+
       if (error) {
         console.error('Error creating absence request:', error);
         throw error;
       }
-      
+
       console.log('Absence request created successfully');
       return data;
     },
