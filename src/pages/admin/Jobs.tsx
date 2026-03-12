@@ -144,7 +144,7 @@ const Jobs = () => {
             />
           </div>
 
-          <Button className="bg-hrm-dark-cyan hover-bg-hrm-steel-blue" asChild>
+          <Button className="bg-hrm-dark-cyan hover:bg-hrm-steel-blue dark:bg-cyan-600 dark:hover:bg-cyan-700 dark:text-white" asChild>
             <Link to="/admin/jobs/new">
               <Plus className="mr-2 h-4 w-4" />
               Nueva Vacante
@@ -182,7 +182,7 @@ const Jobs = () => {
                   {JOB_TYPES.map((jobType) => (
                     <label
                       key={jobType.id}
-                      className="flex items-center space-x-2 rounded-md p-2 hover:bg-gray-100 cursor-pointer"
+                      className="flex items-center space-x-2 rounded-md p-2 hover:bg-muted cursor-pointer"
                     >
                       <Checkbox
                         id={`type-${jobType.id}`}
@@ -218,11 +218,12 @@ const Jobs = () => {
                     <JobDeleteButton 
                       jobId={job.id} 
                       jobTitle={job.title} 
+                      onDeleted={fetchJobs}
                     />
                   </div>
                 ))
               ) : (
-                <div className="col-span-full text-center py-10 text-gray-500">
+                <div className="col-span-full text-center py-10 text-muted-foreground">
                   <p>No se encontraron vacantes que coincidan con tus filtros.</p>
                 </div>
               )}

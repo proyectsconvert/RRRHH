@@ -866,11 +866,11 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
-            <span className="ml-2">Cargando documentos...</span>
+      <Card className="border-slate-200 shadow-sm rounded-2xl">
+        <CardContent className="p-12">
+          <div className="flex flex-col justify-center items-center py-8 text-center text-slate-500">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-cyan-600 mb-4"></div>
+            <span className="font-medium tracking-wide">Cargando documentos...</span>
           </div>
         </CardContent>
       </Card>
@@ -878,67 +878,101 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl text-center relative">
-            REQUISITOS INGRESO DE PERSONAL
-            {isAdmin && (
+      <Card className="border-0 shadow-md bg-white overflow-hidden rounded-2xl">
+        <div className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100 p-6 md:p-8 relative">
+          {isAdmin && (
+            <div className="absolute right-6 top-6 hidden md:block">
               <Button
                 variant="outline"
                 size="sm"
-                className="absolute right-0 top-0 gap-2"
+                className="gap-2 bg-white hover:bg-slate-50 border-slate-200 shadow-sm transition-all text-slate-700"
                 onClick={handleDownloadAll}
                 disabled={isDownloading}
               >
                 {isDownloading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                 ) : (
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4 w-4 text-slate-500" />
+                )}
+                Descargar Todo PDF
+              </Button>
+            </div>
+          )}
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center justify-center p-3 bg-blue-100/50 rounded-2xl mb-4">
+              <FileText className="h-8 w-8 text-blue-600" />
+            </div>
+            <CardTitle className="text-2xl md:text-3xl text-slate-800 font-bold tracking-tight mb-4">
+              Requisitos de Ingreso
+            </CardTitle>
+            <p className="text-slate-600 text-sm md:text-base leading-relaxed">
+              A continuación, encontrará el listado de documentos requeridos para el ingreso a la empresa{' '}
+              <strong className="text-slate-800 font-semibold">INTELLIGENT CUSTOMER ACQUISITION SAS</strong>. 
+              El aporte de esta documentación es requisito de obligatorio cumplimiento dentro del proceso de contratación.
+            </p>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 mt-4 bg-white hover:bg-slate-50 border-slate-200 shadow-sm md:hidden text-slate-700 w-full justify-center"
+                onClick={handleDownloadAll}
+                disabled={isDownloading}
+              >
+                {isDownloading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                ) : (
+                  <Download className="h-4 w-4 text-slate-500" />
                 )}
                 Descargar Todo PDF
               </Button>
             )}
-          </CardTitle>
-          <p className="text-center text-gray-600">
-            A continuación, encontrará el listado de documentos que usted debe aportar para el ingreso a la empresa<br />
-            <strong>INTELLIGENT CUSTOMER ACQUISITION SAS</strong><br />
-            el aporte de esta documentación es requisito de obligatorio cumplimiento dentro del proceso de contratación.
-          </p>
+          </div>
           {isReadOnly && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800 text-center font-medium">
-                📋 Documentos del Candidato Contratado - Vista de Solo Lectura
-              </p>
-              <p className="text-xs text-blue-600 text-center mt-1">
-                Los documentos ya no pueden ser editados o modificados
-              </p>
+            <div className="mt-6 p-4 bg-blue-50/80 border border-blue-200/60 rounded-xl max-w-2xl mx-auto flex items-start gap-3 shadow-sm">
+              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-blue-900 font-semibold">
+                  Vista de Solo Lectura - Candidato Contratado
+                </p>
+                <p className="text-sm text-blue-700/80 mt-1">
+                  Los documentos ya han sido procesados y no pueden ser editados o modificados.
+                </p>
+              </div>
             </div>
           )}
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{uploaded}/{total}</div>
-                <div className="text-sm text-gray-600">Documentos Subidos</div>
+        </div>
+        <CardContent className="p-6 md:p-8">
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center p-5 bg-blue-50/40 rounded-2xl border border-blue-100/50 shadow-sm transition-transform hover:scale-[1.02] duration-300">
+                <div className="text-4xl font-black tracking-tight text-blue-600 mb-2">{uploaded}<span className="text-2xl text-blue-400 font-bold">/{total}</span></div>
+                <div className="text-sm font-medium text-slate-600 uppercase tracking-wider">Documentos Subidos</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{requiredUploaded}/{required}</div>
-                <div className="text-sm text-gray-600">Documentos Obligatorios</div>
+              <div className="text-center p-5 bg-emerald-50/40 rounded-2xl border border-emerald-100/50 shadow-sm transition-transform hover:scale-[1.02] duration-300">
+                <div className="text-4xl font-black tracking-tight text-emerald-600 mb-2">{requiredUploaded}<span className="text-2xl text-emerald-400 font-bold">/{required}</span></div>
+                <div className="text-sm font-medium text-slate-600 uppercase tracking-wider">Obligatorios Completados</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{Math.round(completionPercentage)}%</div>
-                <div className="text-sm text-gray-600">Completado</div>
+              <div className="text-center p-5 bg-indigo-50/40 rounded-2xl border border-indigo-100/50 shadow-sm transition-transform hover:scale-[1.02] duration-300">
+                <div className="text-4xl font-black tracking-tight text-indigo-600 mb-2">{Math.round(completionPercentage)}<span className="text-2xl text-indigo-400 font-bold">%</span></div>
+                <div className="text-sm font-medium text-slate-600 uppercase tracking-wider">Progreso General</div>
               </div>
             </div>
-            <Progress value={completionPercentage} className="h-2" />
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-sm font-medium">
+                <span className="text-slate-600">Progreso de carga</span>
+                <span className="text-slate-800 font-bold">{Math.round(completionPercentage)}%</span>
+              </div>
+              <Progress value={completionPercentage} className="h-3 rounded-full bg-slate-100" />
+            </div>
+
             {requiredCompletionPercentage < 100 && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Faltan {required - requiredUploaded} documentos obligatorios por subir
+              <Alert className="bg-amber-50 border-amber-200 text-amber-800 rounded-xl shadow-sm">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                <AlertDescription className="ml-2 font-medium">
+                  Faltan {required - requiredUploaded} documentos obligatorios por subir para completar el expediente.
                 </AlertDescription>
               </Alert>
             )}
@@ -948,17 +982,20 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
 
       {/* Document Categories */}
       {Object.entries(DOCUMENT_CATEGORIES).map(([categoryKey, category]) => (
-        <Card key={categoryKey}>
-          <CardHeader>
-            <CardTitle className="text-lg">{category.title}</CardTitle>
+        <Card key={categoryKey} className="border border-slate-200 shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow duration-300">
+          <div className="bg-slate-50/80 border-b border-slate-100 px-6 py-5">
+            <CardTitle className="text-lg text-slate-800 font-bold flex items-center">
+              <div className="h-2 w-2 rounded-full bg-blue-500 mr-3 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+              {category.title}
+            </CardTitle>
             {category.subtitle && (
-              <p className="text-sm text-gray-600">{category.subtitle}</p>
+              <p className="text-sm text-slate-500 font-medium mt-1 ml-5">{category.subtitle}</p>
             )}
             {category.description && (
-              <p className="text-sm text-gray-500 mt-2">{category.description}</p>
+              <p className="text-sm text-slate-600 mt-2 ml-5 leading-relaxed">{category.description}</p>
             )}
-          </CardHeader>
-          <CardContent>
+          </div>
+          <CardContent className="p-6">
             <div className="space-y-3">
               {category.items
                 .filter((item) => isAdmin || item.id !== 'examenes-medicos')
@@ -967,39 +1004,50 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
                   const isUploading = uploading[item.id];
 
                   return (
-                    <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3 flex-1">
-                        {doc?.uploaded ? (
-                          <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-                        ) : item.required ? (
-                          <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                        ) : (
-                          <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                        )}
-
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">
-                            {item.name}
-                            {item.required && <span className="text-red-500 ml-1">*</span>}
-                          </div>
-                          {item.description && (
-                            <div className="text-xs text-gray-500 mt-1">{item.description}</div>
-                          )}
-                          {doc?.uploaded && doc.uploadedAt && (
-                            <div className="text-xs text-green-600 mt-1">
-                              Subido el {new Date(doc.uploadedAt).toLocaleDateString('es-ES')}
+                    <div key={item.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-slate-200 rounded-xl bg-white hover:border-blue-300 hover:shadow-md transition-all duration-200 gap-4 group">
+                      <div className="flex items-start md:items-center gap-4 flex-1">
+                        <div className="mt-0.5 md:mt-0">
+                          {doc?.uploaded ? (
+                            <div className="bg-green-100 p-1.5 rounded-full">
+                              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                             </div>
-                          )}
-                          {doc?.feedback && (
-                            <div className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" />
-                              Feedback: {doc.feedback}
+                          ) : item.required ? (
+                            <div className="bg-slate-100 p-1.5 rounded-full group-hover:bg-red-50 transition-colors">
+                              <AlertCircle className="h-5 w-5 text-slate-400 group-hover:text-red-500 flex-shrink-0" />
+                            </div>
+                          ) : (
+                            <div className="bg-slate-100 p-1.5 rounded-full">
+                              <FileText className="h-5 w-5 text-slate-400 flex-shrink-0" />
                             </div>
                           )}
                         </div>
+
+                        <div className="flex-1">
+                          <div className="font-semibold text-sm text-slate-800 leading-snug">
+                            {item.name}
+                            {item.required && <span className="text-red-500 ml-1" title="Requerido">*</span>}
+                          </div>
+                          {item.description && (
+                            <div className="text-sm text-slate-500 mt-1 leading-relaxed">{item.description}</div>
+                          )}
+                          <div className="flex flex-wrap items-center gap-3 mt-2">
+                            {doc?.uploaded && doc.uploadedAt && (
+                              <div className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md inline-flex items-center">
+                                <Check className="h-3 w-3 mr-1" />
+                                Subido el {new Date(doc.uploadedAt).toLocaleDateString('es-ES')}
+                              </div>
+                            )}
+                            {doc?.feedback && (
+                              <div className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-md inline-flex items-center">
+                                <MessageSquare className="h-3 w-3 mr-1" />
+                                Nota: {doc.feedback}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto mt-2 md:mt-0 justify-end">
                         {doc?.uploaded && doc.fileUrl && (
                           <div className="flex items-center gap-1">
                             {getFileIcon(doc.fileName || doc.fileUrl)}
@@ -1175,13 +1223,12 @@ const DocumentChecklist: React.FC<DocumentChecklistProps> = ({
       ))}
 
       {/* Footer */}
-      <Card>
-        <CardContent className="p-6 text-center">
-          <p className="text-gray-600 italic">
-            Agradecemos su colaboración
-          </p>
-        </CardContent>
-      </Card>
+      <div className="py-8 text-center pb-12">
+        <div className="inline-flex items-center justify-center space-x-2 text-slate-500 bg-slate-50 px-6 py-3 rounded-full border border-slate-100 shadow-sm">
+          <CheckCircle className="h-4 w-4 text-emerald-500" />
+          <span className="text-sm font-medium tracking-wide">Agradecemos su colaboración y compromiso</span>
+        </div>
+      </div>
 
       {/* Document Viewer Modal */}
       <DocumentViewer

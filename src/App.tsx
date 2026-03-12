@@ -12,6 +12,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ModuleProtectedRoute from "@/components/auth/ModuleProtectedRoute";
 import Unauthorized from "./pages/admin/Unauthorized";
 import { ensureUserIsActive } from "@/utils/auth-helpers";
+import { ThemeProvider } from "@/components/theme-provider";
 
 // Layouts
 import PublicLayout from "./components/layout/PublicLayout";
@@ -175,8 +176,9 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
+      <ThemeProvider defaultTheme="light" storageKey="hrm-theme">
+        <TooltipProvider>
+          <AuthProvider>
           <Toaster />
           <Sonner />
           <Router>
@@ -381,7 +383,8 @@ function App() {
             </Routes>
           </Router>
         </AuthProvider>
-      </TooltipProvider>
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

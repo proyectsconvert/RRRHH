@@ -44,10 +44,10 @@ interface JobCardProps {
 const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = false }) => {
   const { toast } = useToast();
   const jobStatusColors = {
-    open: 'bg-hrm-dark-green/20 text-hrm-dark-green',
-    closed: 'bg-red-100 text-red-800',
-    draft: 'bg-yellow-100 text-yellow-800',
-    in_progress: 'bg-blue-100 text-blue-800',
+    open: 'bg-hrm-dark-green/20 text-hrm-dark-green dark:bg-green-900/40 dark:text-green-400',
+    closed: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400',
+    draft: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400',
+    in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400',
   };
 
   const jobTypeLabels = {
@@ -114,9 +114,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
   return (
     <Card className="overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
       <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start gap-2">
           <div>
-            <CardTitle className="text-lg font-semibold text-hrm-dark-cyan">
+            <CardTitle className="text-lg font-semibold text-hrm-dark-cyan dark:text-cyan-400">
               {isAdmin ? (
                 <Link to={`/admin/jobs/${job.id}`} className="hover:underline">
                   {job.title}
@@ -127,7 +127,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
                 </Link>
               )}
             </CardTitle>
-            <p className="text-sm text-gray-500">{job.department}</p>
+            <p className="text-sm text-muted-foreground">{job.department}</p>
           </div>
           <Badge className={jobStatusColors[job.status] || jobStatusColors.open}>
             {jobStatusLabels[job.status] || 'Abierta'}
@@ -136,16 +136,16 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
       </CardHeader>
       <CardContent className="pb-2">
         <div className="space-y-2">
-          <div className="flex items-center text-sm text-gray-500">
+          <div className="flex items-center text-sm text-muted-foreground">
             <MapPin className="mr-2 h-4 w-4" />
             <span>{job.location}</span>
           </div>
-          <div className="flex items-center text-sm text-gray-500">
+          <div className="flex items-center text-sm text-muted-foreground">
             <Calendar className="mr-2 h-4 w-4" />
             <span>Publicado: {getFormattedDate()}</span>
           </div>
           {(isAdmin || job.status === 'open') && (
-            <div className="flex items-center text-sm text-gray-500">
+            <div className="flex items-center text-sm text-muted-foreground">
               <Users className="mr-2 h-4 w-4" />
               <span>{applicantsCount} {applicantsCount === 1 ? 'Candidato' : 'Candidatos'}</span>
             </div>
@@ -171,7 +171,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
             <Button
               variant="outline"
               size="sm"
-              className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white"
+              className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white dark:border-cyan-500 dark:text-cyan-400 dark:hover:bg-cyan-600 dark:hover:text-white"
               asChild
             >
               <Link to={`/admin/jobs/${job.id}/edit`}>Editar</Link>
@@ -182,7 +182,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white"
+                  className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white dark:border-cyan-500 dark:text-cyan-400 dark:hover:bg-cyan-600 dark:hover:text-white"
                 >
                   <QrCode className="h-4 w-4" />
                 </Button>
@@ -204,7 +204,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
                   </div>
                 </div>
                 <div className="flex justify-center pb-4 flex-col items-center gap-4">
-                  <p className="text-sm text-gray-500 break-all text-center px-4">
+                  <p className="text-sm text-muted-foreground break-all text-center px-4">
                     {`${window.location.origin}/postularse/${job.id}`}
                   </p>
                   <Button
@@ -230,7 +230,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
             </Button>
             <Button
               size="sm"
-              className="flex-1 bg-hrm-dark-cyan hover:bg-hrm-steel-blue"
+              className="flex-1 bg-hrm-dark-cyan hover:bg-hrm-steel-blue dark:bg-cyan-600 dark:hover:bg-cyan-700 dark:text-white"
               asChild
             >
               <Link to={`/postularse/${job.id}`}>Postularse</Link>
@@ -243,7 +243,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white px-3"
+                    className="border-hrm-dark-cyan text-hrm-dark-cyan hover:bg-hrm-dark-cyan hover:text-white dark:border-cyan-500 dark:text-cyan-400 dark:hover:bg-cyan-600 dark:hover:text-white px-3"
                   >
                     <QrCode className="h-4 w-4" />
                   </Button>
@@ -265,7 +265,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
                     </div>
                   </div>
                   <div className="flex justify-center pb-4 flex-col items-center gap-4">
-                    <p className="text-sm text-gray-500 break-all text-center px-4">
+                    <p className="text-sm text-muted-foreground break-all text-center px-4">
                       {`${window.location.origin}/postularse/${job.id}`}
                     </p>
                     <Button

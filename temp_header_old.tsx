@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Bell, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { ThemeToggle } from '@/components/theme-toggle';
 import NotificationCenter from './NotificationCenter';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -35,20 +34,15 @@ const AdminHeader = () => {
   }, []);
 
   return (
-    <header className="h-16 lg:h-20 bg-background/80 backdrop-blur-md border-b border-border/50 sticky top-0 z-10 mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between transition-all duration-300">
+    <header className="h-14 border-b border-hrm-light-gray bg-white flex items-center justify-between px-4">
       {/* Contenedor para elementos a la izquierda */}
       <div className="flex items-center gap-4">
-        <div className="bg-background/50 hover:bg-muted p-1.5 rounded-xl border border-border/50 shadow-sm transition-all text-muted-foreground hover:text-primary hover:shadow">
-          <SidebarTrigger />
-        </div>
-        
+        <SidebarTrigger />
         {/*
-        <div className="relative w-64 hidden md:block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input 
-            placeholder="Buscar en la plataforma..." 
-            className="pl-9 h-10 bg-slate-50/50 border-slate-200 focus:border-cyan-500 focus:ring-cyan-500/20 rounded-xl transition-all shadow-sm" 
-          />
+
+        <div className="relative w-64">
+          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Buscar..." className="pl-8 rounded-md border-hrm-light-gray focus:border-hrm-steel-blue" />
         </div>
         */}
 
@@ -56,7 +50,6 @@ const AdminHeader = () => {
 
       {/* Contenedor para elementos a la derecha */}
       <div className="flex items-center gap-4 ml-auto">
-        <ThemeToggle />
         <NotificationCenter
           currentUserId={currentUserId || undefined}
           currentUserRole={currentUserRole || undefined}

@@ -1914,8 +1914,8 @@ const Candidates = () => {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
+    <div className="flex flex-col h-[calc(100vh-140px)] min-h-[500px] min-w-0 w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 shrink-0 gap-4">
         <h1 className="page-title">Candidatos</h1>
         <div className="flex gap-2">
 
@@ -1954,7 +1954,7 @@ const Candidates = () => {
               variant="outline"
               onClick={handleDownloadSelectedDocuments}
               disabled={downloadingDocs || selectedCandidates.length === 0}
-              className="border-hrm-teal text-hrm-teal hover:bg-hrm-teal/10 flex items-center gap-1"
+              className="border-hrm-teal text-hrm-teal hover:bg-hrm-teal/10 dark:border-cyan-400 dark:text-cyan-400 dark:hover:bg-cyan-900/30 flex items-center gap-1"
             >
               <Download className={`h-4 w-4 ${downloadingDocs ? 'animate-spin' : ''}`} />
               {downloadingDocs ? 'Descargando...' : 'Descargar Documentos'}
@@ -1973,9 +1973,9 @@ const Candidates = () => {
       </div>
 
 
-      <div className="flex justify-between items-center mb-4">
-        <Tabs defaultValue={activeTab} className="w-full" onValueChange={setActiveTab}>
-          <div className="flex justify-between items-center">
+      <div className="flex flex-col flex-1 min-h-0 min-w-0 w-full">
+        <Tabs defaultValue={activeTab} className="flex-1 flex flex-col min-h-0 min-w-0 w-full" onValueChange={setActiveTab}>
+          <div className="flex flex-col xl:flex-row justify-between xl:items-center shrink-0 gap-3 pb-2 overflow-x-auto custom-scrollbar">
 
             <div className="flex items-center">
               <TabsList>
@@ -1983,7 +1983,7 @@ const Candidates = () => {
                 <TabsTrigger value="en-entrevista">En Entrevista ({filteredCandidates('en-entrevista').length})</TabsTrigger>
                 <TabsTrigger value="prueba-tecnica">Prueba Técnica ({filteredCandidates('prueba-tecnica').length})</TabsTrigger>
                 <TabsTrigger value="en-formacion">En Campaña ({filteredCandidates('en-formacion').length})</TabsTrigger>
-                <div className="h-6 w-px bg-gray-400 mx-2" />
+                <div className="h-6 w-px bg-border mx-2" />
                 <TabsTrigger value="all">Todos ({filteredCandidates('all').length})</TabsTrigger>
                 <TabsTrigger value="contratados">Proceso de Contratación ({filteredCandidates('contratados').length})</TabsTrigger>
                 <TabsTrigger value="discarded">Descartados ({filteredCandidates('discarded').length})</TabsTrigger>
@@ -2413,7 +2413,7 @@ const Candidates = () => {
 
           </div>
 
-          <TabsContent value="all">
+          <TabsContent value="all" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
             <CandidatesTable
               candidates={filteredCandidates('all')}
               loading={loading}
@@ -2429,7 +2429,7 @@ const Candidates = () => {
             />
           </TabsContent>
 
-          <TabsContent value="discarded">
+          <TabsContent value="discarded" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
             <CandidatesTable
               candidates={filteredCandidates('discarded')}
               loading={loading}
@@ -2445,7 +2445,7 @@ const Candidates = () => {
             />
           </TabsContent>
 
-          <TabsContent value="contratados">
+          <TabsContent value="contratados" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
             <CandidatesTable
               candidates={filteredCandidates('contratados')}
               loading={loading}
@@ -2461,7 +2461,7 @@ const Candidates = () => {
             />
           </TabsContent>
 
-          <TabsContent value="sin-revisar">
+          <TabsContent value="sin-revisar" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
             <CandidatesTable
               candidates={filteredCandidates('sin-revisar')}
               loading={loading}
@@ -2477,9 +2477,9 @@ const Candidates = () => {
             />
           </TabsContent>
 
-          <TabsContent value="en-entrevista">
+          <TabsContent value="en-entrevista" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
             {/* Interview Type Filter Buttons */}
-            <div className="mb-4 flex gap-2">
+            <div className="mb-4 flex gap-2 shrink-0">
               <Button
                 variant={interviewTypeFilter === 'all' ? 'default' : 'outline'}
                 size="sm"
@@ -2518,7 +2518,7 @@ const Candidates = () => {
             />
           </TabsContent>
 
-          <TabsContent value="prueba-tecnica">
+          <TabsContent value="prueba-tecnica" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
             <CandidatesTable
               candidates={filteredCandidates('prueba-tecnica')}
               loading={loading}
@@ -2534,7 +2534,7 @@ const Candidates = () => {
             />
           </TabsContent>
 
-          <TabsContent value="en-formacion">
+          <TabsContent value="en-formacion" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
             <CandidatesTable
               candidates={filteredCandidates('en-formacion')}
               loading={loading}
@@ -2642,15 +2642,16 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
   const visibleColumnCount = Object.values(columnVisibility).filter(Boolean).length + 3;
 
   return (
-    <div className="mt-6">
-      <Card>
-        <CardContent className="p-0">
+    <div className="mt-4 flex-1 overflow-hidden flex flex-col min-h-0 min-w-0 w-full h-full">
+      <Card className="flex-1 flex flex-col min-h-0 min-w-0 shadow-md dark:shadow-none border border-transparent dark:border-border h-full w-full">
+        <CardContent className="p-0 flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden h-full w-full relative">
           {loading ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-hrm-dark-cyan" />
             </div>
           ) : (
-            <Table>
+            <div className="w-full flex-1 overflow-auto custom-scrollbar">
+              <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
@@ -2660,17 +2661,17 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                       aria-label="Seleccionar todo"
                     />
                   </TableHead>
-                  <TableHead className="w-[20%]" >Candidato</TableHead>
-                  {columnVisibility.vacante && <TableHead className="w-[12%]">Vacante</TableHead>}
-                  {columnVisibility.campana && !['sin-revisar', 'en-entrevista'].includes(activeTab) && <TableHead className="w-[10%]">Campaña</TableHead>}
-                  {columnVisibility.compatibilidad && <TableHead>Compatibilidad</TableHead>}
-                  {columnVisibility.experiencia && !['en-formacion', 'contratados'].includes(activeTab) && <TableHead>Experiencia</TableHead>}
-                  {columnVisibility.habilidades && !['en-formacion', 'discarded', 'contratados'].includes(activeTab) && <TableHead className="w-[12%]">Habilidades</TableHead>}
-                  {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) && <TableHead className="w-[5%]">Aplicaciones</TableHead>}
-                  {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableHead>Estado</TableHead>}
-                  {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.reclutador && <TableHead className="w-[12%]">Reclutador</TableHead>}
-                  {columnVisibility.fecha && <TableHead>Fecha</TableHead>}
-                  <TableHead className="text-right">Detalles</TableHead>
+                  <TableHead className="min-w-[250px]">Candidato</TableHead>
+                  {columnVisibility.vacante && <TableHead className="min-w-[180px]">Vacante</TableHead>}
+                  {columnVisibility.campana && !['sin-revisar', 'en-entrevista'].includes(activeTab) && <TableHead className="min-w-[150px]">Campaña</TableHead>}
+                  {columnVisibility.compatibilidad && <TableHead className="min-w-[140px] text-center">Compatibilidad</TableHead>}
+                  {columnVisibility.experiencia && !['en-formacion', 'contratados'].includes(activeTab) && <TableHead className="min-w-[120px]">Experiencia</TableHead>}
+                  {columnVisibility.habilidades && !['en-formacion', 'discarded', 'contratados'].includes(activeTab) && <TableHead className="min-w-[180px]">Habilidades</TableHead>}
+                  {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) && <TableHead className="min-w-[110px] text-center">Aplicaciones</TableHead>}
+                  {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableHead className="min-w-[180px]">Estado</TableHead>}
+                  {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.reclutador && <TableHead className="min-w-[160px]">Reclutador</TableHead>}
+                  {columnVisibility.fecha && <TableHead className="min-w-[130px]">Fecha</TableHead>}
+                  <TableHead className="text-right min-w-[100px]">Detalles</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2705,7 +2706,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
 
                         <TableCell>
                           <div className="font-medium text-base">
-                            <Link to={`/admin/candidates/${candidate.id}`} className="hover:text-hrm-dark-cyan">
+                            <Link to={`/admin/candidates/${candidate.id}`} className="hover:text-primary">
                               {candidate.first_name} {candidate.last_name}
                             </Link>
                             {/* Status Indicators */}
@@ -2713,36 +2714,36 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                               <div className="mt-1 space-y-1">
                                 {/* Transcription Status */}
                                 {candidate.transcription_status === 'processing' && (
-                                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-600">
+                                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400">
                                     <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                                     Transcribiendo...
                                   </Badge>
                                 )}
                                 {candidate.transcription_status === 'completed' && (
-                                  <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                                  <Badge variant="outline" className="text-xs text-green-600 border-green-600 dark:text-green-400 dark:border-green-400">
                                     ✓ Transcripción completa
                                   </Badge>
                                 )}
                                 {candidate.transcription_status === 'failed' && (
-                                  <Badge variant="outline" className="text-xs text-red-600 border-red-600">
+                                  <Badge variant="outline" className="text-xs text-red-600 border-red-600 dark:text-red-400 dark:border-red-400">
                                     ✗ Error en transcripción
                                   </Badge>
                                 )}
 
                                 {/* Analysis Status */}
                                 {candidate.analysis_status === 'analyzing' && (
-                                  <Badge variant="outline" className="text-xs text-purple-600 border-purple-600">
+                                  <Badge variant="outline" className="text-xs text-purple-600 border-purple-600 dark:text-purple-400 dark:border-purple-400">
                                     <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                                     Analizando con IA...
                                   </Badge>
                                 )}
                                 {candidate.analysis_status === 'completed' && (
-                                  <div className="text-xs text-green-600">
+                                  <div className="text-xs text-green-600 dark:text-green-400">
                                     ✓ Analizado con IA
                                   </div>
                                 )}
                                 {candidate.analysis_status === 'failed' && (
-                                  <div className="text-xs text-red-600">
+                                  <div className="text-xs text-red-600 dark:text-red-400">
                                     ✗ Error en análisis
                                   </div>
                                 )}
@@ -2770,10 +2771,10 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                         </TableCell>
 
                         {columnVisibility.vacante && <TableCell>
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1 items-start">
                             {candidate.applications && candidate.applications.length > 0 ? (
                               candidate.applications.map(app => (
-                                <Badge key={app.id} variant="secondary" >
+                                <Badge key={app.id} variant="secondary" className="whitespace-nowrap px-3 py-1 font-medium bg-hrm-teal/10 text-hrm-teal border-transparent rounded-lg">
                                   {app.jobs?.title || 'Vacante no disponible'}
                                 </Badge>
                               ))
@@ -2784,12 +2785,12 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                         </TableCell>}
 
                         {columnVisibility.campana && activeTab && !['sin-revisar', 'en-entrevista'].includes(activeTab) && <TableCell>
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1 items-start">
                             {candidate.applications && candidate.applications.length > 0 ? (
                               candidate.applications
                                 .filter(app => app.campaigns?.name)
                                 .map(app => (
-                                  <Badge key={app.id} variant="outline" className="text-xs">
+                                  <Badge key={app.id} variant="outline" className="text-xs whitespace-nowrap rounded-lg">
                                     {app.campaigns?.name}
                                   </Badge>
                                 ))
@@ -2850,15 +2851,17 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                         </TableCell>}
 
                         {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableCell>
-                          {(() => {
-                            const primaryStatus = getCandidateStatus(candidate.applications);
-                            const statusDisplay = getStatusDisplay(primaryStatus);
-                            return (
-                              <Badge variant={statusDisplay.variant} className={statusDisplay.color}>
-                                {statusDisplay.label}
-                              </Badge>
-                            );
-                          })()}
+                          <div className="flex items-center">
+                            {(() => {
+                              const primaryStatus = getCandidateStatus(candidate.applications);
+                              const statusDisplay = getStatusDisplay(primaryStatus);
+                              return (
+                                <Badge variant={statusDisplay.variant} className={cn("whitespace-nowrap px-3 py-1 rounded-lg", statusDisplay.color)}>
+                                  {statusDisplay.label}
+                                </Badge>
+                              );
+                            })()}
+                          </div>
                         </TableCell>}
 
                         {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.reclutador && <TableCell>
@@ -2957,6 +2960,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

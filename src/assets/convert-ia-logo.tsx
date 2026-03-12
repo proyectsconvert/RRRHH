@@ -3,7 +3,7 @@ import React from 'react';
 export const ConvertIALogo = ({
   className = "",
   size = 8, // Tamaño por defecto (h-8, w-8)
-  textColor = "text-slate-50" // Color de texto por defecto
+  textColor = "text-foreground" // Color de texto por defecto
 }: {
   className?: string;
   size?: number;

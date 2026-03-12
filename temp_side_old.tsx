@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { Calendar, Database, File, Home, LogOut, MessageCircle, MessageSquare, Search, Settings, Users, Code, History, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,7 @@ const mainNavItems = [{
   module: 'candidates'
 }, {
   icon: Calendar,
-  label: 'Campañas',
+  label: 'Campa├▒as',
   href: '/admin/campaigns',
   module: 'campaigns'
 }, {
@@ -50,7 +50,7 @@ const mainNavItems = [{
   module: 'whatsapp'
 }, {
   icon: Code,
-  label: 'Códigos Entrenamiento',
+  label: 'C├│digos Entrenamiento',
   href: '/admin/training-codes',
   module: 'training'
 }, {
@@ -65,7 +65,7 @@ const mainNavItems = [{
   module: 'training'
 }, {
   icon: Settings,
-  label: 'Configuración',
+  label: 'Configuraci├│n',
   href: '/admin/settings',
   module: 'settings'
 }];
@@ -79,28 +79,28 @@ const AdminSidebar = () => {
     try {
       await supabase.auth.signOut();
       toast({
-        title: "Sesión cerrada",
-        description: "Has cerrado sesión correctamente"
+        title: "Sesi├│n cerrada",
+        description: "Has cerrado sesi├│n correctamente"
       });
       window.location.href = "/admin/login";
     } catch (error) {
       toast({
         title: "Error",
-        description: "No se pudo cerrar la sesión",
+        description: "No se pudo cerrar la sesi├│n",
         variant: "destructive"
       });
     }
   };
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/60 bg-background/80 backdrop-blur-xl z-20 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]">
-      <SidebarHeader className="h-14 border-b border-border/50 bg-transparent flex items-center justify-center">
-        <div className="flex items-center h-full px-4 group-data-[state=collapsed]:px-0 justify-center w-full">
-          <ConvertIALogo className="h-7 transition-all duration-300 group-data-[state=collapsed]:w-7 group-data-[state=collapsed]:overflow-hidden drop-shadow-sm" />
+    <Sidebar collapsible="icon" className="border-r border-hrm-dark-cyan bg-hrm-dark-primary">
+      <SidebarHeader className="h-14 border-b border-hrm-dark-cyan/40 bg-hrm-background2">
+        <div className="flex items-center h-full px-4 group-data-[state=collapsed]:px-0 justify-center">
+          <ConvertIALogo className="h-10 group-data-[state=collapsed]:w-8 group-data-[state=collapsed]:overflow-hidden" />
         </div>
       </SidebarHeader>
-      <SidebarContent className="bg-transparent px-2">
-        {/* 👇 2. Envuelve tu navegación en los componentes SidebarMenu y SidebarMenuItem */}
-        <SidebarMenu className="py-2">
+      <SidebarContent className="bg-hrm-background2">
+        {/* ­ƒæç 2. Envuelve tu navegaci├│n en los componentes SidebarMenu y SidebarMenuItem */}
+        <SidebarMenu className="py-4">
           {loading ? (
             <div className="px-4 py-2 text-sm text-gray-400">Cargando permisos...</div>
           ) : (
@@ -112,20 +112,17 @@ const AdminSidebar = () => {
                     {({ isActive }) => (
                       <SidebarMenuButton
                         isActive={isActive}
+                        // ­ƒæç 3. A├▒ade el tooltip aqu├¡
                         tooltip={item.label}
                         className={cn(
-                          "transition-all duration-200 rounded-lg my-[2px] group/menu-btn h-9",
                           isActive
-                            ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow shadow-blue-500/20 active:bg-cyan-700 font-medium"
-                            : "text-muted-foreground hover:bg-muted hover:text-primary",
-                          "group-data-[state=collapsed]:!w-10 group-data-[state=collapsed]:mx-auto group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:!p-0"
+                            ? "!bg-hrm-teal !text-white active:!bg-hrm-teal active:!text-white"
+                            : "text-gray-100 hover:bg-opacity-10 hover:bg-white hover:text-white",
+                          "group-data-[state=collapsed]:!w-full group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:!p-0"
                         )}
                       >
-                        <item.icon className={cn(
-                          "h-5 w-5 transition-transform duration-200",
-                          isActive ? "scale-110" : "group-hover/menu-btn:scale-110"
-                        )} aria-hidden="true" />
-                        <span className="group-data-[state=collapsed]:hidden tracking-wide">{item.label}</span>
+                        <item.icon className="h-5 w-5" aria-hidden="true" />
+                        <span className="group-data-[state=collapsed]:hidden">{item.label}</span>
                       </SidebarMenuButton>
                     )}
                   </NavLink>
@@ -137,11 +134,11 @@ const AdminSidebar = () => {
           )}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="border-t border-border/50 p-3 bg-muted/20 group-data-[state=collapsed]:p-2 mt-auto">
-        <div className="flex items-center justify-between group-data-[state=collapsed]:justify-center bg-background p-2 rounded-xl shadow-sm border border-border/50 group-data-[state=collapsed]:bg-transparent group-data-[state=collapsed]:shadow-none group-data-[state=collapsed]:border-0 h-12">
-          <div className="flex items-center group-data-[state=collapsed]:justify-center w-full">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
-              <span className="text-sm font-bold tracking-wider">
+      <SidebarFooter className="border-t border-hrm-dark-cyan/40 p-4 bg-hrm-background2 group-data-[state=collapsed]:p-2">
+        <div className="flex items-center justify-between group-data-[state=collapsed]:justify-center">
+          <div className="flex items-center group-data-[state=collapsed]:justify-center">
+            <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-hrm-dark-cyan shrink-0">
+              <span className="text-sm font-medium">
                 {userProfile?.first_name && userProfile?.last_name
                   ? `${userProfile.first_name.charAt(0)}${userProfile.last_name.charAt(0)}`
                   : userProfile?.email
@@ -150,8 +147,8 @@ const AdminSidebar = () => {
                 }
               </span>
             </div>
-            <div className="ml-3 group-data-[state=collapsed]:hidden overflow-hidden flex-1">
-              <p className="text-sm font-semibold text-foreground truncate">
+            <div className="ml-3 group-data-[state=collapsed]:hidden">
+              <p className="text-sm font-medium text-white truncate max-w-[120px]">
                 {userProfile?.first_name && userProfile?.last_name
                   ? `${userProfile.first_name} ${userProfile.last_name}`
                   : userProfile?.first_name || userProfile?.last_name
@@ -159,18 +156,14 @@ const AdminSidebar = () => {
                     : 'Usuario'
                 }
               </p>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-gray-200 truncate max-w-[120px]">
                 {userProfile?.email || 'Sin email'}
               </p>
             </div>
-            <button 
-              onClick={handleLogout} 
-              className="flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors group-data-[state=collapsed]:hidden ml-1 shrink-0" 
-              title="Cerrar sesión"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
           </div>
+          <button onClick={handleLogout} className="flex items-center text-white hover:text-red-300 transition-colors group-data-[state=collapsed]:hidden" title="Cerrar sesi├│n">
+            <LogOut className="h-5 w-5" />
+          </button>
         </div>
       </SidebarFooter>
     </Sidebar>

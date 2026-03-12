@@ -293,10 +293,15 @@ const Dashboard = () => {
   };
 
   return (
-    <div>
-      <h1 className="page-title">Dashboard</h1>
+    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Dashboard General</h1>
+          <p className="text-muted-foreground mt-1">Resumen y métricas principales de la plataforma</p>
+        </div>
+      </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats
           .filter((stat, index) => {
             // Hide "Entrevistas Programadas" (index 2) and "Contrataciones este Mes" (index 3) for recruiters
@@ -312,59 +317,63 @@ const Dashboard = () => {
 
       {/* Interview Statistics Cards */}
       {(currentUserRole === 'reclutador' || currentUserRole === 'admin') && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+          <div className="bg-background rounded-2xl p-6 shadow-sm border border-border/60 hover:shadow-md transition-all group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-50 dark:bg-purple-900/20 rounded-full translate-x-8 -translate-y-8 transition-transform group-hover:scale-110"></div>
+            <div className="relative flex items-center justify-between z-10">
               <div>
-                <p className="text-sm text-gray-600">Entrevistas RC Asignadas</p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-sm font-semibold text-muted-foreground tracking-tight">Entrevistas RC Asignadas</p>
+                <p className="text-3xl font-black text-foreground mt-1">
                   {interviewStats.rcAssigned}
                 </p>
               </div>
-              <div className="h-8 w-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-purple-600 font-semibold">RC</span>
+              <div className="h-12 w-12 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-inner">
+                <span className="text-purple-600 dark:text-purple-400 font-bold text-lg">RC</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
+          <div className="bg-background rounded-2xl p-6 shadow-sm border border-border/60 hover:shadow-md transition-all group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 dark:bg-blue-900/20 rounded-full translate-x-8 -translate-y-8 transition-transform group-hover:scale-110"></div>
+            <div className="relative flex items-center justify-between z-10">
               <div>
-                <p className="text-sm text-gray-600">Entrevistas Técnicas Asignadas</p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-sm font-semibold text-muted-foreground tracking-tight">Entrevistas Técnicas Asignadas</p>
+                <p className="text-3xl font-black text-foreground mt-1">
                   {interviewStats.etAssigned}
                 </p>
               </div>
-              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-blue-600 font-semibold">ET</span>
+              <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/40 rounded-2xl flex items-center justify-center shadow-inner">
+                <span className="text-blue-600 dark:text-blue-400 font-bold text-lg">ET</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
+          <div className="bg-background rounded-2xl p-6 shadow-sm border border-border/60 hover:shadow-md transition-all group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 dark:bg-emerald-900/20 rounded-full translate-x-8 -translate-y-8 transition-transform group-hover:scale-110"></div>
+            <div className="relative flex items-center justify-between z-10">
               <div>
-                <p className="text-sm text-gray-600">Total Entrevistas Activas</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-sm font-semibold text-muted-foreground tracking-tight">Total Entrevistas Activas</p>
+                <p className="text-3xl font-black text-foreground mt-1">
                   {interviewStats.totalActive}
                 </p>
               </div>
-              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-green-600 font-semibold">∑</span>
+              <div className="h-12 w-12 bg-emerald-100 dark:bg-emerald-900/40 rounded-2xl flex items-center justify-center shadow-inner">
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-lg leading-none">∑</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border">
-            <div className="flex items-center justify-between">
+          <div className="bg-background rounded-2xl p-6 shadow-sm border border-border/60 hover:shadow-md transition-all group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-50 dark:bg-amber-900/20 rounded-full translate-x-8 -translate-y-8 transition-transform group-hover:scale-110"></div>
+            <div className="relative flex items-center justify-between z-10">
               <div>
-                <p className="text-sm text-gray-600">Candidatos en Proceso</p>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-sm font-semibold text-muted-foreground tracking-tight">Candidatos en Proceso</p>
+                <p className="text-3xl font-black text-foreground mt-1">
                   {interviewStats.inProcess}
                 </p>
               </div>
-              <div className="h-8 w-8 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-orange-600 font-semibold">⚡</span>
+              <div className="h-12 w-12 bg-amber-100 dark:bg-amber-900/40 rounded-2xl flex items-center justify-center shadow-inner">
+                <span className="text-amber-600 dark:text-amber-400 font-bold text-lg">⚡</span>
               </div>
             </div>
           </div>
@@ -372,95 +381,129 @@ const Dashboard = () => {
       )}
 
       <div className="mt-8">
-        <Card className="bg-white p-4 rounded-lg shadow-sm border border-hrm-light-gray">
-          <CardHeader>
-            <CardTitle>Aplicaciones por Estado</CardTitle>
+        <Card className="bg-background p-2 md:p-6 rounded-3xl shadow-sm border border-border/60 transition-shadow hover:shadow-md">
+          <CardHeader className="pb-8">
+            <CardTitle className="flex items-center text-xl font-bold text-foreground">
+              <div className="h-3 w-3 rounded-full bg-indigo-500 mr-3 shadow-[0_0_10px_rgba(99,102,241,0.6)]"></div>
+              Aplicaciones por Estado
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {applicationsByStatus.length > 0 ? (
               <ChartContainer 
-                className="h-[300px]" 
+                className="h-[320px] w-full" 
                 config={{
                   new: { color: 'rgb(59 130 246)' },
                   interview: { color: 'rgb(147 51 234)' },
-                  hired: { color: 'rgb(22 163 74)' },
-                  rejected: { color: 'rgb(239 68 68)' }
+                  hired: { color: 'rgb(16 185 129)' }, // Emerald
+                  rejected: { color: 'rgb(244 63 94)' } // Rose
                 }}
               >
-                <ResponsiveContainer>
-                  <BarChart data={applicationsByStatus} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={applicationsByStatus} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                     <ChartTooltip 
-                      content={<ChartTooltipContent />} 
+                      content={<ChartTooltipContent className="bg-white/90 backdrop-blur-sm border-slate-200 shadow-xl rounded-xl" />} 
+                      cursor={{fill: '#f1f5f9'}}
                     />
-                    <Legend />
-                    <Bar dataKey="count" name="Cantidad" fill="#4f46e5" />
+                    <Bar dataKey="count" name="Cantidad" fill="#4f46e5" radius={[6, 6, 0, 0]} maxBarSize={60} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>
             ) : (
-              <p className="text-center text-gray-500 py-6">No hay datos de aplicaciones disponibles.</p>
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-muted/50 rounded-2xl border border-dashed border-border/60">
+                <File className="h-12 w-12 mb-3 text-muted-foreground/50" />
+                <p className="font-medium">No hay datos de aplicaciones disponibles aún.</p>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
       
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-hrm-light-gray">
-          <h2 className="section-title mb-4">Candidatos Recientes</h2>
-          {recentCandidates.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Fecha</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentCandidates.map((candidate) => (
-                  <TableRow key={candidate.id}>
-                    <TableCell className="font-medium">{`${candidate.first_name} ${candidate.last_name}`}</TableCell>
-                    <TableCell>{candidate.email}</TableCell>
-                    <TableCell>{formatDate(candidate.created_at)}</TableCell>
+      <div className="mt-8 grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {/* Recent Candidates Table */}
+        <div className="bg-background rounded-3xl shadow-sm border border-border/60 overflow-hidden flex flex-col transition-shadow hover:shadow-md">
+          <div className="p-6 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground flex items-center">
+              <Users className="h-5 w-5 mr-2 text-cyan-600 dark:text-cyan-400" />
+              Candidatos Recientes
+            </h2>
+          </div>
+          <div className="p-0 flex-1">
+            {recentCandidates.length > 0 ? (
+              <Table>
+                <TableHeader className="bg-muted/50 hover:bg-muted/50">
+                  <TableRow className="border-b-border/50">
+                    <TableHead className="font-semibold text-muted-foreground">Nombre</TableHead>
+                    <TableHead className="font-semibold text-muted-foreground hidden sm:table-cell">Email</TableHead>
+                    <TableHead className="font-semibold text-muted-foreground text-right pr-6">Fecha</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-gray-500 text-sm">No hay candidatos recientes.</p>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {recentCandidates.map((candidate) => (
+                    <TableRow key={candidate.id} className="hover:bg-muted/50 transition-colors border-b-border/50">
+                      <TableCell className="font-medium text-foreground py-4">
+                        {`${candidate.first_name} ${candidate.last_name}`}
+                        <div className="text-xs text-muted-foreground font-normal sm:hidden mt-1">{candidate.email}</div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell py-4">{candidate.email}</TableCell>
+                      <TableCell className="text-muted-foreground text-right pr-6 py-4 whitespace-nowrap">{formatDate(candidate.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-muted-foreground bg-muted/30 m-4 rounded-2xl border border-dashed border-border/60">
+                <Users className="h-8 w-8 mb-2 text-muted-foreground/50" />
+                <p className="text-sm font-medium">No hay candidatos recientes.</p>
+              </div>
+            )}
+          </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-hrm-light-gray">
-          <h2 className="section-title mb-4">Vacantes Populares</h2>
-          {popularJobs.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Departamento</TableHead>
-                  <TableHead>Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {popularJobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell className="font-medium">{job.title}</TableCell>
-                    <TableCell>{job.department}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(job.status)}>
-                        {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                      </Badge>
-                    </TableCell>
+        {/* Popular Jobs Table */}
+        <div className="bg-background rounded-3xl shadow-sm border border-border/60 overflow-hidden flex flex-col transition-shadow hover:shadow-md">
+          <div className="p-6 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground flex items-center">
+              <File className="h-5 w-5 mr-2 text-emerald-600 dark:text-emerald-400" />
+              Vacantes Populares
+            </h2>
+          </div>
+          <div className="p-0 flex-1">
+            {popularJobs.length > 0 ? (
+              <Table>
+                <TableHeader className="bg-muted/50 hover:bg-muted/50">
+                  <TableRow className="border-b-border/50">
+                    <TableHead className="font-semibold text-muted-foreground">Título</TableHead>
+                    <TableHead className="font-semibold text-muted-foreground hidden sm:table-cell">Departamento</TableHead>
+                    <TableHead className="font-semibold text-muted-foreground text-right pr-6">Estado</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-gray-500 text-sm">No hay vacantes disponibles.</p>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {popularJobs.map((job) => (
+                    <TableRow key={job.id} className="hover:bg-muted/50 transition-colors border-b-border/50">
+                      <TableCell className="font-medium text-foreground py-4">
+                        {job.title}
+                        <div className="text-xs text-muted-foreground font-normal sm:hidden mt-1">{job.department}</div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell py-4">{job.department}</TableCell>
+                      <TableCell className="text-right pr-6 py-4">
+                        <Badge className={`font-medium shadow-sm transition-transform hover:scale-105 ${getStatusColor(job.status)}`}>
+                          {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-muted-foreground bg-muted/30 m-4 rounded-2xl border border-dashed border-border/60">
+                <File className="h-8 w-8 mb-2 text-muted-foreground/50" />
+                <p className="text-sm font-medium">No hay vacantes disponibles.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

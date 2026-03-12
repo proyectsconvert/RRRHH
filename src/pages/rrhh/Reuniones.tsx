@@ -285,11 +285,11 @@ export default function Reuniones() {
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <Calendar className="h-6 w-6 text-blue-600" />
+                    <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                        <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         Gestión de Reuniones
                     </h1>
-                    <p className="text-slate-500 mt-1">
+                    <p className="text-muted-foreground mt-1">
                         Reuniones programadas con candidatos
                     </p>
                 </div>
@@ -301,7 +301,7 @@ export default function Reuniones() {
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <div className="bg-background p-4 rounded-xl shadow-sm border border-border/60">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                         <TabsList>
@@ -319,12 +319,12 @@ export default function Reuniones() {
                                     className="pl-9"
                                 />
                             </div>
-                            <div className="flex bg-slate-100 rounded-lg p-1">
+                            <div className="flex bg-muted rounded-lg p-1">
                                 <Button
                                     variant={modalityFilter === "all" ? "default" : "ghost"}
                                     size="sm"
                                     onClick={() => setModalityFilter("all")}
-                                    className={modalityFilter === "all" ? "bg-white shadow-sm" : ""}
+                                    className={modalityFilter === "all" ? "bg-background shadow-sm" : ""}
                                 >
                                     Todas
                                 </Button>
@@ -332,7 +332,7 @@ export default function Reuniones() {
                                     variant={modalityFilter === "virtual" ? "default" : "ghost"}
                                     size="sm"
                                     onClick={() => setModalityFilter("virtual")}
-                                    className={modalityFilter === "virtual" ? "bg-white shadow-sm" : ""}
+                                    className={modalityFilter === "virtual" ? "bg-background shadow-sm" : ""}
                                 >
                                     <Video className="h-3 w-3 mr-1" /> Virtual
                                 </Button>
@@ -340,7 +340,7 @@ export default function Reuniones() {
                                     variant={modalityFilter === "presencial" ? "default" : "ghost"}
                                     size="sm"
                                     onClick={() => setModalityFilter("presencial")}
-                                    className={modalityFilter === "presencial" ? "bg-white shadow-sm" : ""}
+                                    className={modalityFilter === "presencial" ? "bg-background shadow-sm" : ""}
                                 >
                                     <MapPin className="h-3 w-3 mr-1" /> Presencial
                                 </Button>
@@ -415,8 +415,8 @@ function MeetingList({ meetings, onAddNotes, onReschedule, showRecruiter }: {
 }) {
     if (meetings.length === 0) {
         return (
-            <div className="text-center py-12 text-slate-500">
-                <Calendar className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+            <div className="text-center py-12 text-muted-foreground">
+                <Calendar className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                 <p className="text-lg font-medium">No hay reuniones programadas</p>
                 <p className="text-sm">Intenta cambiar los filtros o programa una nueva reunión desde Candidatos.</p>
             </div>
@@ -439,22 +439,22 @@ function MeetingList({ meetings, onAddNotes, onReschedule, showRecruiter }: {
 
                 return (
                     <div key={dateStr}>
-                        <h3 className={`font-semibold text-lg mb-4 flex items-center gap-2 ${isToday ? 'text-blue-600' : 'text-slate-700'}`}>
+                        <h3 className={`font-semibold text-lg mb-4 flex items-center gap-2 ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-foreground'}`}>
                             {format(date, "EEEE d 'de' MMMM", { locale: es })}
-                            {isToday && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200">Hoy</Badge>}
+                            {isToday && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60">Hoy</Badge>}
                         </h3>
                         <div className="grid grid-cols-1 gap-4">
                             {groupedMeetings[dateStr].map(meeting => (
                                 <Card key={meeting.id} className="overflow-hidden hover:shadow-md transition-shadow">
                                     <div className="p-0 flex flex-col sm:flex-row">
                                         {/* Time Column */}
-                                        <div className="sm:w-32 bg-slate-50 p-4 flex flex-col justify-center items-center border-b sm:border-b-0 sm:border-r border-slate-100">
-                                            <span className="text-xl font-bold text-slate-700">
+                                        <div className="sm:w-32 bg-slate-50 dark:bg-muted/30 p-4 flex flex-col justify-center items-center border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-border/50">
+                                            <span className="text-xl font-bold text-foreground">
                                                 {meeting.meeting_time.substring(0, 5)}
                                             </span>
                                             <Badge variant="outline" className={`mt-2 ${meeting.meeting_modality === 'virtual'
-                                                ? 'border-purple-200 text-purple-700 bg-purple-50'
-                                                : 'border-orange-200 text-orange-700 bg-orange-50'
+                                                ? 'border-purple-200 text-purple-700 bg-purple-50 dark:border-purple-800 dark:text-purple-400 dark:bg-purple-900/20'
+                                                : 'border-orange-200 text-orange-700 bg-orange-50 dark:border-orange-800 dark:text-orange-400 dark:bg-orange-900/20'
                                                 }`}>
                                                 {meeting.meeting_modality === 'virtual' ? 'Virtual' : 'Presencial'}
                                             </Badge>
@@ -464,15 +464,15 @@ function MeetingList({ meetings, onAddNotes, onReschedule, showRecruiter }: {
                                         <div className="flex-1 p-4 flex flex-col justify-between">
                                             <div className="flex justify-between items-start">
                                                 <div>
-                                                    <h4 className="font-semibold text-lg text-slate-900">
+                                                    <h4 className="font-semibold text-lg text-foreground">
                                                         {meeting.candidate.first_name} {meeting.candidate.last_name}
                                                     </h4>
-                                                    <div className="flex items-center gap-2 text-slate-500 text-sm mt-1">
+                                                    <div className="flex items-center gap-2 text-muted-foreground text-sm mt-1">
                                                         <Briefcase className="h-3 w-3" />
                                                         <span>{meeting.job.title}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2 text-slate-500 text-sm mt-1">
-                                                        <span className="font-medium text-slate-700">{meeting.meeting_title}</span>
+                                                    <div className="flex items-center gap-2 text-muted-foreground text-sm mt-1">
+                                                        <span className="font-medium text-foreground">{meeting.meeting_title}</span>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center">
@@ -505,20 +505,20 @@ function MeetingList({ meetings, onAddNotes, onReschedule, showRecruiter }: {
                                                         href={meeting.meeting_link}
                                                         target="_blank"
                                                         rel="noreferrer"
-                                                        className="flex items-center gap-2 text-blue-600 hover:underline bg-blue-50 px-3 py-1.5 rounded-md self-start"
+                                                        className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-md self-start"
                                                     >
                                                         <Video className="h-4 w-4" />
                                                         Unirse a la reunión
                                                     </a>
                                                 ) : (
-                                                    <div className="flex items-center gap-2 text-slate-600 bg-slate-100 px-3 py-1.5 rounded-md self-start">
+                                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-muted/50 px-3 py-1.5 rounded-md self-start">
                                                         <MapPin className="h-4 w-4" />
                                                         {meeting.meeting_address || "Dirección no especificada"}
                                                     </div>
                                                 )}
 
                                                 {showRecruiter && meeting.recruiter && (
-                                                    <div className="flex items-center gap-2 text-slate-500 ml-auto">
+                                                    <div className="flex items-center gap-2 text-muted-foreground ml-auto">
                                                         <User className="h-3 w-3" />
                                                         <span className="text-xs">Reclutador: {meeting.recruiter.first_name} {meeting.recruiter.last_name}</span>
                                                     </div>
@@ -526,7 +526,7 @@ function MeetingList({ meetings, onAddNotes, onReschedule, showRecruiter }: {
                                             </div>
 
                                             {meeting.meeting_notes && (
-                                                <div className="mt-3 bg-yellow-50 border border-yellow-100 rounded p-2 text-xs text-yellow-800">
+                                                <div className="mt-3 bg-yellow-50 border border-yellow-100 rounded p-2 text-xs text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-900/50 dark:text-yellow-400">
                                                     <strong>Novedades:</strong> {meeting.meeting_notes}
                                                 </div>
                                             )}

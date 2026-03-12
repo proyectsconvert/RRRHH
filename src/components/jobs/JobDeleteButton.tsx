@@ -80,7 +80,7 @@ const JobDeleteButton: React.FC<JobDeleteButtonProps> = ({ jobId, jobTitle, onDe
       <Button 
         variant="outline" 
         size="icon" 
-        className="absolute top-2 right-2 bg-white/80 hover:bg-red-50 text-red-600 hover:text-red-700 border-none"
+        className="absolute top-2 right-2 bg-background/80 hover:bg-destructive/10 text-destructive hover:text-destructive border-none"
         onClick={() => setIsDialogOpen(true)}
       >
         <Trash2 className="h-4 w-4" />

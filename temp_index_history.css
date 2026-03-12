@@ -1,0 +1,33 @@
+﻿commit cd3f571b4d0c8abdf954aa658e4940b212676c8e
+Author: proyectosconvert <proyectosconvert@gmail.com>
+Date:   Mon Sep 29 15:17:28 2025 +0000
+
+    a├▒adi barra de busqueda en ws, y pesta├▒a contratados
+
+diff --git a/src/index.css b/src/index.css
+index 3112c73..13c2724 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -42,11 +42,15 @@
+     --sidebar-foreground: 180 33% 50%;
+     --sidebar-primary: 180 100% 27%;
+     --sidebar-primary-foreground: 0 0% 98%;
+-    --sidebar-accent: 0 0% 96%;
+-    --sidebar-accent-foreground: 180 100% 27%;
++
++    --sidebar-accent: 180 100% 27%; 
++
++    --sidebar-accent-foreground: 0 0% 98%; 
++    
+     --sidebar-border: 0 0% 86%;
+     --sidebar-ring: 180 33% 50%;
+ 
++
+     /* Dark Green for success elements */
+     --success: 120 100% 20%;
+     --success-foreground: 0 0% 98%;
+@@ -126,3 +130,4 @@
+     @apply bg-yellow-100 text-yellow-800;
+   }
+ }
++
