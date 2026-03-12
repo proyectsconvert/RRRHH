@@ -2410,7 +2410,7 @@ const Candidates = () => {
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col min-h-0 w-full overflow-hidden mt-4">
+          <div className="flex-1 flex flex-col min-h-0 w-full overflow-x-auto overflow-y-hidden custom-scrollbar mt-4">
             <TabsContent value="all" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full overflow-hidden">
               <CandidatesTable
                 candidates={filteredCandidates('all')}
@@ -2611,7 +2611,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
   const visibleColumnCount = Object.values(columnVisibility).filter(Boolean).length + 3;
 
   return (
-    <div className="mt-4 flex-1 overflow-hidden flex flex-col min-h-0 min-w-0 w-full h-full">
+    <div className="mt-4 flex-1 overflow-x-auto overflow-y-hidden flex flex-col min-h-0 min-w-0 w-full h-full custom-scrollbar">
       <Card className="flex-1 flex flex-col min-h-0 min-w-0 shadow-md dark:shadow-none border border-transparent dark:border-border h-full w-full">
         <CardContent className="p-0 flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden h-full w-full relative">
           {loading ? (
@@ -2619,7 +2619,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
               <Loader2 className="h-8 w-8 animate-spin text-hrm-dark-cyan" />
             </div>
           ) : (
-            <div className="w-full flex-1 overflow-auto custom-scrollbar min-h-0 lg:max-h-[calc(100vh-350px)]">
+            <div className="w-full flex-1 overflow-y-auto overflow-x-auto custom-scrollbar min-h-0 lg:max-h-[calc(100vh-350px)]">
               <Table className="min-w-[1200px]">
               <TableHeader className="sticky top-0 z-10 bg-background">
                 <TableRow>

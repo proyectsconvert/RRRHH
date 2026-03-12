@@ -577,8 +577,8 @@ const Users = () => {
   }, [availableModules]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 flex flex-col h-full min-h-0">
+      <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Gestión de Usuarios</h1>
           <p className="text-gray-600">Administra usuarios y sus permisos de acceso a módulos</p>
@@ -735,11 +735,11 @@ const Users = () => {
       </div>
 
       {/* Users List */}
-      <Card>
-        <CardHeader>
+      <Card className="flex-1 flex flex-col min-h-0">
+        <CardHeader className="shrink-0">
           <CardTitle>Usuarios del Sistema ({users.length})</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
           {loading ? (
             <div className="text-center py-8">
               <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />

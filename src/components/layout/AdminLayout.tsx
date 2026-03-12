@@ -21,7 +21,7 @@ const AdminLayout = () => {
         <AdminHeader/>
         <main className={cn(
           containerClasses,
-          "flex-1 w-full animate-in fade-in duration-500 overflow-hidden flex flex-col"
+          "flex-1 w-full animate-in fade-in duration-500 overflow-y-auto overflow-x-hidden flex flex-col custom-scrollbar"
         )}>
           <div className="w-full mx-auto flex-1 flex flex-col min-h-0">
             <Outlet />

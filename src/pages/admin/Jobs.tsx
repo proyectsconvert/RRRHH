@@ -129,8 +129,8 @@ const Jobs = () => {
 
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex justify-between items-center mb-6 shrink-0">
         <h1 className="page-title">Vacantes</h1>
         
         <div className="flex items-center gap-2">
@@ -153,9 +153,9 @@ const Jobs = () => {
         </div>
       </div>
       
-      <Tabs defaultValue={activeTab} className="w-full" onValueChange={setActiveTab}>
+      <Tabs defaultValue={activeTab} className="w-full flex-1 flex flex-col min-h-0" onValueChange={setActiveTab}>
         {/* 2. Contenedor modificado: quitamos 'justify-between' para agrupar los elementos a la izquierda */}
-        <div className="flex items-center mb-4">
+        <div className="flex items-center mb-4 shrink-0">
           <TabsList>
             <TabsTrigger value="all">Todas ({jobs.length})</TabsTrigger>
             <TabsTrigger value="open">Abiertas ({statusCounts.open})</TabsTrigger>
@@ -204,13 +204,13 @@ const Jobs = () => {
         </div>
 
         {/* El resto del componente (TabsContent) permanece igual */}
-        <TabsContent value={activeTab} className="mt-6">
+        <TabsContent value={activeTab} className="mt-6 flex-1 overflow-y-auto custom-scrollbar min-h-0">
           {loading ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-hrm-dark-cyan" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
               {filteredJobs.length > 0 ? (
                 filteredJobs.map((job) => (
                   <div key={job.id} className="relative">

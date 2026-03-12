@@ -282,8 +282,8 @@ export default function Reuniones() {
     const canViewAll = role === 'admin' || role === 'rrhh'; // Logic for who can see "Todas"
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="space-y-6 animate-in fade-in duration-500 flex flex-col h-full min-h-0">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                         <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -301,9 +301,9 @@ export default function Reuniones() {
                 </div>
             </div>
 
-            <div className="bg-background p-4 rounded-xl shadow-sm border border-border/60">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <div className="bg-background p-4 rounded-xl shadow-sm border border-border/60 flex-1 flex flex-col min-h-0">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 shrink-0">
                         <TabsList>
                             <TabsTrigger value="mis-reuniones">Mis Reuniones</TabsTrigger>
                             {canViewAll && <TabsTrigger value="todas">Todas las Reuniones</TabsTrigger>}
@@ -348,7 +348,7 @@ export default function Reuniones() {
                         </div>
                     </div>
 
-                    <TabsContent value="mis-reuniones" className="mt-0">
+                    <TabsContent value="mis-reuniones" className="mt-0 flex-1 overflow-y-auto custom-scrollbar min-h-0">
                         <MeetingList
                             meetings={filteredMeetings}
                             onAddNotes={(m) => { setSelectedMeeting(m); setNotes(m.meeting_notes || ""); setIsNotesDialogOpen(true); }}
@@ -356,7 +356,7 @@ export default function Reuniones() {
                         />
                     </TabsContent>
 
-                    <TabsContent value="todas" className="mt-0">
+                    <TabsContent value="todas" className="mt-0 flex-1 overflow-y-auto custom-scrollbar min-h-0">
                         <MeetingList
                             meetings={filteredMeetings}
                             onAddNotes={(m) => { setSelectedMeeting(m); setNotes(m.meeting_notes || ""); setIsNotesDialogOpen(true); }}

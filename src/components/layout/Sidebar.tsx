@@ -137,7 +137,7 @@ const AdminSidebar = () => {
           )}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="border-t border-border/50 p-3 bg-muted/20 group-data-[state=collapsed]:p-2 mt-auto">
+      <SidebarFooter className="border-t border-border/50 p-3 bg-muted/20 group-data-[state=collapsed]:p-2 mt-auto flex flex-col gap-2">
         <div className="flex items-center justify-between group-data-[state=collapsed]:justify-center bg-background p-2 rounded-xl shadow-sm border border-border/50 group-data-[state=collapsed]:bg-transparent group-data-[state=collapsed]:shadow-none group-data-[state=collapsed]:border-0 h-12">
           <div className="flex items-center group-data-[state=collapsed]:justify-center w-full">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
@@ -171,6 +171,9 @@ const AdminSidebar = () => {
               <LogOut className="h-4 w-4" />
             </button>
           </div>
+        </div>
+        <div className="text-center text-[10px] text-muted-foreground/60 group-data-[state=collapsed]:hidden">
+          v1.1.0
         </div>
       </SidebarFooter>
     </Sidebar>
