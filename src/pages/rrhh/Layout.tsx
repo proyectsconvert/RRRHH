@@ -8,7 +8,7 @@ export default function RRHHLayout({ children }: { children?: React.ReactNode })
       <SidebarRRHH />
       <main className="flex-1 ml-64 overflow-auto transition-all duration-300">
         <div className="p-4 md:p-6 lg:p-8 min-h-screen">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full mx-auto">
             {children}
           </div>
         </div>

@@ -23,7 +23,7 @@ const AdminLayout = () => {
           containerClasses,
           "flex-1 w-full animate-in fade-in duration-500"
         )}>
-          <div className="w-full max-w-7xl mx-auto">
+          <div className="w-full mx-auto">
             <Outlet />
           </div>
         </main>
