@@ -17,13 +17,13 @@ const AdminLayout = () => {
   return (
     <SidebarProvider>
       <AdminSidebar />
-      <SidebarInset className="bg-background overflow-x-hidden min-h-screen">
+      <SidebarInset className="bg-background h-screen flex flex-col overflow-hidden">
         <AdminHeader/>
         <main className={cn(
           containerClasses,
-          "flex-1 w-full animate-in fade-in duration-500"
+          "flex-1 w-full animate-in fade-in duration-500 overflow-hidden flex flex-col"
         )}>
-          <div className="w-full mx-auto">
+          <div className="w-full mx-auto flex-1 flex flex-col min-h-0">
             <Outlet />
           </div>
         </main>

@@ -69,11 +69,9 @@ interface Candidate {
 
 const initialColumnVisibility = {
   vacante: true,
-  campana: true, // Activada ahora que la migración está lista
   compatibilidad: true,
   experiencia: true,
   habilidades: true,
-  aplicaciones: true,
   estado_aplicacion: true,
   fecha: true,
   reclutador: true, // Nueva columna para mostrar el reclutador asignado
@@ -2410,175 +2408,146 @@ const Candidates = () => {
                 </>
               )}
             </div>
-
           </div>
 
-          <TabsContent value="all" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
-            <CandidatesTable
-              candidates={filteredCandidates('all')}
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-              columnVisibility={columnVisibility}
-              setDiscardModalOpen={setDiscardModalOpen}
-              setBlockModalOpen={setBlockModalOpen}
-              setStatusModalOpen={setStatusModalOpen}
-              setTransferModalOpen={setTransferModalOpen}
-              activeTab={activeTab}
-              canModifyCandidate={canModifyCandidate}
-            />
-          </TabsContent>
+          <div className="flex-1 flex flex-col min-h-0 w-full overflow-hidden mt-4">
+            <TabsContent value="all" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full overflow-hidden">
+              <CandidatesTable
+                candidates={filteredCandidates('all')}
+                loading={loading}
+                selectedCandidates={selectedCandidates}
+                setSelectedCandidates={setSelectedCandidates}
+                columnVisibility={columnVisibility}
+                setDiscardModalOpen={setDiscardModalOpen}
+                setBlockModalOpen={setBlockModalOpen}
+                setStatusModalOpen={setStatusModalOpen}
+                setTransferModalOpen={setTransferModalOpen}
+                activeTab={activeTab}
+                canModifyCandidate={canModifyCandidate}
+              />
+            </TabsContent>
 
-          <TabsContent value="discarded" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
-            <CandidatesTable
-              candidates={filteredCandidates('discarded')}
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-              columnVisibility={columnVisibility}
-              setDiscardModalOpen={setDiscardModalOpen}
-              setBlockModalOpen={setBlockModalOpen}
-              setStatusModalOpen={setStatusModalOpen}
-              setTransferModalOpen={setTransferModalOpen}
-              activeTab={activeTab}
-              canModifyCandidate={canModifyCandidate}
-            />
-          </TabsContent>
+            <TabsContent value="discarded" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full overflow-hidden">
+              <CandidatesTable
+                candidates={filteredCandidates('discarded')}
+                loading={loading}
+                selectedCandidates={selectedCandidates}
+                setSelectedCandidates={setSelectedCandidates}
+                columnVisibility={columnVisibility}
+                setDiscardModalOpen={setDiscardModalOpen}
+                setBlockModalOpen={setBlockModalOpen}
+                setStatusModalOpen={setStatusModalOpen}
+                setTransferModalOpen={setTransferModalOpen}
+                activeTab={activeTab}
+                canModifyCandidate={canModifyCandidate}
+              />
+            </TabsContent>
 
-          <TabsContent value="contratados" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
-            <CandidatesTable
-              candidates={filteredCandidates('contratados')}
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-              columnVisibility={columnVisibility}
-              setDiscardModalOpen={setDiscardModalOpen}
-              setBlockModalOpen={setBlockModalOpen}
-              setStatusModalOpen={setStatusModalOpen}
-              setTransferModalOpen={setTransferModalOpen}
-              activeTab={activeTab}
-              canModifyCandidate={canModifyCandidate}
-            />
-          </TabsContent>
+            <TabsContent value="contratados" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full overflow-hidden">
+              <CandidatesTable
+                candidates={filteredCandidates('contratados')}
+                loading={loading}
+                selectedCandidates={selectedCandidates}
+                setSelectedCandidates={setSelectedCandidates}
+                columnVisibility={columnVisibility}
+                setDiscardModalOpen={setDiscardModalOpen}
+                setBlockModalOpen={setBlockModalOpen}
+                setStatusModalOpen={setStatusModalOpen}
+                setTransferModalOpen={setTransferModalOpen}
+                activeTab={activeTab}
+                canModifyCandidate={canModifyCandidate}
+              />
+            </TabsContent>
 
-          <TabsContent value="sin-revisar" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
-            <CandidatesTable
-              candidates={filteredCandidates('sin-revisar')}
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-              columnVisibility={columnVisibility}
-              setDiscardModalOpen={setDiscardModalOpen}
-              setBlockModalOpen={setBlockModalOpen}
-              setStatusModalOpen={setStatusModalOpen}
-              setTransferModalOpen={setTransferModalOpen}
-              activeTab={activeTab}
-              canModifyCandidate={canModifyCandidate}
-            />
-          </TabsContent>
+            <TabsContent value="sin-revisar" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full overflow-hidden">
+              <CandidatesTable
+                candidates={filteredCandidates('sin-revisar')}
+                loading={loading}
+                selectedCandidates={selectedCandidates}
+                setSelectedCandidates={setSelectedCandidates}
+                columnVisibility={columnVisibility}
+                setDiscardModalOpen={setDiscardModalOpen}
+                setBlockModalOpen={setBlockModalOpen}
+                setStatusModalOpen={setStatusModalOpen}
+                setTransferModalOpen={setTransferModalOpen}
+                activeTab={activeTab}
+                canModifyCandidate={canModifyCandidate}
+              />
+            </TabsContent>
 
-          <TabsContent value="en-entrevista" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
-            {/* Interview Type Filter Buttons */}
-            <div className="mb-4 flex gap-2 shrink-0">
-              <Button
-                variant={interviewTypeFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setInterviewTypeFilter('all')}
-              >
-                Todas las entrevistas ({getInterviewFilteredCandidates('all').length})
-              </Button>
-              <Button
-                variant={interviewTypeFilter === 'entrevista-rc' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setInterviewTypeFilter('entrevista-rc')}
-              >
-                Entrevista RC ({getInterviewFilteredCandidates('entrevista-rc').length})
-              </Button>
-              <Button
-                variant={interviewTypeFilter === 'entrevista-et' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setInterviewTypeFilter('entrevista-et')}
-              >
-                Entrevista Técnica ({getInterviewFilteredCandidates('entrevista-et').length})
-              </Button>
-            </div>
+            <TabsContent value="en-entrevista" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full overflow-hidden">
+              {/* Interview Type Filter Buttons */}
+              <div className="mb-4 flex gap-2 shrink-0">
+                <Button
+                  variant={interviewTypeFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setInterviewTypeFilter('all')}
+                >
+                  Todas las entrevistas ({getInterviewFilteredCandidates('all').length})
+                </Button>
+                <Button
+                  variant={interviewTypeFilter === 'entrevista-rc' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setInterviewTypeFilter('entrevista-rc')}
+                >
+                  Entrevista RC ({getInterviewFilteredCandidates('entrevista-rc').length})
+                </Button>
+                <Button
+                  variant={interviewTypeFilter === 'entrevista-et' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setInterviewTypeFilter('entrevista-et')}
+                >
+                  Entrevista Técnica ({getInterviewFilteredCandidates('entrevista-et').length})
+                </Button>
+              </div>
 
-            <CandidatesTable
-              candidates={filteredCandidates('en-entrevista')}
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-              columnVisibility={columnVisibility}
-              setDiscardModalOpen={setDiscardModalOpen}
-              setBlockModalOpen={setBlockModalOpen}
-              setStatusModalOpen={setStatusModalOpen}
-              setTransferModalOpen={setTransferModalOpen}
-              activeTab={activeTab}
-              canModifyCandidate={canModifyCandidate}
-            />
-          </TabsContent>
+              <CandidatesTable
+                candidates={filteredCandidates('en-entrevista')}
+                loading={loading}
+                selectedCandidates={selectedCandidates}
+                setSelectedCandidates={setSelectedCandidates}
+                columnVisibility={columnVisibility}
+                setDiscardModalOpen={setDiscardModalOpen}
+                setBlockModalOpen={setBlockModalOpen}
+                setStatusModalOpen={setStatusModalOpen}
+                setTransferModalOpen={setTransferModalOpen}
+                activeTab={activeTab}
+                canModifyCandidate={canModifyCandidate}
+              />
+            </TabsContent>
 
-          <TabsContent value="prueba-tecnica" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
-            <CandidatesTable
-              candidates={filteredCandidates('prueba-tecnica')}
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-              columnVisibility={columnVisibility}
-              setDiscardModalOpen={setDiscardModalOpen}
-              setBlockModalOpen={setBlockModalOpen}
-              setStatusModalOpen={setStatusModalOpen}
-              setTransferModalOpen={setTransferModalOpen}
-              activeTab={activeTab}
-              canModifyCandidate={canModifyCandidate}
-            />
-          </TabsContent>
+            <TabsContent value="prueba-tecnica" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full overflow-hidden">
+              <CandidatesTable
+                candidates={filteredCandidates('prueba-tecnica')}
+                loading={loading}
+                selectedCandidates={selectedCandidates}
+                setSelectedCandidates={setSelectedCandidates}
+                columnVisibility={columnVisibility}
+                setDiscardModalOpen={setDiscardModalOpen}
+                setBlockModalOpen={setBlockModalOpen}
+                setStatusModalOpen={setStatusModalOpen}
+                setTransferModalOpen={setTransferModalOpen}
+                activeTab={activeTab}
+                canModifyCandidate={canModifyCandidate}
+              />
+            </TabsContent>
 
-          <TabsContent value="en-formacion" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full">
-            <CandidatesTable
-              candidates={filteredCandidates('en-formacion')}
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-              columnVisibility={columnVisibility}
-              setDiscardModalOpen={setDiscardModalOpen}
-              setBlockModalOpen={setBlockModalOpen}
-              setStatusModalOpen={setStatusModalOpen}
-              setTransferModalOpen={setTransferModalOpen}
-              activeTab={activeTab}
-              canModifyCandidate={canModifyCandidate}
-            />
-          </TabsContent>
-
-          {/*
-          <TabsContent value="all">
-            <CandidatesTable 
-              candidates={filteredCandidates('all')} 
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-            />
-          </TabsContent>
-          
-          <TabsContent value="active">
-            <CandidatesTable 
-              candidates={filteredCandidates('active')} 
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-            />
-
-          </TabsContent>
-          
-          <TabsContent value="new">
-            <CandidatesTable 
-              candidates={filteredCandidates('new')} 
-              loading={loading}
-              selectedCandidates={selectedCandidates}
-              setSelectedCandidates={setSelectedCandidates}
-            />
-          </TabsContent>
-          */}
+            <TabsContent value="en-formacion" className="flex-1 mt-0 data-[state=active]:flex flex-col min-h-0 min-w-0 w-full overflow-hidden">
+              <CandidatesTable
+                candidates={filteredCandidates('en-formacion')}
+                loading={loading}
+                selectedCandidates={selectedCandidates}
+                setSelectedCandidates={setSelectedCandidates}
+                columnVisibility={columnVisibility}
+                setDiscardModalOpen={setDiscardModalOpen}
+                setBlockModalOpen={setBlockModalOpen}
+                setStatusModalOpen={setStatusModalOpen}
+                setTransferModalOpen={setTransferModalOpen}
+                activeTab={activeTab}
+                canModifyCandidate={canModifyCandidate}
+              />
+            </TabsContent>
+          </div>
         </Tabs>
       </div>
 
@@ -2650,9 +2619,9 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
               <Loader2 className="h-8 w-8 animate-spin text-hrm-dark-cyan" />
             </div>
           ) : (
-            <div className="w-full flex-1 overflow-auto custom-scrollbar">
+            <div className="w-full flex-1 overflow-auto custom-scrollbar min-h-0 lg:max-h-[calc(100vh-350px)]">
               <Table className="min-w-[1200px]">
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background">
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
@@ -2663,11 +2632,9 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                   </TableHead>
                   <TableHead className="min-w-[250px]">Candidato</TableHead>
                   {columnVisibility.vacante && <TableHead className="min-w-[180px]">Vacante</TableHead>}
-                  {columnVisibility.campana && !['sin-revisar', 'en-entrevista'].includes(activeTab) && <TableHead className="min-w-[150px]">Campaña</TableHead>}
                   {columnVisibility.compatibilidad && <TableHead className="min-w-[140px] text-center">Compatibilidad</TableHead>}
                   {columnVisibility.experiencia && !['en-formacion', 'contratados'].includes(activeTab) && <TableHead className="min-w-[120px]">Experiencia</TableHead>}
                   {columnVisibility.habilidades && !['en-formacion', 'discarded', 'contratados'].includes(activeTab) && <TableHead className="min-w-[180px]">Habilidades</TableHead>}
-                  {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) && <TableHead className="min-w-[110px] text-center">Aplicaciones</TableHead>}
                   {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableHead className="min-w-[180px]">Estado</TableHead>}
                   {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.reclutador && <TableHead className="min-w-[160px]">Reclutador</TableHead>}
                   {columnVisibility.fecha && <TableHead className="min-w-[130px]">Fecha</TableHead>}
@@ -2770,32 +2737,25 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                           </div>
                         </TableCell>
 
-                        {columnVisibility.vacante && <TableCell>
-                          <div className="flex flex-col gap-1 items-start">
+                        {columnVisibility.vacante && <TableCell className="w-[150px] max-w-[150px] lg:w-[160px] lg:max-w-[160px] xl:w-[220px] xl:max-w-[220px]">
+                          <div className="flex flex-col gap-1 items-start w-full">
                             {candidate.applications && candidate.applications.length > 0 ? (
                               candidate.applications.map(app => (
-                                <Badge key={app.id} variant="secondary" className="whitespace-nowrap px-3 py-1 font-medium bg-hrm-teal/10 text-hrm-teal border-transparent rounded-lg">
-                                  {app.jobs?.title || 'Vacante no disponible'}
-                                </Badge>
+                                <TooltipProvider key={app.id}>
+                                  <Tooltip delayDuration={300}>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="w-full px-2 py-0.5 text-xs font-medium border-hrm-teal/40 text-hrm-teal bg-hrm-teal/5 rounded-md cursor-default overflow-hidden whitespace-nowrap block">
+                                        <span className="truncate block">{app.jobs?.title || 'Vacante no disponible'}</span>
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-[300px] text-center">
+                                      <p>{app.jobs?.title || 'Vacante no disponible'}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               ))
                             ) : (
                               <span className="text-gray-500 text-sm">Sin postulaciones</span>
-                            )}
-                          </div>
-                        </TableCell>}
-
-                        {columnVisibility.campana && activeTab && !['sin-revisar', 'en-entrevista'].includes(activeTab) && <TableCell>
-                          <div className="flex flex-col gap-1 items-start">
-                            {candidate.applications && candidate.applications.length > 0 ? (
-                              candidate.applications
-                                .filter(app => app.campaigns?.name)
-                                .map(app => (
-                                  <Badge key={app.id} variant="outline" className="text-xs whitespace-nowrap rounded-lg">
-                                    {app.campaigns?.name}
-                                  </Badge>
-                                ))
-                            ) : (
-                              <span className="text-gray-500 text-sm">Sin campaña</span>
                             )}
                           </div>
                         </TableCell>}
@@ -2838,16 +2798,6 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({ candidates, loading, 
                               </Badge>
                             )}
                           </div>
-                        </TableCell>}
-
-                        {columnVisibility.aplicaciones && !['contratados'].includes(activeTab) && <TableCell className='text-center'>
-                          <span
-                            className={`font-medium ${candidate.applications && candidate.applications.length > 0
-                              ? 'text-hrm-black/80'
-                              : 'text-gray-500'}`}
-                          >
-                            {candidate.applications ? candidate.applications.length : 0}
-                          </span>
                         </TableCell>}
 
                         {(activeTab === 'all' || activeTab === 'en-entrevista') && columnVisibility.estado_aplicacion && <TableCell>
