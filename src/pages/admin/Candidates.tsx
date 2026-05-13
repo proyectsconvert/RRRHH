@@ -1126,13 +1126,30 @@ const Candidates = () => {
             }
 
             const locationInfo = meetingData.modality === 'presencial'
-              ? `Te esperamos en la siguiente dirección: ${meetingData.address}`
-              : `Te puedes conectar mediante el siguiente enlace: ${meetingData.meetingLink}`;
+              ? `📍 *Dirección:* ${meetingData.address}`
+              : `🔗 *Enlace de la reunión:* ${meetingData.meetingLink}`;
 
-            let message = `${messageIntro} *${interviewTypeName}*. La cita quedó programada para el día ${dateTimeStr}. ${locationInfo}`;
+            let message = `${messageIntro} *${interviewTypeName}*.`;
 
-            if (currentInterviewType === 'entrevista-rc' && meetingData.description) {
-              message += `\n\nDetalles adicionales: ${meetingData.description}`;
+            // Título de la reunión (siempre que esté presente)
+            if (meetingData.title && meetingData.title.trim()) {
+              message += `\n\n📌 *${meetingData.title.trim()}*`;
+            }
+
+            // Fecha y hora
+            message += `\n\n🗓️ *Fecha y hora:* ${dateTimeStr}`;
+
+            // Duración (si está disponible)
+            if (meetingData.duration) {
+              message += `\n⏱️ *Duración:* ${meetingData.duration} minutos`;
+            }
+
+            // Información de ubicación / link
+            message += `\n${locationInfo}`;
+
+            // Descripción / detalles adicionales (siempre que esté presente)
+            if (meetingData.description && meetingData.description.trim()) {
+              message += `\n\n📝 *Detalles adicionales:*\n${meetingData.description.trim()}`;
             }
 
             const { sendEvolutionMessage } = await import('@/utils/evolution-api');

@@ -71,13 +71,17 @@ const JobDetail: React.FC = () => {
     navigate(path);
   };
   
-  const jobTypeLabels = {
+  // Etiquetas legibles para los IDs legacy. Para valores nuevos (texto libre)
+  // se muestra el valor tal como lo escribió el usuario.
+  const legacyJobTypeLabels: Record<string, string> = {
     'full-time': 'Tiempo Completo',
     'part-time': 'Medio Tiempo',
     'contract': 'Contrato',
     'internship': 'Pasantía',
     'temporary': 'Temporal',
   };
+  const formatJobType = (value?: string | null) =>
+    (value && legacyJobTypeLabels[value]) || value || 'No especificado';
   
   const jobStatusLabels = {
     'open': 'Abierta',
@@ -152,7 +156,7 @@ const JobDetail: React.FC = () => {
                 {jobStatusLabels[job.status as keyof typeof jobStatusLabels] || 'Abierta'}
               </Badge>
               <Badge variant="outline">
-                {jobTypeLabels[job.type as keyof typeof jobTypeLabels] || 'Tiempo Completo'}
+                {formatJobType(job.type)}
               </Badge>
             </div>
           </div>
@@ -170,7 +174,7 @@ const JobDetail: React.FC = () => {
             </div>
             <div className="flex items-center text-gray-600">
               <Briefcase className="mr-2 h-5 w-5" />
-              <span>{jobTypeLabels[job.type as keyof typeof jobTypeLabels] || 'Tiempo Completo'}</span>
+              <span>{formatJobType(job.type)}</span>
             </div>
             <div className="flex items-center text-gray-600">
               <Users className="mr-2 h-5 w-5" />
@@ -181,33 +185,33 @@ const JobDetail: React.FC = () => {
           <div>
             <h3 className="text-xl font-semibold mb-3">Descripción</h3>
             <div className="prose max-w-none">
-              <p>{job.description}</p>
+              <p className="whitespace-pre-wrap break-words">{job.description}</p>
             </div>
           </div>
-          
+
           {job.responsibilities && (
             <div>
               <h3 className="text-xl font-semibold mb-3">Responsabilidades</h3>
               <div className="prose max-w-none">
-                <p>{job.responsibilities}</p>
+                <p className="whitespace-pre-wrap break-words">{job.responsibilities}</p>
               </div>
             </div>
           )}
-          
+
           {job.requirements && (
             <div>
               <h3 className="text-xl font-semibold mb-3">Requisitos</h3>
               <div className="prose max-w-none">
-                <p>{job.requirements}</p>
+                <p className="whitespace-pre-wrap break-words">{job.requirements}</p>
               </div>
             </div>
           )}
-          
+
           {job.salary_range && (
             <div>
               <h3 className="text-xl font-semibold mb-3">Rango salarial</h3>
               <div className="prose max-w-none">
-                <p>{job.salary_range}</p>
+                <p className="whitespace-pre-wrap break-words">{job.salary_range}</p>
               </div>
             </div>
           )}

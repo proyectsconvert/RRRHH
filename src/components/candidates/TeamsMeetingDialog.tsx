@@ -139,13 +139,15 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5 text-blue-600" />
-            {interviewType === 'asignar-campana' ? 'Programar Inicio de Formación' : `Programar Entrevista ${interviewTypeLabel}`}
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Video className="h-5 w-5 text-blue-600 shrink-0" />
+            <span className="break-words">
+              {interviewType === 'asignar-campana' ? 'Programar Inicio de Formación' : `Programar Entrevista ${interviewTypeLabel}`}
+            </span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             {interviewType === 'asignar-campana'
               ? `Programa la sesión de inicio de formación para ${candidateName}`
               : `Programa la entrevista ${interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'técnica'} para ${candidateName}`
@@ -166,7 +168,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
 
           <div className="space-y-2">
             <Label>Modalidad</Label>
-            <RadioGroup value={modality} onValueChange={(value) => setModality(value as 'virtual' | 'presencial')} className="flex space-x-4">
+            <RadioGroup value={modality} onValueChange={(value) => setModality(value as 'virtual' | 'presencial')} className="flex flex-wrap gap-x-4 gap-y-2">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="virtual" id="virtual" />
                 <Label htmlFor="virtual" className="cursor-pointer">Virtual</Label>
@@ -178,7 +180,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
             </RadioGroup>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Fecha</Label>
               <Popover>
@@ -190,8 +192,10 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
                       !date && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP", { locale: es }) : "Seleccionar fecha"}
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {date ? format(date, "PPP", { locale: es }) : "Seleccionar fecha"}
+                    </span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -215,7 +219,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
                   type="time"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 w-full"
                 />
               </div>
             </div>
@@ -224,7 +228,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
           <div className="space-y-2">
             <Label htmlFor="duration">Duración (minutos)</Label>
             <Select value={duration.toString()} onValueChange={(value) => setDuration(parseInt(value))}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -258,7 +262,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
                 placeholder="https://teams.microsoft.com/l/meetup-join/..."
                 required
               />
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Pega el link de la reunión de Teams, Zoom u otra plataforma
               </p>
             </div>
@@ -276,28 +280,39 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
                   required
                 />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Ingresa la dirección donde el candidato debe presentarse
               </p>
             </div>
           )}
         </div>
 
-        <div className="flex justify-between space-x-2 pt-4 border-t">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-2 sm:space-x-2 pt-4 border-t">
+          <div className="order-2 sm:order-1 w-full sm:w-auto">
             {onSkipMeeting && (
-              <Button variant="ghost" onClick={onSkipMeeting} disabled={isCreating}>
+              <Button
+                variant="ghost"
+                onClick={onSkipMeeting}
+                disabled={isCreating}
+                className="w-full sm:w-auto"
+              >
                 Omitir reunión por ahora
               </Button>
             )}
           </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" onClick={onClose} disabled={isCreating}>
+          <div className="order-1 sm:order-2 flex flex-col sm:flex-row gap-2 sm:space-x-2 sm:gap-0 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isCreating}
+              className="w-full sm:w-auto"
+            >
               Cancelar
             </Button>
             <Button
               onClick={handleCreateMeeting}
               disabled={!date || !time || (modality === 'virtual' ? !meetingLink.trim() : !address.trim()) || isCreating}
+              className="w-full sm:w-auto"
             >
               {isCreating ? 'Procesando reunión...' : 'Programar Reunión'}
             </Button>

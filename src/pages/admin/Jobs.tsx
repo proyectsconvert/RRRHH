@@ -12,13 +12,17 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 
-const JOB_TYPES = [
-  { id: 'full-time', label: 'Tiempo Completo' },
-  { id: 'part-time', label: 'Medio Tiempo' },
-  { id: 'contract', label: 'Contrato' },
-  { id: 'internship', label: 'Pasantía' },
-  { id: 'temporary', label: 'Temporal' },
-];
+// Etiquetas legibles para los IDs legacy. Los tipos de contrato nuevos
+// (texto libre) se mostrarán tal como el usuario los escribió.
+const LEGACY_JOB_TYPE_LABELS: Record<string, string> = {
+  'full-time': 'Tiempo Completo',
+  'part-time': 'Medio Tiempo',
+  'contract': 'Contrato',
+  'internship': 'Pasantía',
+  'temporary': 'Temporal',
+};
+const formatJobType = (value?: string | null) =>
+  (value && LEGACY_JOB_TYPE_LABELS[value]) || value || 'No especificado';
 
 const Jobs = () => {
   const [jobs, setJobs] = useState<JobType[]>([]);
@@ -127,6 +131,21 @@ const Jobs = () => {
     };
   }, [jobs]);
 
+  // Lista dinámica de tipos de contrato basada en lo que realmente exista
+  // entre las vacantes cargadas. Cada usuario puede tipear lo que quiera.
+  const availableJobTypes = useMemo(() => {
+    const uniqueIds = Array.from(
+      new Set(
+        jobs
+          .map(j => (j.type ?? '').toString().trim())
+          .filter(t => t.length > 0)
+      )
+    );
+    return uniqueIds
+      .map(id => ({ id, label: formatJobType(id) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [jobs]);
+
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -179,7 +198,12 @@ const Jobs = () => {
                   <div className="px-2 py-1.5 text-sm font-semibold">
                     Tipo de Contrato
                   </div>
-                  {JOB_TYPES.map((jobType) => (
+                  {availableJobTypes.length === 0 && (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No hay tipos de contrato registrados.
+                    </div>
+                  )}
+                  {availableJobTypes.map((jobType) => (
                     <label
                       key={jobType.id}
                       className="flex items-center space-x-2 rounded-md p-2 hover:bg-muted cursor-pointer"

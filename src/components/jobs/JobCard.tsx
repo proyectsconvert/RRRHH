@@ -21,7 +21,7 @@ export interface JobType {
   title: string;
   department: string;
   location: string;
-  type: 'full-time' | 'part-time' | 'contract' | 'internship' | 'temporary';
+  type: string;
   status: 'open' | 'in_progress' | 'closed' | 'draft';
   created_at?: string;
   createdAt?: Date;
@@ -50,13 +50,17 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
     in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400',
   };
 
-  const jobTypeLabels = {
+  // Etiquetas legibles para los IDs legacy. Para valores nuevos (texto libre)
+  // se muestra el valor tal como lo escribió el usuario.
+  const legacyJobTypeLabels: Record<string, string> = {
     'full-time': 'Tiempo Completo',
     'part-time': 'Medio Tiempo',
     'contract': 'Contrato',
     'internship': 'Pasantía',
     'temporary': 'Temporal',
   };
+  const formatJobType = (value?: string | null) =>
+    (value && legacyJobTypeLabels[value]) || value || 'No especificado';
 
   const jobStatusLabels = {
     'open': 'Abierta',
@@ -152,7 +156,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isAdmin = false, isRecruiter = f
           )}
           <div className="mt-3">
             <Badge variant="outline" className="text-xs">
-              {jobTypeLabels[job.type] || 'Tiempo Completo'}
+              {formatJobType(job.type)}
             </Badge>
           </div>
         </div>

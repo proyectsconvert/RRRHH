@@ -20,8 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
-// Define job types and statuses as const arrays to use in the schema and component
-const JOB_TYPES = ['full-time', 'part-time', 'contract', 'internship', 'temporary'] as const;
+// Define job statuses as const array to use in the schema and component
 const JOB_STATUSES = ['open', 'in_progress', 'closed', 'draft'] as const;
 
 // Define the schema with explicit types
@@ -29,7 +28,7 @@ const formSchema = z.object({
   title: z.string().min(2, "El título debe tener al menos 2 caracteres"),
   department: z.string().min(2, "El departamento es requerido"),
   location: z.string().min(2, "La ubicación es requerida"),
-  type: z.enum(JOB_TYPES),
+  type: z.string().min(2, "El tipo de contrato es requerido"),
   status: z.enum(JOB_STATUSES),
   description: z.string().min(10, "La descripción debe tener al menos 10 caracteres"),
   requirements: z.string().optional(),
@@ -52,7 +51,7 @@ const JobForm = () => {
       title: "",
       department: "",
       location: "",
-      type: "full-time",
+      type: "",
       status: "open",
       description: "",
       requirements: "",
@@ -138,7 +137,7 @@ const JobForm = () => {
             title: data.title || "",
             department: data.department || "",
             location: data.location || "",
-            type: data.type as typeof JOB_TYPES[number] || "full-time",
+            type: data.type || "",
             status: data.status as typeof JOB_STATUSES[number] || "open",
             description: data.description || "",
             requirements: data.requirements || "",
@@ -217,20 +216,12 @@ const JobForm = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo de contrato</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona el tipo de contrato" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="full-time">Tiempo Completo</SelectItem>
-                        <SelectItem value="part-time">Medio Tiempo</SelectItem>
-                        <SelectItem value="contract">Contrato</SelectItem>
-                        <SelectItem value="internship">Pasantía</SelectItem>
-                        <SelectItem value="temporary">Temporal</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <Input
+                        placeholder="Ej: Término indefinido, Obra o labor, Aprendizaje..."
+                        {...field}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

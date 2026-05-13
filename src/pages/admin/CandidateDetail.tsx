@@ -841,13 +841,30 @@ const CandidateDetail: React.FC = () => {
           }
 
           const locationInfo = meetingData.modality === 'presencial'
-            ? `Te esperamos en la siguiente dirección: ${meetingData.address}`
-            : `Te puedes conectar mediante el siguiente enlace: ${meetingData.meetingLink}`;
+            ? `📍 *Dirección:* ${meetingData.address}`
+            : `🔗 *Enlace de la reunión:* ${meetingData.meetingLink}`;
 
-          let message = `${messageIntro} *${interviewTypeName}*. La cita quedó programada para el día ${dateTimeStr}. ${locationInfo}`;
+          let message = `${messageIntro} *${interviewTypeName}*.`;
 
-          if (currentInterviewType === 'entrevista-rc' && meetingData.description) {
-            message += `\n\nDetalles adicionales: ${meetingData.description}`;
+          // Título de la reunión (siempre que esté presente)
+          if (meetingData.title && meetingData.title.trim()) {
+            message += `\n\n📌 *${meetingData.title.trim()}*`;
+          }
+
+          // Fecha y hora
+          message += `\n\n🗓️ *Fecha y hora:* ${dateTimeStr}`;
+
+          // Duración (si está disponible)
+          if (meetingData.duration) {
+            message += `\n⏱️ *Duración:* ${meetingData.duration} minutos`;
+          }
+
+          // Información de ubicación / link
+          message += `\n${locationInfo}`;
+
+          // Descripción / detalles adicionales (siempre que esté presente)
+          if (meetingData.description && meetingData.description.trim()) {
+            message += `\n\n📝 *Detalles adicionales:*\n${meetingData.description.trim()}`;
           }
 
           const { sendEvolutionMessage } = await import('@/utils/evolution-api');
@@ -1084,21 +1101,26 @@ const CandidateDetail: React.FC = () => {
 
       {/* Status Change Dialog */}
       <Dialog open={isStatusModalOpen} onOpenChange={setStatusModalOpen}>
-        <DialogContent className={cn("p-0 border-none shadow-none transition-all duration-300", newStatus === 'asignar-campana' ? "sm:max-w-[800px]" : "sm:max-w-[425px]")}>
-          <DialogHeader className="bg-hrm-dark-primary py-9 px-6 rounded-t-lg border-none shadow-none">
-            <DialogTitle className="text-white text-xl">Cambiar Estado del Candidato</DialogTitle>
-            <DialogDescription className="text-gray-200">
+        <DialogContent
+          className={cn(
+            "p-0 border-none shadow-none transition-all duration-300 w-[95vw] max-h-[90vh] overflow-y-auto",
+            newStatus === 'asignar-campana' ? "sm:max-w-[800px]" : "sm:max-w-[425px]"
+          )}
+        >
+          <DialogHeader className="bg-hrm-dark-primary py-6 sm:py-9 px-4 sm:px-6 rounded-t-lg border-none shadow-none">
+            <DialogTitle className="text-white text-lg sm:text-xl">Cambiar Estado del Candidato</DialogTitle>
+            <DialogDescription className="text-gray-200 text-sm">
               Selecciona el nuevo estado para {candidate.first_name} {candidate.last_name}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4 px-6">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right">
+          <div className="grid gap-4 py-4 px-4 sm:px-6">
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="status" className="sm:text-right">
                 Estado
               </Label>
               <Select value={newStatus} onValueChange={setNewStatus}>
-                <SelectTrigger id="status" className="col-span-3">
+                <SelectTrigger id="status" className="sm:col-span-3 w-full">
                   <SelectValue placeholder="Selecciona un estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1118,12 +1140,12 @@ const CandidateDetail: React.FC = () => {
             </div>
 
             {/* --- SELECT DE RECLUTADOR --- */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="recruiter" className="text-right">
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="recruiter" className="sm:text-right">
                 Reclutador
               </Label>
               <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
-                <SelectTrigger id="recruiter" className="col-span-3">
+                <SelectTrigger id="recruiter" className="sm:col-span-3 w-full">
                   <SelectValue placeholder={currentUserRecruiter ? `${currentUserRecruiter.first_name} ${currentUserRecruiter.last_name}` : "Selecciona un reclutador"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1141,12 +1163,12 @@ const CandidateDetail: React.FC = () => {
               <>
                 {/* Campaña Selector - Existing */}
                 {campaigns.length > 0 && (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="campaign" className="text-right">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+                    <Label htmlFor="campaign" className="sm:text-right">
                       Campaña
                     </Label>
                     <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-                      <SelectTrigger id="campaign" className="col-span-3">
+                      <SelectTrigger id="campaign" className="sm:col-span-3 w-full">
                         <SelectValue placeholder="Selecciona una campaña activa" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1231,18 +1253,20 @@ const CandidateDetail: React.FC = () => {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label>Fecha y Hora</Label>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant={"outline"}
                                 className={cn(
-                                  "w-full justify-start text-left font-normal",
+                                  "w-full sm:flex-1 justify-start text-left font-normal",
                                   !trainingDate && "text-muted-foreground"
                                 )}
                               >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {trainingDate ? format(trainingDate, "PPP", { locale: es }) : "Fecha"}
+                                <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                                <span className="truncate">
+                                  {trainingDate ? format(trainingDate, "PPP", { locale: es }) : "Fecha"}
+                                </span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
@@ -1258,7 +1282,7 @@ const CandidateDetail: React.FC = () => {
                             type="time"
                             value={trainingTime}
                             onChange={(e) => setTrainingTime(e.target.value)}
-                            className="w-[120px]"
+                            className="w-full sm:w-[120px]"
                           />
                         </div>
                       </div>
@@ -1280,9 +1304,9 @@ const CandidateDetail: React.FC = () => {
             )}
           </div>
 
-          <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200">
-            <Button variant="ghost" onClick={() => setStatusModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleStatusChange}>Guardar Cambios</Button>
+          <DialogFooter className="px-4 sm:px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200 gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setStatusModalOpen(false)} className="w-full sm:w-auto">Cancelar</Button>
+            <Button onClick={handleStatusChange} className="w-full sm:w-auto">Guardar Cambios</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1298,17 +1322,17 @@ const CandidateDetail: React.FC = () => {
 
       {/* Hire Dialog */}
       <Dialog open={isHireDialogOpen} onOpenChange={setIsHireDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] p-0 border-none shadow-none">
-          <DialogHeader className="bg-hrm-dark-primary py-9 px-6 rounded-t-lg border-none shadow-none">
-            <DialogTitle className="text-white text-xl">Contratar Candidato</DialogTitle>
-            <DialogDescription className="text-gray-200">
+        <DialogContent className="w-[95vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto p-0 border-none shadow-none">
+          <DialogHeader className="bg-hrm-dark-primary py-6 sm:py-9 px-4 sm:px-6 rounded-t-lg border-none shadow-none">
+            <DialogTitle className="text-white text-lg sm:text-xl">Contratar Candidato</DialogTitle>
+            <DialogDescription className="text-gray-200 text-sm">
               Selecciona la fecha de inicio de labores para {candidate.first_name} {candidate.last_name}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4 px-6">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="hire-date" className="text-right">
+          <div className="grid gap-4 py-4 px-4 sm:px-6">
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="hire-date" className="sm:text-right">
                 Fecha de Inicio
               </Label>
               <Popover>
@@ -1316,12 +1340,14 @@ const CandidateDetail: React.FC = () => {
                   <Button
                     variant="outline"
                     className={cn(
-                      "col-span-3 justify-start text-left font-normal",
+                      "w-full sm:col-span-3 justify-start text-left font-normal",
                       !hireStartDate && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {hireStartDate ? format(hireStartDate, "PPP", { locale: es }) : "Seleccionar fecha"}
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {hireStartDate ? format(hireStartDate, "PPP", { locale: es }) : "Seleccionar fecha"}
+                    </span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -1337,12 +1363,12 @@ const CandidateDetail: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter className="px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200">
-            <Button variant="ghost" onClick={() => setIsHireDialogOpen(false)}>Cancelar</Button>
+          <DialogFooter className="px-4 sm:px-6 py-4 bg-gray-50 rounded-b-lg border-t border-gray-200 gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setIsHireDialogOpen(false)} className="w-full sm:w-auto">Cancelar</Button>
             <Button
               onClick={handleHire}
               disabled={!hireStartDate}
-              className="bg-green-600 hover:bg-green-700"
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
             >
               Contratar
             </Button>
