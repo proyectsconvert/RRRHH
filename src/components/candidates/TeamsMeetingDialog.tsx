@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +56,7 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
     switch (interviewType) {
       case 'entrevista-rc': return `Entrevista de Recursos Humanos con ${candidateName}`;
       case 'entrevista-et': return `Entrevista Técnica con ${candidateName}`;
-      case 'prueba-tecnica': return `Prueba Técnica para ${candidateName}`;
+      case 'prueba-tecnica': return `Prueba Técnica con ${candidateName}`;
       case 'asignar-campana': return `Sesión de inicio de formación para ${candidateName}`;
       default: return `Reunión con ${candidateName}`;
     }
@@ -85,10 +85,16 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
   const [address, setAddress] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  // Update effect to reset fields when type or name changes would be ideal, 
-  // but state initialization only happens once. relying on key or manual reset in parent if needed.
-  // Or better, use a useEffect here to update if props change significantly when reopening.
-  // For now simple init is okay assuming component remounts or key changes.
+  // Recalcula el título y la descripción cuando cambia el tipo de entrevista,
+  // el nombre del candidato o se reabre el diálogo. Esto evita que se queden
+  // mostrando textos de un tipo de entrevista anterior.
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(getInitialTitle());
+      setDescription(getInitialDescription());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, interviewType, candidateName]);
 
 
 
@@ -144,13 +150,19 @@ const TeamsMeetingDialog: React.FC<TeamsMeetingDialogProps> = ({
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Video className="h-5 w-5 text-blue-600 shrink-0" />
             <span className="break-words">
-              {interviewType === 'asignar-campana' ? 'Programar Inicio de Formación' : `Programar Entrevista ${interviewTypeLabel}`}
+              {interviewType === 'asignar-campana'
+                ? 'Programar Inicio de Formación'
+                : interviewType === 'prueba-tecnica'
+                  ? 'Programar Prueba Técnica'
+                  : `Programar Entrevista ${interviewTypeLabel}`}
             </span>
           </DialogTitle>
           <DialogDescription className="text-sm">
             {interviewType === 'asignar-campana'
               ? `Programa la sesión de inicio de formación para ${candidateName}`
-              : `Programa la entrevista ${interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'técnica'} para ${candidateName}`
+              : interviewType === 'prueba-tecnica'
+                ? `Programa la prueba técnica para ${candidateName}`
+                : `Programa la entrevista ${interviewType === 'entrevista-rc' ? 'de Recursos Humanos' : 'técnica'} para ${candidateName}`
             }
           </DialogDescription>
         </DialogHeader>

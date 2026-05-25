@@ -1439,7 +1439,11 @@ const Candidates = () => {
 
           const dateTimeStr = `${meetingData.date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
 
-          const interviewTypeName = currentInterviewType === 'entrevista-rc' ? 'Entrevista con Recursos Humanos' : 'Entrevista Técnica';
+          const interviewTypeName = currentInterviewType === 'entrevista-rc'
+            ? 'Entrevista con Recursos Humanos'
+            : currentInterviewType === 'prueba-tecnica'
+              ? 'Prueba Técnica'
+              : 'Entrevista Técnica';
           const locationInfo = meetingData.modality === 'presencial'
             ? `Te esperamos en la siguiente dirección: ${meetingData.address}`
             : `Te puedes conectar mediante el siguiente enlace: ${meetingData.meetingLink}`;
@@ -2236,6 +2240,7 @@ const Candidates = () => {
                             <SelectContent>
                               <SelectItem value="entrevista-rc">Asignar Entrevista (RC)</SelectItem>
                               <SelectItem value="entrevista-et">Asignar Entrevista Técnica (ET)</SelectItem>
+                              <SelectItem value="prueba-tecnica">Asignar Prueba Técnica</SelectItem>
                               <SelectItem value="asignar-campana">Inicio de formación</SelectItem>
                               <SelectItem value="proceso-contratacion">Proceso de contratación</SelectItem>
                               <SelectItem value="training">En Formación</SelectItem>

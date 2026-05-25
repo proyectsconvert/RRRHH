@@ -30,7 +30,8 @@ import {
   saveAnalysisData,
   analyzeResume,
   getResumeUrl,
-  saveResumeText
+  saveResumeText,
+  updateCandidateContactInfo
 } from '@/services/candidate-service';
 import { getStatusText, getJobTypeText } from '@/utils/formatters';
 import { Candidate } from '@/types/candidate';
@@ -913,6 +914,23 @@ const CandidateDetail: React.FC = () => {
     }
   };
 
+  const handleUpdateContactInfo = async (fields: { email?: string; phone?: string; cedula?: string }) => {
+    if (!id || !candidate) return;
+    try {
+      await updateCandidateContactInfo(id, fields);
+      setCandidate(prev => prev ? {
+        ...prev,
+        email: fields.email ?? prev.email,
+        phone: fields.phone ?? prev.phone,
+        document_id: fields.cedula ?? prev.document_id,
+      } : null);
+      toast({ title: "Información actualizada", description: "Los datos de contacto han sido guardados correctamente." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo actualizar la información." });
+      throw error;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">
@@ -994,6 +1012,7 @@ const CandidateDetail: React.FC = () => {
           onViewResume={() => setPdfViewerOpen(true)}
           onAnalyzeCV={handleAnalyzeCV}
           onChangeStatus={handleChangeStatus}
+          onUpdateContactInfo={handleUpdateContactInfo}
           getStatusText={getStatusText}
           canModifyCandidate={canModifyCandidate}
         />

@@ -1,24 +1,24 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardFooter 
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Phone, MapPin, FileText, User, Loader2, SquareArrowRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Mail, Phone, MapPin, FileText, User, Loader2, SquareArrowRight, Pencil, Check, X } from 'lucide-react';
 import { Candidate, Application } from '@/types/candidate';
 
 // Get the primary status from candidate applications
 const getCandidateStatus = (applications?: Application[]) => {
   if (!applications || applications.length === 0) return null;
 
-  // Priority order for status display (lower number = higher priority)
   const statusPriority: { [key: string]: number } = {
     'blocked': 1,
     'rejected': 2,
@@ -34,7 +34,6 @@ const getCandidateStatus = (applications?: Application[]) => {
     'new': 12
   };
 
-  // Find the application with highest priority status (lowest number)
   let primaryStatus = applications[0].status;
   let highestPriority = statusPriority[primaryStatus] || 99;
 
@@ -49,7 +48,6 @@ const getCandidateStatus = (applications?: Application[]) => {
   return primaryStatus;
 };
 
-// Get status display info
 const getStatusDisplay = (status: string | null) => {
   const statusConfig = {
     'new': { label: 'Nuevo', variant: 'secondary' as const, color: 'bg-blue-100 text-blue-800' },
@@ -78,6 +76,7 @@ interface CandidateSidebarProps {
   onViewResume: () => void;
   onAnalyzeCV: (applicationId?: string) => void;
   onChangeStatus?: () => void;
+  onUpdateContactInfo?: (fields: { email?: string; phone?: string; cedula?: string }) => Promise<void>;
   getStatusText: (status: string) => string;
   canModifyCandidate?: (candidate: Candidate) => boolean;
 }
@@ -90,9 +89,121 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
   onViewResume,
   onAnalyzeCV,
   onChangeStatus,
+  onUpdateContactInfo,
   getStatusText,
   canModifyCandidate
 }) => {
+  const [editingField, setEditingField] = useState<'email' | 'phone' | 'cedula' | null>(null);
+  const [editEmail, setEditEmail] = useState(candidate.email || '');
+  const [editPhone, setEditPhone] = useState(candidate.phone || '');
+  const [editCedula, setEditCedula] = useState(candidate.document_id || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleEdit = (field: 'email' | 'phone' | 'cedula') => {
+    // Reset values to current candidate data when starting edit
+    setEditEmail(candidate.email || '');
+    setEditPhone(candidate.phone || '');
+    setEditCedula(candidate.document_id || '');
+    setEditingField(field);
+  };
+
+  const handleCancel = () => {
+    setEditingField(null);
+  };
+
+  const handleSave = async (field: 'email' | 'phone' | 'cedula') => {
+    if (!onUpdateContactInfo) return;
+    setSaving(true);
+    try {
+      const payload: { email?: string; phone?: string; cedula?: string } = {};
+      if (field === 'email') payload.email = editEmail.trim();
+      if (field === 'phone') payload.phone = editPhone.trim();
+      if (field === 'cedula') payload.cedula = editCedula.trim();
+      await onUpdateContactInfo(payload);
+      setEditingField(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, field: 'email' | 'phone' | 'cedula') => {
+    if (e.key === 'Enter') handleSave(field);
+    if (e.key === 'Escape') handleCancel();
+  };
+
+  // Inline editable row
+  const EditableField = ({
+    field,
+    icon,
+    value,
+    editValue,
+    setEditValue,
+    placeholder,
+    type = 'text'
+  }: {
+    field: 'email' | 'phone' | 'cedula';
+    icon: React.ReactNode;
+    value: string;
+    editValue: string;
+    setEditValue: (v: string) => void;
+    placeholder: string;
+    type?: string;
+  }) => {
+    const isEditing = editingField === field;
+
+    return (
+      <div className="flex items-center gap-2 text-sm group min-h-[28px]">
+        <span className="shrink-0 text-muted-foreground">{icon}</span>
+        {isEditing ? (
+          <div className="flex items-center gap-1 flex-1">
+            <Input
+              autoFocus
+              type={type}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, field)}
+              className="h-7 text-sm px-2 py-0 flex-1"
+              placeholder={placeholder}
+              disabled={saving}
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+              onClick={() => handleSave(field)}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+              onClick={handleCancel}
+              disabled={saving}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <span className="truncate flex-1">{value || <span className="text-muted-foreground italic">No especificado</span>}</span>
+            {onUpdateContactInfo && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                onClick={() => handleEdit(field)}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="lg:col-span-1 space-y-6">
       <Card>
@@ -104,26 +215,37 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
             {candidate.experience_years ? `${candidate.experience_years} ${candidate.experience_years === 1 ? 'mes' : 'meses'}` : 'Experiencia no especificada'}
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <span>{candidate.email}</span>
-            </div>
+            <EditableField
+              field="email"
+              icon={<Mail className="h-4 w-4" />}
+              value={candidate.email}
+              editValue={editEmail}
+              setEditValue={setEditEmail}
+              placeholder="correo@ejemplo.com"
+              type="email"
+            />
 
-            {candidate.phone && (
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{candidate.phone}</span>
-              </div>
-            )}
+            <EditableField
+              field="phone"
+              icon={<Phone className="h-4 w-4" />}
+              value={candidate.phone || ''}
+              editValue={editPhone}
+              setEditValue={setEditPhone}
+              placeholder="Número de teléfono"
+              type="tel"
+            />
 
-            {/* Cédula */}
-            <div className="flex items-center gap-2 text-sm">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span>Cédula: {candidate.document_id || 'No especificada'}</span>
-            </div>
+            <EditableField
+              field="cedula"
+              icon={<User className="h-4 w-4" />}
+              value={candidate.document_id ? `Cédula: ${candidate.document_id}` : ''}
+              editValue={editCedula}
+              setEditValue={setEditCedula}
+              placeholder="Número de cédula"
+            />
 
             {candidate.location && (
               <div className="flex items-center gap-2 text-sm">
@@ -161,7 +283,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
               </div>
             </div>
           )}
-          
+
           {candidate.resume_url && (
             <div>
               <h3 className="text-sm font-medium mb-2">Curriculum Vitae</h3>
@@ -178,7 +300,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
             </div>
           )}
         </CardContent>
-        
+
         <CardFooter className="flex flex-col gap-2">
            {(() => {
              const primaryStatus = getCandidateStatus(candidate.applications);
@@ -227,7 +349,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
            })()}
          </CardFooter>
       </Card>
-      
+
       {candidate.applications && candidate.applications.length > 0 && (
         <Card>
           <CardHeader>

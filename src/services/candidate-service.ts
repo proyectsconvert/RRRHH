@@ -334,6 +334,18 @@ export async function getCandidateByCedula(cedula: string): Promise<Candidate | 
   };
 }
 
+export async function updateCandidateContactInfo(
+  candidateId: string,
+  fields: { email?: string; phone?: string; cedula?: string }
+) {
+  const { error } = await supabase
+    .from('candidates')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', candidateId);
+
+  if (error) throw new Error(`Error al actualizar información de contacto: ${error.message}`);
+}
+
 export function getResumeUrl(path: string) {
   if (!path) return null;
   if (path.startsWith('http')) return path;
