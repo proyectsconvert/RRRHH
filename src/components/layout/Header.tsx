@@ -6,6 +6,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import NotificationCenter from './NotificationCenter';
 import { supabase } from '@/integrations/supabase/client';
+import ConvertIALogo from '@/assets/convert-ia-logo';
 
 const AdminHeader = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -38,8 +39,9 @@ const AdminHeader = () => {
     <header className="h-16 lg:h-20 bg-background/80 backdrop-blur-md border-b border-border/50 sticky top-0 z-10 mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between transition-all duration-300">
       {/* Contenedor para elementos a la izquierda */}
       <div className="flex items-center gap-4">
-        <div className="bg-background/50 hover:bg-muted p-1.5 rounded-xl border border-border/50 shadow-sm transition-all text-muted-foreground hover:text-primary hover:shadow">
-          <SidebarTrigger />
+        {/* Logo placed here since sidebar is permanently collapsed */}
+        <div className="flex items-center h-full">
+          <ConvertIALogo className="h-8 drop-shadow-sm" />
         </div>
         
         {/*

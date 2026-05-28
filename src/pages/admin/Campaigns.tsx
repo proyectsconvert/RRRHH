@@ -114,7 +114,7 @@ const Campaigns = () => {
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="space-y-6 pb-8">
       <div className="flex justify-between items-center mb-6 shrink-0">
         <h1 className="page-title">Campañas de Contratación</h1>
         <Button className="bg-hrm-dark-cyan hover:bg-hrm-steel-blue" asChild>
@@ -189,14 +189,14 @@ const Campaigns = () => {
             </Card>
           </div>
 
-          <div className="mt-8 flex-1 flex flex-col min-h-0">
-            <Card className="flex-1 flex flex-col min-h-0">
-              <CardHeader className="shrink-0">
+          <div>
+            <Card>
+              <CardHeader>
                 <CardTitle>Campañas Recientes</CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+              <CardContent>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-white z-10">
                     <TableRow>
                       <TableHead>Nombre</TableHead>
                       <TableHead>Responsable</TableHead>

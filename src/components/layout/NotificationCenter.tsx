@@ -53,6 +53,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   // Load notifications on component mount
   useEffect(() => {
     loadNotifications();
+    checkUpcomingInterviews();
+    checkTrainingReminders();
 
     // Set up real-time subscriptions
     const channel = supabase
@@ -65,8 +67,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       })
       .subscribe();
 
-    // Check for upcoming interviews every minute
-    const interval = setInterval(checkUpcomingInterviews, 60000);
+    // Check for upcoming interviews and training reminders every minute
+    const interval = setInterval(() => {
+      checkUpcomingInterviews();
+      checkTrainingReminders();
+    }, 60000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -278,6 +283,92 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
     } catch (error) {
       console.error('Error checking upcoming interviews:', error);
+    }
+  };
+
+  const checkTrainingReminders = async () => {
+    try {
+      const now = new Date();
+      // Check if current time is 8:30 a.m. or later
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const isAfter830 = (currentHour > 8) || (currentHour === 8 && currentMinute >= 30);
+      if (!isAfter830) return;
+
+      const currentDate = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+
+      // Query database for applications in 'asignar-campana' status with training today
+      const { data: trainingApps, error } = await supabase
+        .from('applications')
+        .select(`
+          id,
+          meeting_date,
+          meeting_time,
+          meeting_modality,
+          meeting_link,
+          meeting_address,
+          meeting_notes,
+          campaigns!campaign_id(name),
+          candidates!candidate_id(id, first_name, last_name, phone)
+        `)
+        .eq('status', 'asignar-campana')
+        .eq('meeting_date', currentDate);
+
+      if (error) {
+        console.error('Error fetching training applications for reminder:', error);
+        return;
+      }
+
+      if (!trainingApps || trainingApps.length === 0) return;
+
+      for (const app of trainingApps) {
+        const anyApp = app as any;
+        const candidate = anyApp.candidates;
+
+        if (!candidate || !candidate.phone) continue;
+
+        // Clean phone number for historychat lookup
+        const cleanPhone = candidate.phone.replace(/^\+/, '').replace('@s.whatsapp.net', '');
+
+        // Check if message was already sent today by querying historychat
+        const { data: sentMessages, error: historyError } = await supabase
+          .from('historychat')
+          .select('id')
+          .eq('hicnumerouser', cleanPhone)
+          .like('hicmessagebot', '%hoy inicia tu capacitación%')
+          .gte('created_at', currentDate + 'T00:00:00.000Z');
+
+        if (historyError) {
+          console.error('Error checking historychat:', historyError);
+          continue;
+        }
+
+        // If message was already sent, skip
+        if (sentMessages && sentMessages.length > 0) continue;
+
+        // Build the reminder message
+        const timeFormatted = anyApp.meeting_time ? anyApp.meeting_time.slice(0, 5) : '9:00 a.m.';
+
+        const addressOrLink = anyApp.meeting_modality === 'presencial'
+          ? (anyApp.meeting_address || 'Carrera 16A #79-25 – Bogotá, El Lago')
+          : `Virtual (Enlace: ${anyApp.meeting_link || 'no especificado'})`;
+
+        const message = `¡Hola! Hoy es un día importante 💪\n` +
+          `Recuerda que hoy inicia tu capacitación ${timeFormatted}\n` +
+          `Lugar: ${addressOrLink}\n` +
+          `¡Te esperamos con toda la energía! 🚀\n` +
+          `Confírmanos por favor tu asistencia, ¡Este es el primer paso hacia un gran logro!`;
+
+        try {
+          const { sendEvolutionMessage } = await import('@/utils/evolution-api');
+          await sendEvolutionMessage(candidate.phone, message, true);
+          console.log(`Training reminder message sent successfully to ${candidate.first_name} ${candidate.last_name}`);
+        } catch (sendError) {
+          console.error(`Failed to send training reminder to ${candidate.first_name} ${candidate.last_name}:`, sendError);
+        }
+      }
+    } catch (err) {
+      console.error('Error in checkTrainingReminders:', err);
     }
   };
 

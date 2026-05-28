@@ -21,7 +21,8 @@ import { es } from 'date-fns/locale';
 import TeamsMeetingDialog, { MeetingData } from '@/components/candidates/TeamsMeetingDialog';
 import DocumentChecklist from '@/components/candidates/DocumentChecklist';
 import DocumentViewer from '@/components/candidates/DocumentViewer';
-import { sendWelcomeMessage } from '@/utils/evolution-api';
+import { sendWelcomeMessage, sendEvolutionDocument } from '@/utils/evolution-api';
+import { generateRejectionPDF } from '@/utils/rejection-pdf';
 import { generateCandidateAccessToken } from '@/utils/candidate-access';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -78,6 +79,10 @@ const CandidateDetail: React.FC = () => {
   const [trainingModality, setTrainingModality] = useState<'virtual' | 'presencial'>('virtual');
   const [trainingAddress, setTrainingAddress] = useState("");
   const [trainingLink, setTrainingLink] = useState("");
+
+  // Hiring Process Deadline State
+  const [hiringDeadlineDate, setHiringDeadlineDate] = useState<Date | undefined>(undefined);
+  const [hiringDeadlineTime, setHiringDeadlineTime] = useState("17:00");
 
   // Debug: Log when component mounts and receives props
   useEffect(() => {
@@ -556,13 +561,30 @@ const CandidateDetail: React.FC = () => {
       const updates = [];
       if (candidate.applications) {
         for (const app of candidate.applications) {
+          const updateData: any = {
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          };
+
+          if (newStatus === 'asignar-campana') {
+            if (selectedCampaign) {
+              updateData.campaign_id = selectedCampaign;
+            }
+            if (trainingDate) {
+              updateData.meeting_date = trainingDate.toISOString().split('T')[0];
+            }
+            updateData.meeting_time = trainingTime || null;
+            updateData.meeting_link = trainingLink || null;
+            updateData.meeting_title = trainingTitle || 'Inicio de Formación';
+            updateData.meeting_modality = trainingModality || null;
+            updateData.meeting_address = trainingAddress || null;
+            updateData.meeting_status = 'scheduled';
+          }
+
           updates.push(
             supabase
               .from('applications')
-              .update({
-                status: newStatus,
-                updated_at: new Date().toISOString()
-              })
+              .update(updateData)
               .eq('id', app.id)
           );
         }
@@ -582,16 +604,50 @@ const CandidateDetail: React.FC = () => {
           const dateTimeStr = `${trainingDate.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
 
           const campaignName = campaigns.find(c => c.id === selectedCampaign)?.name || 'la campaña';
+          const jobTitle = candidate.applications?.[0]?.job_title || 'la vacante';
 
           const locationInfo = trainingModality === 'presencial'
-            ? `Te esperamos en la siguiente dirección: ${trainingAddress}`
-            : `Te puedes conectar mediante el siguiente enlace: ${trainingLink}`;
+            ? (trainingAddress || 'Carrera 16A #79-25 – Bogotá, El Lago')
+            : `Virtual (Enlace de la reunión: ${trainingLink})`;
 
-          const message = `Felicidades, te informamos que avanzaste a *Inicio de Formación* en la campaña ${campaignName}.. La cita quedó programada para el día ${dateTimeStr}. ${locationInfo}\n\nDetalles adicionales: ${trainingDescription || 'Ninguno'}`;
+          const message = `🎉 ¡FELICITACIONES! BIENVENIDO/A A CONVERTIA 🎉\nHoy das un gran paso en tu camino profesional 🚀 Has sido SELECCIONADO/A como *${jobTitle}* para la campaña *${campaignName}*, junto a Convertia ❤️.\n\n📅 Inicio de formación: ${dateTimeStr}\n📍 Lugar: ${locationInfo}\n\n👩💼 Presentarse con:\n•\tSara Lara\n•\tLaura Martínez\n•\tGinneth Algarra\n•\t\n📌 IMPORTANTE\n📝 Debes traer:\n ✓ Hoja de vida actualizada\n✓ Copia de la cédula al 150 %\n✓ Certificados de EPS, pensión y cesantías (si aplica)\n✓ Esfero negro y agenda\n✓ Almuerzo y onces 🍱\n\n✨ Estás a punto de iniciar una nueva etapa llena de aprendizaje, crecimiento y oportunidades. 🚀\nConfirma tu asistencia y prepárate para comenzar esta experiencia con nosotros.`;
 
           const { sendEvolutionMessage } = await import('@/utils/evolution-api');
           await sendEvolutionMessage(candidate.phone, message, true);
           console.log('Training session message sent');
+
+          // Schedule 7 AM reminder for the training day
+          try {
+            const [rHours, rMinutes] = trainingTime.split(':');
+            const rHour24 = parseInt(rHours);
+            const rAmpm = rHour24 >= 12 ? 'p.m.' : 'a.m.';
+            const rHour12 = rHour24 % 12 || 12;
+            const rTimeFormatted = `${rHour12}:${rMinutes} ${rAmpm}`;
+
+            const locationLine = trainingModality === 'presencial'
+              ? `Lugar: ${trainingAddress || 'Sede Convertia'}`
+              : `Enlace: ${trainingLink}`;
+
+            const reminderMessage =
+              `¡Hola! Hoy es un día importante 💪\n` +
+              `Recuerda que hoy inicia tu capacitación ${rTimeFormatted}\n` +
+              `${locationLine}\n` +
+              `¡Te esperamos con toda la energía! 🚀\n` +
+              `Confírmanos por favor tu asistencia, ¡Este es el primer paso hacia un gran logro!`;
+
+            await supabase.from('training_reminders').upsert({
+              candidate_id: candidate.id,
+              phone: candidate.phone,
+              message: reminderMessage,
+              scheduled_date: trainingDate.toISOString().split('T')[0],
+              sent: false,
+              sent_at: null,
+            }, { onConflict: 'candidate_id,scheduled_date' });
+            console.log('Training reminder scheduled for', trainingDate.toISOString().split('T')[0]);
+          } catch (reminderError) {
+            console.error('Error scheduling reminder:', reminderError);
+            // Non-blocking — don't show error to user
+          }
         } catch (msgError) {
           console.error('Error sending training message:', msgError);
           toast({
@@ -614,7 +670,10 @@ const CandidateDetail: React.FC = () => {
             const accessToken = await generateCandidateAccessToken(candidate.id, 168); // 7 days
             const documentUrl = `${window.location.origin}/candidate-documents/${candidate.id}?token=${accessToken}`;
 
-            await sendWelcomeMessage(candidate.phone, candidateName, documentUrl);
+            const deadline = hiringDeadlineDate
+              ? { date: hiringDeadlineDate, time: hiringDeadlineTime }
+              : undefined;
+            await sendWelcomeMessage(candidate.phone, candidateName, documentUrl, deadline);
             console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
           } catch (error) {
             console.error(`Failed to send welcome message to ${candidate.first_name} ${candidate.last_name}:`, error);
@@ -626,6 +685,23 @@ const CandidateDetail: React.FC = () => {
           }
         } else {
           console.warn(`No phone number found for candidate ${candidate.first_name} ${candidate.last_name}`);
+        }
+      }
+
+      // Send rejection PDF when status changes to "discarded"
+      if (targetStatus === 'discarded' && candidate.phone) {
+        try {
+          const jobTitle = candidate.applications?.[0]?.job_title || 'la vacante';
+          const base64Pdf = await generateRejectionPDF(jobTitle);
+          await sendEvolutionDocument(candidate.phone, base64Pdf, 'carta-convertia.pdf', '');
+          console.log('Rejection PDF sent via WhatsApp');
+        } catch (pdfError) {
+          console.error('Error sending rejection PDF:', pdfError);
+          toast({
+            title: "Advertencia",
+            description: "Estado actualizado pero no se pudo enviar la carta de rechazo por WhatsApp",
+            variant: "destructive"
+          });
         }
       }
 
@@ -811,64 +887,127 @@ const CandidateDetail: React.FC = () => {
       // Send message via Evolution API
       if (candidate.phone) {
         try {
-          // Format time with AM/PM
+          // Format time as H:MM A.M./P.M.
           const [hours, minutes] = meetingData.time.split(':');
           const hour24 = parseInt(hours);
-          const ampm = hour24 >= 12 ? 'PM' : 'AM';
+          const ampm = hour24 >= 12 ? 'P.M.' : 'A.M.';
           const hour12 = hour24 % 12 || 12;
           const timeFormatted = `${hour12}:${minutes} ${ampm}`;
 
-          const dateTimeStr = `${meetingData.date.toLocaleDateString('es-ES')} a las ${timeFormatted}`;
+          // Detect if the meeting is tomorrow
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const isTomorrow = meetingData.date.toDateString() === tomorrow.toDateString();
 
-          let interviewTypeName = '';
-          let messageIntro = '';
+          // Build Spanish date string
+          const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+          const monthNames = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+          const dayOfWeek = dayNames[meetingData.date.getDay()];
+          const dayNum = meetingData.date.getDate().toString().padStart(2, '0');
+          const monthName = monthNames[meetingData.date.getMonth()];
+          const datePrefix = isTomorrow ? '¡MAÑANA! ' : '';
+          const dateLine = `${datePrefix}${dayOfWeek}, ${dayNum} de ${monthName} a las⏰ ${timeFormatted}`;
 
-          switch (currentInterviewType) {
-            case 'entrevista-rc':
-              interviewTypeName = 'Entrevista con Recursos Humanos';
-              messageIntro = 'Felicidades, has avanzado a la fase de';
-              break;
-            case 'entrevista-et':
-              interviewTypeName = 'Entrevista Técnica';
-              messageIntro = 'Felicidades, has avanzado a la fase de';
-              break;
-            case 'prueba-tecnica':
-              interviewTypeName = 'Prueba Técnica';
-              messageIntro = 'Felicidades, has avanzado a la fase de';
-              break;
-            default:
-              interviewTypeName = 'Entrevista';
-              messageIntro = 'Felicidades, has avanzado a la fase de';
-          }
+          // Detect platform from link
+          const linkLower = meetingData.meetingLink?.toLowerCase() || '';
+          const platform = linkLower.includes('zoom') ? 'Zoom' : linkLower.includes('meet.google') ? 'Google Meet' : 'Teams';
 
-          const locationInfo = meetingData.modality === 'presencial'
-            ? `📍 *Dirección:* ${meetingData.address}`
-            : `🔗 *Enlace de la reunión:* ${meetingData.meetingLink}`;
+          // Job title for the RC message
+          const jobTitle = candidate.applications?.[0]?.job_title || 'la vacante';
 
-          let message = `${messageIntro} *${interviewTypeName}*.`;
+          let message = '';
 
-          // Título de la reunión (siempre que esté presente)
-          if (meetingData.title && meetingData.title.trim()) {
-            message += `\n\n📌 *${meetingData.title.trim()}*`;
-          }
+          if (currentInterviewType === 'entrevista-rc') {
+            // New branded format for RC interviews
+            if (meetingData.modality === 'presencial') {
+              message =
+                `¡Hola! 👋 ✨\n\n` +
+                `Estamos emocionados de invitarte a una entrevista presencial para el puesto de *${jobTitle}*..\n\n` +
+                `¡Una nueva oportunidad de trabajo que podría ser el comienzo de una etapa maravillosa en tu carrera!\n\n` +
+                `La cita es ${dateLine}\n` +
+                `¡Estamos deseando conocerte!\n\n` +
+                `Asegúrate de lucir genial. ¡Llega con toda tu buena energía! 💯\n\n` +
+                `📍 *Dirección:* ${meetingData.address}\n\n` +
+                `¡Nos vemos pronto!\n\n` +
+                `Confirma tu asistencia respondiendo a este mensaje.`;
+            } else {
+              message =
+                `¡Hola! 👋 ✨\n\n` +
+                `Estamos emocionados de invitarte a una entrevista virtual para el puesto de *${jobTitle}*..\n\n` +
+                `¡Una nueva oportunidad de trabajo que podría ser el comienzo de una etapa maravillosa en tu carrera!\n\n` +
+                `La cita es ${dateLine}\n` +
+                `¡Estamos deseando conocerte!\n\n` +
+                `Asegúrate de tener la cámara encendida 📷, micrófono 🎤 y de lucir genial.\n\n` +
+                `¡Conéctate con toda tu buena energía! 💯\n\n` +
+                `💻 Plataforma de Entrevista: ${platform}\n` +
+                `NOTA: NO es necesario que ingreses desde tu correo, solo con tu nombre.\n\n` +
+                `👉 Dale click en el enlace para unirte a la entrevista:\n\n` +
+                `*(${meetingData.meetingLink})*\n\n` +
+                `¡Nos vemos pronto!\n\n` +
+                `Confirma tu asistencia respondiendo a este mensaje.`;
+            }
+          } else if (currentInterviewType === 'entrevista-et') {
+            // Branded format for ET interviews (Entrevista Técnica / último filtro)
+            const isToday = meetingData.date.toDateString() === new Date().toDateString();
+            const currentYear = new Date().getFullYear();
+            const dayText = isToday ? 'el día de ¡HOY!' : `el día ${dateLine}`;
 
-          // Fecha y hora
-          message += `\n\n🗓️ *Fecha y hora:* ${dateTimeStr}`;
+            if (meetingData.modality === 'presencial') {
+              message =
+                `¡Hola! 👋\n\n` +
+                `¡Estamos emocionados de que sigas adelante en el proceso para el cargo de *${jobTitle}* en Convertia! 🎉\n` +
+                `Te encuentras citado a entrevista de último filtro con jefe inmediato ${dayText}.\n\n` +
+                `✨ Inicia el ${currentYear} con el empleo que mereces 🚀 ✨\n\n` +
+                `📅 Fecha y Hora: ${dateLine}\n\n` +
+                `📍 *Dirección:* ${meetingData.address}\n\n` +
+                `Confirma tu asistencia y prepárate para iniciar esta experiencia Convertia.`;
+            } else {
+              message =
+                `¡Hola! 👋\n\n` +
+                `¡Estamos emocionados de que sigas adelante en el proceso para el cargo de *${jobTitle}* en Convertia! 🎉\n` +
+                `Te encuentras citado a entrevista de último filtro con jefe inmediato ${dayText}.\n\n` +
+                `✨ Inicia el ${currentYear} con el empleo que mereces 🚀 ✨\n\n` +
+                `📅 Fecha y Hora: ${dateLine}\n\n` +
+                `💻 Plataforma de Entrevista: ${platform}\n` +
+                `NOTA: NO es necesario que ingreses desde tu correo, solo con tu nombre.\n\n` +
+                `👉 Enlace a la Entrevista:\n` +
+                `*(${meetingData.meetingLink})*\n\n` +
+                `Confirma tu asistencia y prepárate para iniciar esta experiencia Convertia.`;
+            }
+          } else {
+            // Generic format for prueba-tecnica
+            const interviewTypeName = 'Prueba Técnica';
 
-          // Duración (si está disponible)
-          if (meetingData.duration) {
-            message += `\n⏱️ *Duración:* ${meetingData.duration} minutos`;
-          }
+            const locationInfo = meetingData.modality === 'presencial'
+              ? `📍 *Dirección:* ${meetingData.address}`
+              : `🔗 *Enlace de la reunión:* ${meetingData.meetingLink}`;
 
-          // Información de ubicación / link
-          message += `\n${locationInfo}`;
+            message = `Felicidades, has avanzado a la fase de *${interviewTypeName}*.`;
 
-          // Descripción / detalles adicionales (siempre que esté presente)
-          if (meetingData.description && meetingData.description.trim()) {
-            message += `\n\n📝 *Detalles adicionales:*\n${meetingData.description.trim()}`;
+            if (meetingData.title && meetingData.title.trim()) {
+              message += `\n\n📌 *${meetingData.title.trim()}*`;
+            }
+
+            message += `\n\n🗓️ *Fecha y hora:* ${dayOfWeek}, ${dayNum} de ${monthName} a las ${timeFormatted}`;
+
+            if (meetingData.duration) {
+              message += `\n⏱️ *Duración:* ${meetingData.duration} minutos`;
+            }
+
+            message += `\n${locationInfo}`;
+
+            if (meetingData.description && meetingData.description.trim()) {
+              message += `\n\n📝 *Detalles adicionales:*\n${meetingData.description.trim()}`;
+            }
           }
 
           const { sendEvolutionMessage } = await import('@/utils/evolution-api');
+          if (currentInterviewType === 'entrevista-rc') {
+            console.log('--- ENVIANDO MENSAJE A EVOLUTION API (ENTREVISTA RC) ---');
+            console.log('Destinatario:', candidate.phone);
+            console.log('Mensaje:', message);
+            console.log('---------------------------------------------------------');
+          }
           await sendEvolutionMessage(candidate.phone, message, true);
 
           console.log(`Interview message sent to ${candidate.first_name} ${candidate.last_name} (${candidate.phone})`);
@@ -1123,7 +1262,7 @@ const CandidateDetail: React.FC = () => {
         <DialogContent
           className={cn(
             "p-0 border-none shadow-none transition-all duration-300 w-[95vw] max-h-[90vh] overflow-y-auto",
-            newStatus === 'asignar-campana' ? "sm:max-w-[800px]" : "sm:max-w-[425px]"
+            (newStatus === 'asignar-campana' || newStatus === 'proceso-contratacion') ? "sm:max-w-[600px]" : "sm:max-w-[425px]"
           )}
         >
           <DialogHeader className="bg-hrm-dark-primary py-6 sm:py-9 px-4 sm:px-6 rounded-t-lg border-none shadow-none">
@@ -1289,12 +1428,17 @@ const CandidateDetail: React.FC = () => {
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={trainingDate}
-                                onSelect={setTrainingDate}
-                                initialFocus
-                              />
+                               <Calendar
+                                 mode="single"
+                                 selected={trainingDate}
+                                 onSelect={setTrainingDate}
+                                 disabled={(date) => {
+                                   const today = new Date();
+                                   today.setHours(0, 0, 0, 0);
+                                   return date < today;
+                                 }}
+                                 initialFocus
+                               />
                             </PopoverContent>
                           </Popover>
                           <Input
@@ -1320,6 +1464,51 @@ const CandidateDetail: React.FC = () => {
                   </div>
                 </div>
               </>
+            )}
+
+            {/* --- FECHA LÍMITE DE DOCUMENTOS (proceso-contratacion) --- */}
+            {newStatus === 'proceso-contratacion' && (
+              <div className="col-span-4 space-y-3 border-t pt-4 mt-2">
+                <h4 className="font-medium text-sm text-gray-900">Fecha límite para subir documentos</h4>
+                <p className="text-xs text-gray-500">Esta fecha se enviará al candidato por WhatsApp como plazo para cargar sus documentos.</p>
+                <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full sm:flex-1 justify-start text-left font-normal",
+                          !hiringDeadlineDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                          {hiringDeadlineDate ? format(hiringDeadlineDate, "PPP", { locale: es }) : "Seleccionar fecha límite"}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={hiringDeadlineDate}
+                        onSelect={setHiringDeadlineDate}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return date < today;
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Input
+                    type="time"
+                    value={hiringDeadlineTime}
+                    onChange={(e) => setHiringDeadlineTime(e.target.value)}
+                    className="w-full sm:w-[120px]"
+                  />
+                </div>
+              </div>
             )}
           </div>
 
@@ -1374,7 +1563,11 @@ const CandidateDetail: React.FC = () => {
                     mode="single"
                     selected={hireStartDate}
                     onSelect={setHireStartDate}
-                    disabled={(date) => date < new Date()}
+                    disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date < today;
+                    }}
                     initialFocus
                   />
                 </PopoverContent>

@@ -93,12 +93,7 @@ const AdminSidebar = () => {
   };
   return (
     <Sidebar collapsible="icon" className="border-r border-border/60 bg-background/80 backdrop-blur-xl z-20 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]">
-      <SidebarHeader className="h-14 border-b border-border/50 bg-transparent flex items-center justify-center">
-        <div className="flex items-center h-full px-4 group-data-[state=collapsed]:px-0 justify-center w-full">
-          <ConvertIALogo className="h-7 transition-all duration-300 group-data-[state=collapsed]:w-7 group-data-[state=collapsed]:overflow-hidden drop-shadow-sm" />
-        </div>
-      </SidebarHeader>
-      <SidebarContent className="bg-transparent px-2">
+      <SidebarContent className="bg-transparent px-2 mt-4">
         {/* 👇 2. Envuelve tu navegación en los componentes SidebarMenu y SidebarMenuItem */}
         <SidebarMenu className="py-2">
           {loading ? (
