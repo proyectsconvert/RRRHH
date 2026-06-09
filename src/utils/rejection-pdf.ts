@@ -18,6 +18,27 @@ async function getLogoBase64(): Promise<string | null> {
   }
 }
 
+/**
+ * Returns the rejection letter body as plain text (same content as the PDF).
+ * Used to send the same content via email without duplicating the text.
+ */
+export function getRejectionEmailText(jobTitle: string): string {
+  return `¡Hola!
+
+Queremos agradecerte sinceramente por tu participación en el proceso de selección para el puesto de ${jobTitle}. Fue un gusto conocer tu perfil y trayectoria.
+
+Luego de una evaluación detallada, hemos optado por continuar con otro/a candidato/a cuyo perfil se ajusta de manera más específica a las necesidades actuales del rol. Esta decisión no desmerece en absoluto tu experiencia ni tus capacidades, las cuales valoramos y reconocemos.
+
+Esperamos poder considerar tu candidatura en futuras oportunidades. Te deseamos lo mejor en tus próximos desafíos profesionales.
+
+Cordialmente,
+Ashley Coy
+Recruitment and selection apprentice
+seleccion.colombia@convertia.com
+https://convertia.com/es
+311 8252053`;
+}
+
 export async function generateRejectionPDF(jobTitle: string): Promise<string> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210;

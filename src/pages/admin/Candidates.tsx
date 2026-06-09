@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { sendInterviewEmail, sendStatusEmail } from '@/utils/email-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -1172,31 +1173,18 @@ const Candidates = () => {
                   `Confirma tu asistencia respondiendo a este mensaje.`;
               }
             } else if (currentInterviewType === 'entrevista-et') {
-              // Branded format for ET interviews (Entrevista Técnica / último filtro)
               const dayText = isToday ? 'el día de ¡HOY!' : `el día ${dateLine}`;
-
-              if (meetingData.modality === 'presencial') {
-                message =
-                  `¡Hola! 👋\n\n` +
-                  `¡Estamos emocionados de que sigas adelante en el proceso para el cargo de *${jobTitle}* en Convertia! 🎉\n` +
-                  `Te encuentras citado a entrevista de último filtro con jefe inmediato ${dayText}.\n\n` +
-                  `✨ Inicia el ${currentYear} con el empleo que mereces 🚀 ✨\n\n` +
-                  `📅 Fecha y Hora: ${dateLine}\n\n` +
-                  `📍 *Dirección:* ${meetingData.address}\n\n` +
-                  `Confirma tu asistencia y prepárate para iniciar esta experiencia Convertia.`;
-              } else {
-                message =
-                  `¡Hola! 👋\n\n` +
-                  `¡Estamos emocionados de que sigas adelante en el proceso para el cargo de *${jobTitle}* en Convertia! 🎉\n` +
-                  `Te encuentras citado a entrevista de último filtro con jefe inmediato ${dayText}.\n\n` +
-                  `✨ Inicia el ${currentYear} con el empleo que mereces 🚀 ✨\n\n` +
-                  `📅 Fecha y Hora: ${dateLine}\n\n` +
-                  `💻 Plataforma de Entrevista: ${platform}\n` +
-                  `NOTA: NO es necesario que ingreses desde tu correo, solo con tu nombre.\n\n` +
-                  `👉 Enlace a la Entrevista:\n` +
-                  `*(${meetingData.meetingLink})*\n\n` +
-                  `Confirma tu asistencia y prepárate para iniciar esta experiencia Convertia.`;
-              }
+              const locationLine = meetingData.modality === 'presencial'
+                ? `📍 *Dirección:* ${meetingData.address}`
+                : `👉 Enlace a la Entrevista:\n*(${meetingData.meetingLink})*`;
+              message =
+                `¡Hola!\n\n` +
+                `¡Estamos emocionados de que sigas adelante en el proceso para el cargo de *${jobTitle}* en Convertia! 🎉\n` +
+                `Te encuentras citado a entrevista de último filtro con jefe inmediato ${dayText}.\n\n` +
+                `✨ Inicia el ${currentYear} con el empleo que mereces 🚀✨\n\n` +
+                `📅 Fecha y Hora: ${dateLine}\n\n` +
+                `${locationLine}\n\n` +
+                `Confirma tu asistencia y prepárate para iniciar esta experiencia Convertia.`;
             } else {
               // Generic format for prueba-tecnica
               const interviewTypeName = 'Prueba Técnica';
@@ -1226,12 +1214,75 @@ const Candidates = () => {
 
             const { sendEvolutionMessage } = await import('@/utils/evolution-api');
             if (currentInterviewType === 'entrevista-rc') {
-              console.log('--- ENVIANDO MENSAJE A EVOLUTION API (ENTREVISTA RC) ---');
+              console.log('--- ENVIANDO MENSAJE WHATSAPP (ENTREVISTA RC - bulk) ---');
               console.log('Destinatario:', candidate.phone);
               console.log('Mensaje:', message);
               console.log('---------------------------------------------------------');
             }
+            if (currentInterviewType === 'entrevista-et') {
+              console.log('--- ENVIANDO MENSAJE WHATSAPP (ENTREVISTA TÉCNICA - bulk) ---');
+              console.log('Destinatario:', candidate.phone);
+              console.log('Candidato:', `${candidate.first_name} ${candidate.last_name}`);
+              console.log('Mensaje:', message);
+              console.log('--------------------------------------------------------------');
+            }
             await sendEvolutionMessage(candidate.phone, message, true);
+
+            // Send email for RC interviews (virtual and presencial)
+            if (currentInterviewType === 'entrevista-rc' && candidate.email) {
+              try {
+                const jobTitle = candidate.applications?.[0]?.job_title || 'la vacante';
+                console.log('--- ENVIANDO CORREO ENTREVISTA RC ---');
+                console.log('Destinatario:', candidate.email);
+                console.log('Candidato:', `${candidate.first_name} ${candidate.last_name}`);
+                console.log('Puesto:', jobTitle);
+                console.log('Modalidad:', meetingData.modality);
+                console.log('Fecha:', meetingData.date.toLocaleDateString('es-ES'));
+                console.log('Hora:', meetingData.time);
+                console.log('Link:', meetingData.meetingLink);
+                console.log('Dirección:', meetingData.address);
+                console.log('------------------------------------');
+                await sendInterviewEmail({
+                  candidateName: `${candidate.first_name} ${candidate.last_name}`,
+                  candidateEmail: candidate.email,
+                  jobTitle,
+                  jobLocation: candidate.location || '',
+                  interviewDate: meetingData.date,
+                  interviewTime: meetingData.time,
+                  modality: meetingData.modality,
+                  meetingLink: meetingData.meetingLink,
+                  address: meetingData.address,
+                });
+                console.log(`Interview email sent successfully to ${candidate.email}`);
+              } catch (emailError) {
+                console.error(`Failed to send interview email to ${candidate.email}:`, emailError);
+              }
+            }
+
+            // Send email for ET interviews — use same message as WhatsApp
+            if (currentInterviewType === 'entrevista-et' && candidate.email) {
+              try {
+                const jobTitle = candidate.applications?.[0]?.job_title || 'la vacante';
+                console.log('--- ENVIANDO CORREO ENTREVISTA TÉCNICA (bulk) ---');
+                console.log('Destinatario:', candidate.email);
+                console.log('Candidato:', `${candidate.first_name} ${candidate.last_name}`);
+                console.log('Mensaje:', message);
+                console.log('-------------------------------------------------');
+                await sendStatusEmail(
+                  candidate.email,
+                  `${candidate.first_name} ${candidate.last_name}`,
+                  jobTitle,
+                  `Entrevista de último filtro - ${jobTitle}`,
+                  message,
+                  meetingData.meetingLink,
+                  'Unirse a la entrevista',
+                );
+                console.log(`Entrevista Técnica email sent successfully to ${candidate.email}`);
+              } catch (emailError) {
+                console.error(`Failed to send ET email to ${candidate.email}:`, emailError);
+              }
+            }
+
           } catch (error) {
             console.error(`Failed to send message to ${candidate.first_name}:`, error);
           }
@@ -1411,10 +1462,54 @@ const Candidates = () => {
                   const deadline = hiringDeadlineDate
                     ? { date: hiringDeadlineDate, time: hiringDeadlineTime }
                     : undefined;
-                  // Use sendWelcomeMessage to send with optional deadline
+                  // Use sendWelcomeMessage to send with optional deadline (WhatsApp — no changes)
                   const { sendWelcomeMessage: sendWelcome } = await import('@/utils/evolution-api');
                   await sendWelcome(candidate.phone, candidateName, documentUrl, deadline);
                   console.log(`Welcome message sent to ${candidateName} (${candidate.phone})`);
+
+                  // Send dedicated email for proceso-contratacion
+                  if (candidate.email) {
+                    try {
+                      const jobTitle = candidate.applications?.[0]?.job_title || 'la vacante';
+                      const deadlineText = deadline
+                        ? `${deadline.date.toLocaleDateString('es-ES')} a las ${deadline.time}`
+                        : '[INDICAR FECHA] a las [INDICAR HORA]';
+                      const emailBody =
+`¡Felicidades ${candidate.first_name}! 🎉
+Nos encanta contarte que sigues avanzando en tu proceso de contratación. Estamos muy entusiasmados de que continúes en esta etapa tan importante 🚀
+
+Para seguir avanzando, es necesario que revises y adjuntes los documentos requeridos en el siguiente enlace:
+📂 ${documentUrl}
+
+⏰ Fecha y hora límite para subir la documentación: ${deadlineText}.
+
+☑️ Consulta SISBEN: https://www.sisben.gov.co/paginas/consulta-tu-grupo.html
+☑️ Antecedentes POLICÍA: https://antecedentes.policia.gov.co:7005/WebJudicial/
+☑️ Antecedentes CONTRALORÍA: https://www.contraloria.gov.co/web/guest/persona-natural
+☑️ Antecedentes PROCURADURÍA: https://www.procuraduria.gov.co/Pages/Consulta-de-Antecedentes.aspx
+☑️ RUAF (afiliaciones): https://ruaf.sispro.gov.co/Filtro.aspx
+
+Es muy importante que completes este paso dentro del plazo establecido para poder continuar con tu contratación.
+
+Si tienes cualquier duda o necesitas apoyo, estamos para ayudarte. ¡Estamos muy felices de que sigas avanzando con nosotros! 🙌✨`;
+                      console.log('--- ENVIANDO CORREO PROCESO DE CONTRATACIÓN ---');
+                      console.log('Destinatario:', candidate.email);
+                      console.log('Link documentos:', documentUrl);
+                      console.log('Fecha límite:', deadlineText);
+                      await sendStatusEmail(
+                        candidate.email,
+                        candidateName,
+                        jobTitle,
+                        `Proceso de Contratación - ${jobTitle}`,
+                        emailBody,
+                        documentUrl,
+                        '📂 Subir documentos',
+                      );
+                      console.log(`Proceso de Contratación email sent to ${candidate.email}`);
+                    } catch (emailError) {
+                      console.error(`Failed to send Proceso de Contratación email to ${candidate.email}:`, emailError);
+                    }
+                  }
                   return; // already sent, skip the generic sendEvolutionMessage below
                 } else if (newStatus === 'prueba-tecnica') {
                   message = `Hola ${candidateName}, has avanzado a la etapa de Prueba Técnica. Nuestro equipo se pondrá en contacto contigo pronto para coordinar los detalles.`;
@@ -1469,6 +1564,65 @@ const Candidates = () => {
                 const { sendEvolutionMessage } = await import('@/utils/evolution-api');
                 await sendEvolutionMessage(candidate.phone, message, true);
                 console.log(`${messageType} sent to ${candidateName} (${candidate.phone})`);
+
+                // Send email for Inicio de Formación (asignar-campana)
+                if (newStatus === 'asignar-campana' && candidate.email) {
+                  try {
+                    const jobTitle = candidate.applications?.[0]?.job_title || 'la vacante';
+                    const campaignNameForEmail = campaigns.find(c => c.id === selectedCampaign)?.name || 'la campaña';
+                    const [hh, mm] = trainingTime.split(':');
+                    const h24 = parseInt(hh);
+                    const ampmEmail = h24 >= 12 ? 'PM' : 'AM';
+                    const h12 = h24 % 12 || 12;
+                    const timeFormattedEmail = `${h12}:${mm} ${ampmEmail}`;
+                    const dateTimeStrEmail = trainingDate ? `${trainingDate.toLocaleDateString('es-ES')} a las ${timeFormattedEmail}` : '';
+                    const locationInfoEmail = trainingModality === 'presencial'
+                      ? (trainingAddress || 'Carrera 16A #79-25 – Bogotá, El Lago')
+                      : `Virtual (Enlace de la reunión: ${trainingLink})`;
+                    const emailCtaLink = trainingModality === 'virtual' && trainingLink ? trainingLink : undefined;
+                    const emailBody =
+`🎉 ¡FELICITACIONES! BIENVENIDO/A A CONVERTIA 🎉
+Hoy das un gran paso en tu camino profesional 🚀 Has sido SELECCIONADO/A como *${jobTitle}* para la campaña *${campaignNameForEmail}*, junto a Convertia ❤️.
+
+📅 Inicio de formación: ${dateTimeStrEmail}
+📍 Lugar: ${locationInfoEmail}
+
+👩‍💼 Presentarse con:
+•   Sara Lara
+•   Laura Martínez
+•   Ginneth Algarra
+•
+
+📌 IMPORTANTE
+📝 Debes traer:
+ ✓ Hoja de vida actualizada
+✓ Copia de la cédula al 150 %
+✓ Certificados de EPS, pensión y cesantías (si aplica)
+✓ Esfero negro y agenda
+✓ Almuerzo y onces 🍱
+
+✨ Estás a punto de iniciar una nueva etapa llena de aprendizaje, crecimiento y oportunidades. 🚀
+Confirma tu asistencia y prepárate para comenzar esta experiencia con nosotros.`;
+                    console.log('--- ENVIANDO CORREO INICIO DE FORMACIÓN ---');
+                    console.log('Destinatario:', candidate.email);
+                    console.log('Candidato:', candidateName);
+                    console.log('Link reunión:', trainingLink || 'N/A (presencial)');
+                    console.log('Mensaje del correo:\n', emailBody);
+                    console.log('-------------------------------------------');
+                    await sendStatusEmail(
+                      candidate.email,
+                      candidateName,
+                      jobTitle,
+                      `¡Bienvenido/a a Convertia! Inicio de Formación - ${jobTitle}`,
+                      emailBody,
+                      emailCtaLink,
+                      emailCtaLink ? 'Unirse a la formación' : undefined,
+                    );
+                    console.log(`Inicio de Formación email sent successfully to ${candidate.email}`);
+                  } catch (emailError) {
+                    console.error(`Failed to send Inicio de Formación email to ${candidate.email}:`, emailError);
+                  }
+                }
               } catch (error) {
                 console.error(`Failed to send message to ${candidate.first_name} ${candidate.last_name}:`, error);
                 // Don't show error toast for individual message failures to avoid spam
@@ -1485,7 +1639,7 @@ const Candidates = () => {
         }
 
 
-        // Send rejection PDF when status changes to "discarded"
+        // Send rejection PDF (WhatsApp) + email when status changes to "discarded"
         if (newStatus === 'discarded') {
           const pdfPromises = selectedCandidates.map(async (candidateId) => {
             const candidate = candidates.find(c => c.id === candidateId);
@@ -1495,6 +1649,39 @@ const Candidates = () => {
                 const base64Pdf = await generateRejectionPDF(jobTitle);
                 await sendEvolutionDocument(candidate.phone, base64Pdf, 'carta-convertia.pdf', '');
                 console.log(`Rejection PDF sent to ${candidate.first_name} ${candidate.last_name}`);
+
+                // Send rejection email with dedicated template
+                if (candidate.email) {
+                  try {
+                    const emailBody =
+`¡Hola!
+Queremos agradecerte sinceramente por tu participación en el proceso de selección para el puesto de ${jobTitle}. Fue un gusto conocer tu perfil y trayectoria.
+
+Luego de una evaluación detallada, hemos optado por continuar con otro/a candidato/a cuyo perfil se ajusta de manera más específica a las necesidades actuales del rol. Esta decisión no desmerece en absoluto tu experiencia ni tus capacidades, las cuales valoramos y reconocemos.
+
+Esperamos poder considerar tu candidatura en futuras oportunidades. Te deseamos lo mejor en tus próximos desafíos profesionales.
+
+Cordialmente,
+
+Ashley Cox
+Recruitment and selection apprentice
+✉️ seleccion.colombia@convertia.com
+🌐 https://convertia.com/es
+📞 311 8252053`;
+                    console.log('--- ENVIANDO CORREO DESCARTADO ---');
+                    console.log('Destinatario:', candidate.email);
+                    await sendStatusEmail(
+                      candidate.email,
+                      `${candidate.first_name} ${candidate.last_name}`,
+                      jobTitle,
+                      `Resultado de tu proceso de selección - ${jobTitle}`,
+                      emailBody,
+                    );
+                    console.log(`Rejection email sent to ${candidate.email}`);
+                  } catch (emailError) {
+                    console.error(`Error sending rejection email to ${candidate.email}:`, emailError);
+                  }
+                }
               } catch (pdfError) {
                 console.error(`Error sending rejection PDF to ${candidate.first_name} ${candidate.last_name}:`, pdfError);
               }
@@ -1630,33 +1817,20 @@ const Candidates = () => {
                 `Confirma tu asistencia respondiendo a este mensaje.`;
             }
           } else if (currentInterviewType === 'entrevista-et') {
-            // Branded format for ET interviews (Entrevista Técnica / último filtro)
             const isToday = meetingData.date.toDateString() === new Date().toDateString();
             const currentYear = new Date().getFullYear();
             const dayText = isToday ? 'el día de ¡HOY!' : `el día ${dateLine}`;
-
-            if (meetingData.modality === 'presencial') {
-              message =
-                `¡Hola! 👋\n\n` +
-                `¡Estamos emocionados de que sigas adelante en el proceso para el cargo de *${jobTitle}* en Convertia! 🎉\n` +
-                `Te encuentras citado a entrevista de último filtro con jefe inmediato ${dayText}.\n\n` +
-                `✨ Inicia el ${currentYear} con el empleo que mereces 🚀 ✨\n\n` +
-                `📅 Fecha y Hora: ${dateLine}\n\n` +
-                `📍 *Dirección:* ${meetingData.address}\n\n` +
-                `Confirma tu asistencia y prepárate para iniciar esta experiencia Convertia.`;
-            } else {
-              message =
-                `¡Hola! 👋\n\n` +
-                `¡Estamos emocionados de que sigas adelante en el proceso para el cargo de *${jobTitle}* en Convertia! 🎉\n` +
-                `Te encuentras citado a entrevista de último filtro con jefe inmediato ${dayText}.\n\n` +
-                `✨ Inicia el ${currentYear} con el empleo que mereces 🚀 ✨\n\n` +
-                `📅 Fecha y Hora: ${dateLine}\n\n` +
-                `💻 Plataforma de Entrevista: ${platform}\n` +
-                `NOTA: NO es necesario que ingreses desde tu correo, solo con tu nombre.\n\n` +
-                `👉 Enlace a la Entrevista:\n` +
-                `*(${meetingData.meetingLink})*\n\n` +
-                `Confirma tu asistencia y prepárate para iniciar esta experiencia Convertia.`;
-            }
+            const locationLine = meetingData.modality === 'presencial'
+              ? `📍 *Dirección:* ${meetingData.address}`
+              : `👉 Enlace a la Entrevista:\n*(${meetingData.meetingLink})*`;
+            message =
+              `¡Hola!\n\n` +
+              `¡Estamos emocionados de que sigas adelante en el proceso para el cargo de *${jobTitle}* en Convertia! 🎉\n` +
+              `Te encuentras citado a entrevista de último filtro con jefe inmediato ${dayText}.\n\n` +
+              `✨ Inicia el ${currentYear} con el empleo que mereces 🚀✨\n\n` +
+              `📅 Fecha y Hora: ${dateLine}\n\n` +
+              `${locationLine}\n\n` +
+              `Confirma tu asistencia y prepárate para iniciar esta experiencia Convertia.`;
           } else {
             // Generic format for prueba-tecnica
             const locationInfo = meetingData.modality === 'presencial'
@@ -1667,10 +1841,17 @@ const Candidates = () => {
 
           const { sendEvolutionMessage } = await import('@/utils/evolution-api');
           if (currentInterviewType === 'entrevista-rc') {
-            console.log('--- ENVIANDO MENSAJE A EVOLUTION API (ENTREVISTA RC) ---');
+            console.log('--- ENVIANDO MENSAJE WHATSAPP (ENTREVISTA RC - individual) ---');
             console.log('Destinatario:', currentCandidate.phone);
             console.log('Mensaje:', message);
-            console.log('---------------------------------------------------------');
+            console.log('---------------------------------------------------------------');
+          }
+          if (currentInterviewType === 'entrevista-et') {
+            console.log('--- ENVIANDO MENSAJE WHATSAPP (ENTREVISTA TÉCNICA - individual) ---');
+            console.log('Destinatario:', currentCandidate.phone);
+            console.log('Candidato:', `${currentCandidate.first_name} ${currentCandidate.last_name}`);
+            console.log('Mensaje:', message);
+            console.log('-------------------------------------------------------------------');
           }
           await sendEvolutionMessage(currentCandidate.phone, message, true);
 
@@ -1690,6 +1871,68 @@ const Candidates = () => {
           description: "La reunión se creó correctamente pero el candidato no tiene número de teléfono registrado",
           variant: "destructive"
         });
+      }
+
+      // Send email for RC (individual flow)
+      if (currentInterviewType === 'entrevista-rc' && currentCandidate.email) {
+        try {
+          const jobTitle = currentCandidate.applications?.[0]?.job_title || 'la vacante';
+          console.log('--- ENVIANDO CORREO ENTREVISTA RC (individual) ---');
+          console.log('Destinatario:', currentCandidate.email);
+          console.log('Candidato:', `${currentCandidate.first_name} ${currentCandidate.last_name}`);
+          console.log('Puesto:', jobTitle);
+          console.log('Modalidad:', meetingData.modality);
+          console.log('Fecha:', meetingData.date.toLocaleDateString('es-ES'));
+          console.log('Hora:', meetingData.time);
+          console.log('Link:', meetingData.meetingLink);
+          console.log('Dirección:', meetingData.address);
+          console.log('--------------------------------------------------');
+          await sendInterviewEmail({
+            candidateName: `${currentCandidate.first_name} ${currentCandidate.last_name}`,
+            candidateEmail: currentCandidate.email,
+            jobTitle,
+            jobLocation: currentCandidate.location || '',
+            interviewDate: meetingData.date,
+            interviewTime: meetingData.time,
+            modality: meetingData.modality,
+            meetingLink: meetingData.meetingLink,
+            address: meetingData.address,
+          });
+          console.log(`RC email sent successfully to ${currentCandidate.email}`);
+        } catch (emailError) {
+          console.error(`Failed to send RC email to ${currentCandidate.email}:`, emailError);
+        }
+      }
+
+      // Send email for ET (individual flow)
+      if (currentInterviewType === 'entrevista-et' && currentCandidate.email) {
+        try {
+          const jobTitle = currentCandidate.applications?.[0]?.job_title || 'la vacante';
+          console.log('--- ENVIANDO CORREO ENTREVISTA TÉCNICA (individual) ---');
+          console.log('Destinatario:', currentCandidate.email);
+          console.log('Candidato:', `${currentCandidate.first_name} ${currentCandidate.last_name}`);
+          console.log('Puesto:', jobTitle);
+          console.log('Modalidad:', meetingData.modality);
+          console.log('Fecha:', meetingData.date.toLocaleDateString('es-ES'));
+          console.log('Hora:', meetingData.time);
+          console.log('Link:', meetingData.meetingLink);
+          console.log('Dirección:', meetingData.address);
+          console.log('------------------------------------------------------');
+          await sendInterviewEmail({
+            candidateName: `${currentCandidate.first_name} ${currentCandidate.last_name}`,
+            candidateEmail: currentCandidate.email,
+            jobTitle,
+            jobLocation: currentCandidate.location || '',
+            interviewDate: meetingData.date,
+            interviewTime: meetingData.time,
+            modality: meetingData.modality,
+            meetingLink: meetingData.meetingLink,
+            address: meetingData.address,
+          });
+          console.log(`Entrevista Técnica email sent successfully to ${currentCandidate.email}`);
+        } catch (emailError) {
+          console.error(`Failed to send ET email to ${currentCandidate.email}:`, emailError);
+        }
       }
 
       toast({
